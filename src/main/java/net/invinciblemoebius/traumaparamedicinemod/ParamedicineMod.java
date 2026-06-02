@@ -6,7 +6,6 @@ import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -44,7 +43,6 @@ public class ParamedicineMod
         LOGGER.info("Paramedicine Mod initialized.");
     }
 
-    @SubscribeEvent
     public void onRegisterCapabilities(RegisterCapabilitiesEvent event)
     {
         event.register(PlayerHealthData.class);
