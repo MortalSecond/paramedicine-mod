@@ -52,9 +52,9 @@ public class LimbData
     {
         return switch (node)
         {
-            case UPPER_TORSO -> new float[]{1400f, 1700f};
-            case LOWER_TORSO -> new float[]{900f, 1200f};
-            case GROIN -> new float[]{300f, 450f};
+            case UPPER_TORSO -> new float[]{1650f, 1950f};
+            case LOWER_TORSO -> new float[]{1100f, 1400f};
+            case GROIN -> new float[]{400f, 550f};
             case NECK -> new float[]{100f, 160f};
             case HEAD -> new float[]{350f, 420f};
             case LEFT_UPPER_ARM, RIGHT_UPPER_ARM -> new float[]{100f, 160f};

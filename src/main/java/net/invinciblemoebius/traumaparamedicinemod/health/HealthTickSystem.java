@@ -180,7 +180,7 @@ public class HealthTickSystem
             if (limb == null) continue;
 
             // No proximal neighbor to pull from.
-            if (node.proximalNode == null) return;
+            if (node.proximalNode == null) continue;
             if (!limb.hasProximalCirculation(node, limbs)) continue;
 
             float deficit = limb.getRestingBloodVolume() - limb.getActualBloodVolume();

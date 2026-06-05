@@ -105,7 +105,7 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
 
         // Base dystolic from volume. Roughly linear; 100% volume = 120, while 30% volume = 40.
-        float volumeBasedSystolic = 40f + (bloodFraction * 0.80f);
+        float volumeBasedSystolic = 40f + (bloodFraction * 80f);
         // Cardiac efficiency from rhythm quality. Perfect rhythm = 1.0, full V-Fib = 0.05.
         float cardiacEfficiency = 1.0f - (fibrillations * 0.95f);
         // Heart rate contribution to systolic. Tachy raises systolic, but REALLY severe tachy reduces it.
@@ -186,15 +186,15 @@ public class PlayerHealthData
         // Forced zero conditions.
         boolean forcedZero = isUnderwater || airwayState == AirwayState.FULLY_OBSTRUCTED;
 
-        float maxRate = respiratoryDrive * Math.max(airwayCeiling, Math.min(lungCeiling, consciousnessCeiling));
+        float maxRate = respiratoryDrive * Math.min(airwayCeiling, Math.min(lungCeiling, consciousnessCeiling));
 
         if (forcedZero)
         {
             actualRespiratoryRate = 0f;
 
             // Drain breath reserve.
-            float drainRate = respiratoryDrive / BREATH_RESERVE_MAX;
-            breathReserveSeconds = Math.max(0f, breathReserveSeconds - (drainRate - dt));
+            float drainRate = respiratoryDrive / ModConstants.RESPIRATORY_NORMAL;
+            breathReserveSeconds = Math.max(0f, breathReserveSeconds - (drainRate * dt));
         }
         else
         {
@@ -236,7 +236,7 @@ public class PlayerHealthData
         else if (bloodFraction <= ModConstants.BLOOD_SEVERE_HYPOVOLEMIA)
             bloodCeiling = 0.0f;
         else
-            bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / 0.30f;
+            bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA;
 
         // SpO2 ceiling.
         float spo2Ceiling;
@@ -259,9 +259,7 @@ public class PlayerHealthData
         float brainCeiling = (headNode != null) ? headNode.getTotalHealth() : 1.0f;
 
         // Lowest ceiling wins.
-        consciousnessTarget = Math.min(
-                Math.min(brainCeiling, spo2Ceiling),
-                Math.min(painCeiling, brainCeiling)
+        consciousnessTarget = Math.min(Math.min(bloodCeiling, spo2Ceiling), Math.min(painCeiling, brainCeiling)
         );
 
         // Apply inertia.
@@ -287,7 +285,7 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         float bloodResponse = 0f;
         if (bloodFraction < 1.0f)
-            bloodResponse = (1.0f - Math.max(ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA, bloodResponse)) / 0.70f * 80f;
+            bloodResponse = (1.0f - Math.max(ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA, bloodFraction)) / 0.70f * 80f;
 
         // Pain-driven sympathetic response.
         // Scales to +30 BPM at maxiumum normal pain.
@@ -334,7 +332,7 @@ public class PlayerHealthData
         // No breathing at all, SpO2 freefalls.
         else
         {
-            float fastDrop = 0.0003f * dt;
+            float fastDrop = 0.003f * dt;
             setOxygenSaturation(Math.max(ModConstants.SPO2_FLOOR, oxygenSaturation - fastDrop));
         }
     }
