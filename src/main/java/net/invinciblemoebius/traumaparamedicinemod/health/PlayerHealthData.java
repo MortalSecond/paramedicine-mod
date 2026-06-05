@@ -4,11 +4,12 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
+import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.Map;
+import java.util.*;
 
 // Holds all the physiological data of a player.
 // One instance per player entity.
@@ -29,6 +30,7 @@ public class PlayerHealthData
     private final Map<LimbNode, LimbData> limbData = new EnumMap<>(LimbNode.class);
     private final LungData leftLung = new LungData();
     private final LungData rightLung = new LungData();
+    private final List<CirculatingSubstance> activeSubstances = new ArrayList<>();
 
     // CARDIOVASCULAR VALUES
     // The blood volume value is DERIVED, this is just cache.
@@ -373,6 +375,12 @@ public class PlayerHealthData
         return leftLung.getCompromise() + rightLung.getCompromise();
     }
 
+    public void addSubstance(CirculatingSubstance substance)
+    {
+        activeSubstances.add(substance);
+        markDirty();
+    }
+
     // === ACCESSORS ===
 
     public float getBloodVolume() { return bloodVolume; }
@@ -394,6 +402,11 @@ public class PlayerHealthData
     public float getImmunity() { return immunity; }
     public float getAggregatedPain() { return aggregatedPain; }
     public float getNutritionLevel() { return NUTRITION_PLACEHOLDER; }
+
+    // Special accessors.
+    Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
+    List<CirculatingSubstance> getSubstancesInternal() { return activeSubstances; }
+    public List<CirculatingSubstance> getActiveSubstances() { return Collections.unmodifiableList(activeSubstances); }
 
     public void setVascularTone(float v)
     {
@@ -437,6 +450,18 @@ public class PlayerHealthData
         float c = Math.max(0f, Math.min(1f, v));
         if (immunity != c) {immunity = c; markDirty();}
     }
+
+    // === CLIENT-ONLY SETTERS ===
+    // These write received packet values directly into cached fields.
+
+    public void setBloodVolumeClientOnly(float v) { bloodVolume = v; }
+    public void setHeartRateBPMClientOnly(float v) { heartRateBPM = v; }
+    public void setSystolicBPClientOnly(float v) { systolicBP = v; }
+    public void setDiastolicBPClientOnly(float v) { diastolicBP = v; }
+    public void setActualRespiratoryRateClientOnly(float v) { actualRespiratoryRate = v; }
+    public void setBreathReserveSecondsClientOnly(float v) { breathReserveSeconds = v; }
+    public void setConsciousnessClientOnly(float v) { consciousness = v; }
+    public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
 
     // === PACKET SYNC STUFF ===
 
@@ -485,6 +510,9 @@ public class PlayerHealthData
             limbData.put(node, new LimbData(node));
         leftLung.reset();
         rightLung.reset();
+
+        // Remove substances.
+        activeSubstances.clear();
 
         recomputeBloodVolume();
         recomputeAgreggatedPain();
@@ -547,12 +575,24 @@ public class PlayerHealthData
             limbsTag.put(entry.getKey().name(), limbTag);
         }
         tag.put("Limbs", limbsTag);
+
+        // Lungs.
         CompoundTag leftLungTag = new CompoundTag();
         CompoundTag rightLungTag = new CompoundTag();
         leftLung.saveToNBT(leftLungTag);
         rightLung.saveToNBT(rightLungTag);
         tag.put("LeftLung", leftLungTag);
         tag.put("RightLung", rightLungTag);
+
+        // Substances.
+        ListTag substanceList = new ListTag();
+        for (CirculatingSubstance s : activeSubstances)
+        {
+            CompoundTag st = new CompoundTag();
+            s.saveToNBT(st);
+            substanceList.add(st);
+        }
+        tag.put("Substances", substanceList);
     }
 
     public void loadFromNBT(CompoundTag tag)
@@ -590,6 +630,19 @@ public class PlayerHealthData
         if (tag.contains("RightLung"))
             rightLung.loadFromNBT(tag.getCompound("RightLung"));
 
+        // Substances.
+        activeSubstances.clear();
+        if (tag.contains("Substances"))
+        {
+            ListTag substanceList = tag.getList("Substances", Tag.TAG_COMPOUND);
+            for (int i = 0; i < substanceList.size(); i++)
+            {
+                CirculatingSubstance s = new CirculatingSubstance();
+                s.loadFromNBT(substanceList.getCompound(i));
+                activeSubstances.add(s);
+            }
+        }
+
         // Recompute derived values from loaded state.
         recomputeBloodVolume();
         recomputeAgreggatedPain();
@@ -607,6 +660,16 @@ public class PlayerHealthData
 
         for (LimbNode node: LimbNode.values())
             this.limbData.get(node).copyFrom(other.limbData.get(node));
+
+        this.activeSubstances.clear();
+        for (CirculatingSubstance s : other.activeSubstances)
+        {
+            CirculatingSubstance copy = new CirculatingSubstance();
+            CompoundTag t = new CompoundTag();
+            s.saveToNBT(t);
+            copy.loadFromNBT(t);
+            this.activeSubstances.add(copy);
+        }
 
         recomputeBloodVolume();
         recomputeAgreggatedPain();

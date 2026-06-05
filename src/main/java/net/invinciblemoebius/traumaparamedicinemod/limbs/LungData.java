@@ -24,11 +24,17 @@ public class LungData
     // Whether this has air in the pleural space BUT no sucking chest wound.
     private boolean hasTensionPneumothorax = false;
 
+    // SYNC STUFF
+    private float clientCompromiseOverride = -1f; // -1 means "use computed value"
+    public void setCompromiseClientOnly(float v) { clientCompromiseOverride = v; }
+
     // === DAMAGE COMPUTATION ===
 
     // Returns a 0.0 - 1.0 value of how damaged this lung is.
     public float getCompromise()
     {
+        if (clientCompromiseOverride >= 0f) return clientCompromiseOverride;
+
         float bloodFraction = bloodML/MAX_BLOOD_ML;
         float airFraction = airML/MAX_AIR_ML;
         float fluidFraction = fluidML/MAX_FLUID_ML;
