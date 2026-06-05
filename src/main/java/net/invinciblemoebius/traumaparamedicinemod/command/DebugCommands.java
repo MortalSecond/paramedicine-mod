@@ -24,77 +24,9 @@ public class DebugCommands
     {
         event.getDispatcher().register(
                 Commands.literal("paramedicine")
-                        .then(drainBlood())
-                        .then(addBlood())
                         .then(heal())
                         .then(healthStatus())
         );
-    }
-
-    // /paramedicine drainblood <liters>
-    private static com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> drainBlood()
-    {
-        return Commands.literal("drainblood")
-            .requires(src -> src.hasPermission(2))
-            .then(Commands.argument("liters", FloatArgumentType.floatArg(0f, 5f))
-            .executes(ctx ->
-                {
-                    float amount = FloatArgumentType.getFloat(ctx, "liters");
-                    CommandSourceStack source = ctx.getSource();
-                    ServerPlayer player = requirePlayer(source);
-                    if (player == null) return 0;
-
-                    player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
-                    {
-                        float drained = data.drainBlood(amount);
-                        float remaining = data.getBloodVolume();
-
-                        source.sendSuccess(
-                                () -> Component.literal(String.format(
-                                        "Drained %.3fL. Blood Volume: %.3fL / %.1fL",
-                                        drained, remaining, PlayerHealthData.BLOOD_MAX
-                                )),
-                                false
-                        );
-
-                        syncToClient(player, remaining);
-                    });
-                    return 1;
-                })
-            );
-    }
-
-    // /paramedicine addblood <liters>
-    private static com.mojang.brigadier.builder.ArgumentBuilder<CommandSourceStack, ?> addBlood()
-    {
-        return Commands.literal("addblood")
-                .requires(src -> src.hasPermission(2))
-                .then(Commands.argument("liters", FloatArgumentType.floatArg(0f, 5f))
-                        .executes(ctx ->
-                        {
-                            float amount = FloatArgumentType.getFloat(ctx, "liters");
-                            CommandSourceStack source = ctx.getSource();
-                            ServerPlayer player = requirePlayer(source);
-                            if (player == null) return 0;
-
-                            player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
-                            {
-                                float added = data.drainBlood(amount);
-                                float remaining = data.getBloodVolume();
-
-                                source.sendSuccess(
-                                        () -> Component.literal(String.format(
-                                                "Added %.3fL. Blood Volume: %.3fL / %.1fL",
-                                                added, remaining, PlayerHealthData.BLOOD_MAX
-                                        )),
-                                        false
-                                );
-
-                                syncToClient(player, remaining);
-                            });
-                            return 1;
-                        })
-                );
     }
 
     // /paramedicine heal
