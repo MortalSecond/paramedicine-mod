@@ -8,6 +8,7 @@ import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstanc
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.*;
 
@@ -319,9 +320,23 @@ public class PlayerHealthData
         // Normal breathing, normal SpO2 recovery.
         if (actualRespiratoryRate > 0f)
         {
-            float respiratoryEfficiency = (actualRespiratoryRate / respiratoryDrive) * (1.0f - (getTotalLungCompromise() * 0.5f));
-            float recovery = respiratoryEfficiency * 0.01f * dt;
-            setOxygenSaturation(Math.min(ModConstants.SPO2_NORMAL, oxygenSaturation + recovery));
+            // How much of the body's urge to breathe is actually being met?
+            float breathingRatio = actualRespiratoryRate / Math.max(0.1f, respiratoryDrive);
+            breathingRatio = Math.max(0f, Math.min(1f, breathingRatio));
+
+            float targetSpO2 = 0.80f + (breathingRatio * (ModConstants.SPO2_NORMAL - 0.80f));
+
+            // Drift toward target. Recovery is faster than drop.
+            if (oxygenSaturation < targetSpO2)
+            {
+                float recovery = 0.008f * dt;
+                setOxygenSaturation(Math.min(targetSpO2, oxygenSaturation + recovery));
+            }
+            else if (oxygenSaturation > targetSpO2)
+            {
+                float drop = 0.004f * dt;
+                setOxygenSaturation(Math.max(targetSpO2, oxygenSaturation - drop));
+            }
         }
         // No breathing, but with breath reserves. SpO2 drops but very slowly.
         else if (breathReserveSeconds > 0)

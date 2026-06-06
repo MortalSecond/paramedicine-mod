@@ -139,6 +139,8 @@ public class HealthTickSystem
                 if (changed) syncDirty = true;
             }
 
+            limb.recomputeRawPain();
+
             if (syncDirty) limb.markDirty();
         }
     }

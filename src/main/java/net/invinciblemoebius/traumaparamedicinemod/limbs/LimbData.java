@@ -108,7 +108,7 @@ public class LimbData
         return Math.max(0f, totalBleed - totalClotting);
     }
 
-    private void recomputeRawPain()
+    public void recomputeRawPain()
     {
         float pain = 0f;
         float bonePain = 0f;
@@ -258,6 +258,7 @@ public class LimbData
         tag.putFloat("RawPain", rawPain);
         tag.putFloat("Sensitivity", sensitivity);
         tag.putFloat("TotalHealth", totalHealth);
+        tag.putFloat("ActualBloodVolume", actualBloodVolume);
 
         // Wounds serialized as a list of compound tags.
         ListTag woundList = new ListTag();
@@ -281,6 +282,7 @@ public class LimbData
         rawPain = tag.getFloat("RawPain");
         sensitivity = tag.getFloat("Sensitivity");
         totalHealth = tag.getFloat("TotalHealth");
+        actualBloodVolume = tag.getFloat("ActualBloodVolume");
 
         wounds.clear();
         ListTag woundList = tag.getList("Wounds", Tag.TAG_COMPOUND);
@@ -303,6 +305,7 @@ public class LimbData
         this.rawPain = other.rawPain;
         this.sensitivity = other.sensitivity;
         this.totalHealth = other.totalHealth;
+        this.actualBloodVolume = other.actualBloodVolume;
 
         this.wounds.clear();
         for (Wound w: other.wounds)
