@@ -36,6 +36,11 @@ public final class ModConstants
     public static final float RESPIRATORY_HIGH = 25f; // Up to here, high but normal respiratory rate.
     public static final float RESPIRATORY_HYPERVENTILATION = 35f; // Above this, respiratory crisis.
 
+    // STAMINA
+    public static final float STAMINA_SPRINT_DRAIN = 0.016f; // Per second while sprinting.
+    public static final float STAMINA_JUMP_DRAIN = 0.012f; // Per second per jump.
+    public static final float STAMINA_BASE_RECOVERY = 0.012f; // Per second while NOT sprinting.
+
     // CORE TEMPERATURE
     public static final float TEMP_NORMAL_MIN = 36.1f; // In Centigrade
     public static final float TEMP_NORMAL_MAX = 37.2f; // In Centigrade

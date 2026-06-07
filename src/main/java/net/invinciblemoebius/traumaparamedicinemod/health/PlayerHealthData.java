@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -26,8 +27,15 @@ public class PlayerHealthData
     // It's a placeholder because, ngl, i don't think there's any hemotoxic mobs in MC.
     // Over 1.4 value means there's an increased risk of thrombosis and stroke.
     private float bloodViscosity = 1.0f;
+    // This is the long-term fatigue level. Basically sleep debt. It's a placeholder
+    // because i don't know how to implement this to Minecraft without forcing the player
+    // to go to bed and interrupt their regular gameplay annoyingly. Full sleep system TBD.
+    private float energy = 1.0f;
 
-    // LIMB NODES.
+    // SPECIAL VARIABLES
+    private boolean justJumped = false;
+
+    // LIMB NODES
     private final Map<LimbNode, LimbData> limbData = new EnumMap<>(LimbNode.class);
     private final LungData leftLung = new LungData();
     private final LungData rightLung = new LungData();
@@ -67,6 +75,11 @@ public class PlayerHealthData
     private float consciousnessTarget = 1.0f;
     private float immunity = 1.0f;
     private float aggregatedPain = 0f;
+    private float stamina = 1.0f;
+    // NOT to be confused with regular pain, this is neurogenic pain; it only rises after pain crosses a threshold.
+    private float painShock = 0f;
+    // NOT to be confused with regular infection. This is systemic infection.
+    private float septicShock = 0f;
 
     // When any field changes, this indicates if the packet should be sent.
     // P.S. This idea was shamelessly stolen from Casualties: Cubed.
@@ -76,8 +89,10 @@ public class PlayerHealthData
 
     public PlayerHealthData()
     {
-        for (LimbNode node: LimbNode.values())
+        for (LimbNode node : LimbNode.values())
+        {
             limbData.put(node, new LimbData(node));
+        }
     }
 
     // === COMPUTATION METHODS ===
@@ -87,8 +102,10 @@ public class PlayerHealthData
     {
         float sum = 0f;
 
-        for (LimbData limb: limbData.values())
+        for (LimbData limb : limbData.values())
+        {
             sum += limb.getActualBloodVolume();
+        }
 
         if (this.bloodVolume != sum)
         {
@@ -112,11 +129,17 @@ public class PlayerHealthData
         // Heart rate contribution to systolic. Tachy raises systolic, but REALLY severe tachy reduces it.
         float rateModifier;
         if (heartRateBPM <= ModConstants.BPM_NORMAL_MAX)
+        {
             rateModifier = 1.0f;
+        }
         else if (heartRateBPM <= ModConstants.BPM_SEVERE_TACHICARDIA)
-            rateModifier = 1.0f + ((heartRateBPM - ModConstants.BPM_TACHYCARDIA)  / 100f) * 0.1f;
+        {
+            rateModifier = 1.0f + ((heartRateBPM - ModConstants.BPM_TACHYCARDIA) / 100f) * 0.1f;
+        }
         else
+        {
             rateModifier = 1.1f - ((heartRateBPM - ModConstants.BPM_SEVERE_TACHICARDIA) / 100f) * 0.3f;
+        }
         rateModifier = Math.max(0.5f, rateModifier);
 
         // Computation.
@@ -146,7 +169,9 @@ public class PlayerHealthData
         float bloodResponse = 0f;
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         if (bloodFraction < ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
+        {
             bloodResponse = (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - bloodFraction) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA * 0.14f;
+        }
 
         // Pain response.
         float painResponse = aggregatedPain * 8f;
@@ -173,16 +198,24 @@ public class PlayerHealthData
 
         // Ceiling from tension pneumothorax.
         if (leftLung.hasTensionPneumothorax() || rightLung.hasTensionPneumothorax())
+        {
             lungCeiling *= 0.6f;
+        }
 
         // Ceiling from consciousness (to simulate agonal breathing).
         float consciousnessCeiling;
         if (consciousness >= ModConstants.CONSCIOUSNESS_VOICE)
+        {
             consciousnessCeiling = 1.0f;
+        }
         else if (consciousness >= ModConstants.CONSCIOUSNESS_PAIN)
+        {
             consciousnessCeiling = 0.6f;
+        }
         else
+        {
             consciousnessCeiling = 0.2f;
+        }
 
         // Forced zero conditions.
         boolean forcedZero = isUnderwater || airwayState == AirwayState.FULLY_OBSTRUCTED;
@@ -214,8 +247,10 @@ public class PlayerHealthData
     {
         float sum = 0f;
 
-        for (LimbData limb: limbData.values())
+        for (LimbData limb : limbData.values())
+        {
             sum += limb.getEffectivePain();
+        }
 
         // Clamping it because, in theory, many small wounds together could go above 1.0.
         this.aggregatedPain = Math.min(1.0f, sum);
@@ -233,42 +268,67 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         float bloodCeiling;
         if (bloodFraction >= ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
+        {
             bloodCeiling = 1.0f;
+        }
         else if (bloodFraction <= ModConstants.BLOOD_SEVERE_HYPOVOLEMIA)
+        {
             bloodCeiling = 0.0f;
+        }
         else
+        {
             bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA;
+        }
 
         // SpO2 ceiling.
         float spo2Ceiling;
         if (oxygenSaturation >= ModConstants.SPO2_HYPOXIA)
+        {
             spo2Ceiling = 1.0f;
+        }
         else if (oxygenSaturation <= ModConstants.SPO2_FLOOR)
+        {
             spo2Ceiling = 0.0f;
+        }
         else
+        {
             spo2Ceiling = (oxygenSaturation - ModConstants.SPO2_FLOOR) / 0.19f;
+        }
 
         // Pain ceiling.
         float painCeiling;
         if (aggregatedPain <= 0.70f)
+        {
             painCeiling = 1.0f;
+        }
         else
-            painCeiling = 1.0f -((aggregatedPain - 0.70f)/0.30f) * 0.40f;
+        {
+            painCeiling = 1.0f - ((aggregatedPain - 0.70f) / 0.30f) * 0.40f;
+        }
 
         // Brain damage ceiling.
         LimbData headNode = limbData.get(LimbNode.HEAD);
         float brainCeiling = (headNode != null) ? headNode.getTotalHealth() : 1.0f;
 
+        // Pain shock ceiling.
+        float shockCeiling = stamina >= 0f ? 1.0f - (Math.max(0f, painShock - 0.30f) / 0.70f * 0.70f) : 1.0f;
+
         // Lowest ceiling wins.
-        consciousnessTarget = Math.min(Math.min(bloodCeiling, spo2Ceiling), Math.min(painCeiling, brainCeiling)
-        );
+        consciousnessTarget = Math.min(
+                Math.min(bloodCeiling, spo2Ceiling),
+                Math.min(painCeiling,
+                        Math.min(brainCeiling, shockCeiling)));
 
         // Apply inertia.
         float inertiaRate = 0.001f;
         if (consciousness < consciousnessTarget)
+        {
             consciousness = Math.min(consciousnessTarget, consciousness + inertiaRate);
+        }
         else if (consciousness > consciousnessTarget)
+        {
             consciousness = Math.max(consciousnessTarget, consciousness - inertiaRate);
+        }
 
         markDirty();
     }
@@ -286,7 +346,9 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         float bloodResponse = 0f;
         if (bloodFraction < 1.0f)
+        {
             bloodResponse = (1.0f - Math.max(ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA, bloodFraction)) / 0.70f * 80f;
+        }
 
         // Pain-driven sympathetic response.
         // Scales to +30 BPM at maxiumum normal pain.
@@ -296,13 +358,22 @@ public class PlayerHealthData
         // Scales to +40 BPM when critically hypoxic.
         float spo2Response = 0f;
         if (oxygenSaturation < ModConstants.SPO2_HYPOXIA)
+        {
             spo2Response = (ModConstants.SPO2_HYPOXIA - oxygenSaturation) / 0.19f * 40f;
+        }
+
+        // Exertion from stamina depletion.
+        float staminaResponse = 0f;
+        if (stamina < 0.50f)
+            staminaResponse = (0.50f - stamina) / 0.50f * 50f;
 
         // Hypothermia suppression.
         // Scales down to -40 BPM when hypothermic.
         float tempSuppression = 0f;
         if (coreTemperature < ModConstants.TEMP_HYPOTHERMIA)
+        {
             tempSuppression = (ModConstants.TEMP_HYPOTHERMIA - coreTemperature) / 7.0f * 40f;
+        }
 
         // Computation.
         float computed = base + bloodResponse + painResponse + spo2Response - tempSuppression;
@@ -371,6 +442,84 @@ public class PlayerHealthData
         markDirty();
     }
 
+    public void tickPainShock(float dt)
+    {
+        // If the pain is over the threshold, increase shock.
+        if (aggregatedPain > 0.70f)
+        {
+            float excess = (aggregatedPain - 0.70f) / 0.30f;
+            painShock = Math.max(1f, painShock + (excess * 0.0003f * dt));
+        }
+        // If under the threshold, decrease it.
+        else if (painShock < 0.5f)
+        {
+            painShock = Math.max(0f, painShock - (0.0001f * dt));
+        }
+
+        if (painShock > 0.0f)
+            markDirty();
+    }
+
+    public void tickSepticShock(float dt)
+    {
+        float highestInfection = 0f;
+        for (LimbData limb: limbData.values())
+            for (Wound wound: limb.getWounds())
+                if (wound.getInfectionLevel() > highestInfection)
+                    highestInfection = wound.getInfectionLevel();
+
+        // Entering septic shock.
+        if (highestInfection > 0.70f && immunity < 0.60f)
+        {
+            float severity = (highestInfection - 0.70f) / 0.30f;
+            septicShock = Math.min(1.0f, septicShock + (severity * 0.0002f * dt));
+
+            // Vasodilation. It's divided into the warm phase (under 0.5) and cold phase (over 0.5)
+            boolean isWarmPhase = septicShock < 0.50f;
+            float targetTone = isWarmPhase ? (1.0f - (septicShock * 0.60f)) : (0.70f - ((septicShock - 0.50f) * 1.0f));
+            setVascularTone(Math.max(0.15f, targetTone));
+        }
+        // Recovering from septic shock.
+        else if (highestInfection < 0.40f)
+        {
+            septicShock = Math.max(0f, septicShock - (0.0001f * dt));
+            if (vascularTone < 1.0f)
+                setVascularTone(Math.min(1.0f, vascularTone + (0.0002f * dt)));
+        }
+
+        if (septicShock > 0f)
+            markDirty();
+    }
+
+    public void tickStamina(boolean isSprinting, boolean justJumped, float dt)
+    {
+        float lungEfficiency = 1.0f - (getTotalLungCompromise() * 0.80f);
+        float energyModifier = 0.60f + (energy * 0.40f);
+
+        float drain = 0f;
+        if (isSprinting)
+            drain += ModConstants.STAMINA_SPRINT_DRAIN / dt;
+        if (justJumped)
+            drain += ModConstants.STAMINA_JUMP_DRAIN / dt;
+
+        float recovery = ModConstants.STAMINA_BASE_RECOVERY * lungEfficiency * energyModifier / dt;
+
+        float net = isSprinting ? -(drain - recovery) : recovery;
+        stamina = Math.max(0f, Math.min(1.0f, stamina + (net * dt)));
+
+        if (stamina != 1.0f)
+            markDirty();
+    }
+
+    public void tickEnergy(float dt)
+    {
+        // Decays over roughly 3 real-time hours from full to empty without sleep.
+        float decayRate = 1.0f / 10800;
+        energy = Math.max(0f, energy - (decayRate * dt));
+        if (energy < 1.0f)
+            markDirty();
+    }
+
     // === LIMB METHODS ===
 
     public Map<LimbNode, LimbData> getLimbs()
@@ -396,41 +545,167 @@ public class PlayerHealthData
 
     // === ACCESSORS ===
 
-    public float getBloodVolume() { return bloodVolume; }
-    public float getSystolicBP() { return systolicBP; }
-    public float getDiastolicBP() { return diastolicBP; }
-    public float getVascularTone() { return vascularTone; }
-    public float getFibrillations() { return fibrillations; }
-    public boolean isFibrillationsForced() { return fibrillationsForced; }
-    public float getRespiratoryDrive() { return respiratoryDrive; }
-    public float getActualRespiratoryRate() { return actualRespiratoryRate; }
-    public float getBreathReserveSeconds() { return breathReserveSeconds; }
-    public AirwayState getAirwayState() { return airwayState; }
-    public float getOxygenSaturation() { return oxygenSaturation; }
-    public float getHeartRateBPM() { return heartRateBPM; }
-    public LungData getLeftLung() { return leftLung; }
-    public LungData getRightLung() { return rightLung; }
-    public float getCoreTemperature() { return coreTemperature; }
-    public float getConsciousness() { return consciousness; }
-    public float getImmunity() { return immunity; }
-    public float getAggregatedPain() { return aggregatedPain; }
-    public float getNutritionLevel() { return NUTRITION_PLACEHOLDER; }
+    public float getBloodVolume()
+    {
+        return bloodVolume;
+    }
+
+    public float getSystolicBP()
+    {
+        return systolicBP;
+    }
+
+    public float getDiastolicBP()
+    {
+        return diastolicBP;
+    }
+
+    public float getVascularTone()
+    {
+        return vascularTone;
+    }
+
+    public float getFibrillations()
+    {
+        return fibrillations;
+    }
+
+    public boolean isFibrillationsForced()
+    {
+        return fibrillationsForced;
+    }
+
+    public float getRespiratoryDrive()
+    {
+        return respiratoryDrive;
+    }
+
+    public float getActualRespiratoryRate()
+    {
+        return actualRespiratoryRate;
+    }
+
+    public float getBreathReserveSeconds()
+    {
+        return breathReserveSeconds;
+    }
+
+    public AirwayState getAirwayState()
+    {
+        return airwayState;
+    }
+
+    public float getOxygenSaturation()
+    {
+        return oxygenSaturation;
+    }
+
+    public float getHeartRateBPM()
+    {
+        return heartRateBPM;
+    }
+
+    public LungData getLeftLung()
+    {
+        return leftLung;
+    }
+
+    public LungData getRightLung()
+    {
+        return rightLung;
+    }
+
+    public float getCoreTemperature()
+    {
+        return coreTemperature;
+    }
+
+    public float getConsciousness()
+    {
+        return consciousness;
+    }
+
+    public float getImmunity()
+    {
+        return immunity;
+    }
+
+    public float getAggregatedPain()
+    {
+        return aggregatedPain;
+    }
+
+    public float getNutritionLevel()
+    {
+        return NUTRITION_PLACEHOLDER;
+    }
+
+    public float getStamina()
+    {
+        return stamina;
+    }
+
+    public float getEnergy()
+    {
+        return energy;
+    }
+
+    public float getPainShock()
+    {
+        return painShock;
+    }
+
+    public float getSepticShock()
+    {
+        return septicShock;
+    }
 
     // Special accessors.
-    Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
-    List<CirculatingSubstance> getSubstancesInternal() { return activeSubstances; }
-    public List<CirculatingSubstance> getActiveSubstances() { return Collections.unmodifiableList(activeSubstances); }
+    Map<LimbNode, LimbData> getLimbsInternal()
+    {
+        return limbData;
+    }
+
+    List<CirculatingSubstance> getSubstancesInternal()
+    {
+        return activeSubstances;
+    }
+
+    public List<CirculatingSubstance> getActiveSubstances()
+    {
+        return Collections.unmodifiableList(activeSubstances);
+    }
+
+    public boolean consumeJumpFlag()
+    {
+        if (!justJumped) return false;
+        justJumped = false;
+        return true;
+    }
+
+    public void setJustJumped()
+    {
+        justJumped = true;
+    }
 
     public void setVascularTone(float v)
     {
         float c = Math.max(0.1f, Math.min(3.0f, v));
-        if (vascularTone != c) { vascularTone = c; markDirty(); }
+        if (vascularTone != c)
+        {
+            vascularTone = c;
+            markDirty();
+        }
     }
 
     public void setFibrillations(float v)
     {
         float c = Math.max(0f, Math.min(1f, v));
-        if (fibrillations != c) { fibrillations = c; markDirty(); }
+        if (fibrillations != c)
+        {
+            fibrillations = c;
+            markDirty();
+        }
     }
 
     public void setFibrillationsForced(boolean forced, float target)
@@ -442,50 +717,121 @@ public class PlayerHealthData
 
     public void setAirwayState(AirwayState state)
     {
-        if (airwayState != state) { airwayState = state; markDirty(); }
+        if (airwayState != state)
+        {
+            airwayState = state;
+            markDirty();
+        }
     }
 
     public void setCoreTemperature(float v)
     {
         // Clamp to survivable range.
         float c = Math.max(20f, Math.min(42f, v));
-        if (coreTemperature != c) {coreTemperature = c; markDirty();}
+        if (coreTemperature != c)
+        {
+            coreTemperature = c;
+            markDirty();
+        }
     }
 
     public void setOxygenSaturation(float v)
     {
         float c = Math.max(0f, Math.min(1f, v));
-        if (oxygenSaturation != c) {oxygenSaturation = c; markDirty();}
+        if (oxygenSaturation != c)
+        {
+            oxygenSaturation = c;
+            markDirty();
+        }
     }
 
     public void setImmunity(float v)
     {
         float c = Math.max(0f, Math.min(1f, v));
-        if (immunity != c) {immunity = c; markDirty();}
+        if (immunity != c)
+        {
+            immunity = c;
+            markDirty();
+        }
     }
 
     // === CLIENT-ONLY SETTERS ===
     // These write received packet values directly into cached fields.
 
-    public void setBloodVolumeClientOnly(float v) { bloodVolume = v; }
-    public void setHeartRateBPMClientOnly(float v) { heartRateBPM = v; }
-    public void setSystolicBPClientOnly(float v) { systolicBP = v; }
-    public void setDiastolicBPClientOnly(float v) { diastolicBP = v; }
-    public void setActualRespiratoryRateClientOnly(float v) { actualRespiratoryRate = v; }
-    public void setBreathReserveSecondsClientOnly(float v) { breathReserveSeconds = v; }
-    public void setConsciousnessClientOnly(float v) { consciousness = v; }
-    public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
+    public void setBloodVolumeClientOnly(float v)
+    {
+        bloodVolume = v;
+    }
+
+    public void setHeartRateBPMClientOnly(float v)
+    {
+        heartRateBPM = v;
+    }
+
+    public void setSystolicBPClientOnly(float v)
+    {
+        systolicBP = v;
+    }
+
+    public void setDiastolicBPClientOnly(float v)
+    {
+        diastolicBP = v;
+    }
+
+    public void setActualRespiratoryRateClientOnly(float v)
+    {
+        actualRespiratoryRate = v;
+    }
+
+    public void setBreathReserveSecondsClientOnly(float v)
+    {
+        breathReserveSeconds = v;
+    }
+
+    public void setConsciousnessClientOnly(float v)
+    {
+        consciousness = v;
+    }
+
+    public void setStamina(float v)
+    {
+        stamina = v;
+    }
+
+    public void setEnergy(float v)
+    {
+        energy = v;
+    }
+
+    public void setPainShock(float v)
+    {
+        painShock = v;
+    }
+
+    public void setSepticShock(float v)
+    {
+        septicShock = v;
+    }
+
+    public void setAggregatedPainClientOnly(float v)
+    {
+        aggregatedPain = v;
+    }
 
     // === PACKET SYNC STUFF ===
 
     // Returns true and clears the flag.
     public boolean consumeSyncFlag()
     {
-        if(!syncNeeded)
+        if (!syncNeeded)
         {
-            for (LimbData limb: limbData.values())
+            for (LimbData limb : limbData.values())
+            {
                 if (limb.consumeSyncFlag())
+                {
                     return true;
+                }
+            }
             return false;
         }
 
@@ -517,10 +863,16 @@ public class PlayerHealthData
         heartRateBPM = 72f;
         consciousness = 1.0f;
         immunity = 1.0f;
+        stamina = 1.0f;
+        energy = 1.0f;
+        painShock = 0;
+        septicShock = 0;
 
         // Reinitialize limbs to their defaults.
-        for (LimbNode node: LimbNode.values())
+        for (LimbNode node : LimbNode.values())
+        {
             limbData.put(node, new LimbData(node));
+        }
         leftLung.reset();
         rightLung.reset();
 
@@ -538,10 +890,27 @@ public class PlayerHealthData
         return String.format(
                 """
                         PlayerHealth{
-                          blood=%.0fml  BP=%d/%d  BPM=%.0f  fibs=%.2f%s
-                          SpO2=%.0f%%  RR=%.0f/%.0f bpm  breath=%.0fs  airway=%s
-                          lungs=L[%s] R[%s]
-                          temp=%.1f°C  conscious=%.0f%%  immunity=%.0f%%  pain=%.0f%%
+                            CARDIOVASCULAR
+                                Blood Volume = %.0fml
+                                Blood Pressure = %d/%d
+                                Heart Rate = %.0f BPM
+                                Fibrillations = %.2f%s
+                            RESPIRATORY:
+                                  SpO2 = %.0f%%
+                                  Respiratory Rate = %.0f/%.0f breaths per minute
+                                  Breath = %.0fs
+                                  Airway = %s
+                                  Lungs =
+                                    L[%s]
+                                    R[%s]
+                            SYSTEMIC:
+                                  Temperature = %.1f°C
+                                  Consciousness = %.0f%%
+                                  Immunity = %.0f%%
+                                  Stamina = %.0f%%
+                                  Pain = %.0f%%
+                                  Shock = %.0f%%
+                                  Sepsis = %.0f%%
                         }""",
                 bloodVolume,
                 (int) systolicBP, (int) diastolicBP,
@@ -555,7 +924,10 @@ public class PlayerHealthData
                 coreTemperature,
                 consciousness * 100f,
                 immunity * 100f,
-                aggregatedPain * 100f
+                stamina * 100f,
+                aggregatedPain * 100f,
+                painShock * 100f,
+                septicShock * 100f
         );
     }
 
@@ -563,25 +935,29 @@ public class PlayerHealthData
 
     public void saveToNBT(CompoundTag tag)
     {
-        tag.putFloat ("SystolicBP", systolicBP);
-        tag.putFloat ("DiastolicBP", diastolicBP);
-        tag.putFloat ("VascularTone", vascularTone);
-        tag.putFloat ("Fibrillations", fibrillations);
-        tag.putBoolean ("FibrillationsForced", fibrillationsForced);
-        tag.putFloat ("FibrillationsForcedTarget", fibrillationsForcedTarget);
-        tag.putFloat ("RespiratoryDrive", respiratoryDrive);
-        tag.putFloat ("ActualRespiratoryRate", actualRespiratoryRate);
-        tag.putFloat ("BreathReserveSeconds", breathReserveSeconds);
-        tag.putString ("AirwayState", airwayState.name());
+        tag.putFloat("SystolicBP", systolicBP);
+        tag.putFloat("DiastolicBP", diastolicBP);
+        tag.putFloat("VascularTone", vascularTone);
+        tag.putFloat("Fibrillations", fibrillations);
+        tag.putBoolean("FibrillationsForced", fibrillationsForced);
+        tag.putFloat("FibrillationsForcedTarget", fibrillationsForcedTarget);
+        tag.putFloat("RespiratoryDrive", respiratoryDrive);
+        tag.putFloat("ActualRespiratoryRate", actualRespiratoryRate);
+        tag.putFloat("BreathReserveSeconds", breathReserveSeconds);
+        tag.putString("AirwayState", airwayState.name());
         tag.putFloat("CoreTemperature", coreTemperature);
         tag.putFloat("OxygenSaturation", oxygenSaturation);
         tag.putFloat("HeartRateBPM", heartRateBPM);
         tag.putFloat("Consciousness", consciousness);
         tag.putFloat("Immunity", immunity);
+        tag.putFloat("Stamina", stamina);
+        tag.putFloat("Energy", energy);
+        tag.putFloat("PainShock", painShock);
+        tag.putFloat("SepticShock", septicShock);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
-        for (Map.Entry<LimbNode, LimbData> entry: limbData.entrySet())
+        for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
             CompoundTag limbTag = new CompoundTag();
             entry.getValue().saveToNBT(limbTag);
@@ -610,38 +986,48 @@ public class PlayerHealthData
 
     public void loadFromNBT(CompoundTag tag)
     {
-        systolicBP = tag.getFloat ("SystolicBP");
-        diastolicBP = tag.getFloat ("DiastolicBP");
-        vascularTone = tag.getFloat ("VascularTone");
-        fibrillations = tag.getFloat ("Fibrillations");
-        fibrillationsForced = tag.getBoolean ("FibrillationsForced");
-        fibrillationsForcedTarget = tag.getFloat ("FibrillationsForcedTarget");
-        respiratoryDrive = tag.getFloat ("RespiratoryDrive");
-        actualRespiratoryRate = tag.getFloat ("ActualRespiratoryRate");
-        breathReserveSeconds = tag.getFloat ("BreathReserveSeconds");
+        systolicBP = tag.getFloat("SystolicBP");
+        diastolicBP = tag.getFloat("DiastolicBP");
+        vascularTone = tag.getFloat("VascularTone");
+        fibrillations = tag.getFloat("Fibrillations");
+        fibrillationsForced = tag.getBoolean("FibrillationsForced");
+        fibrillationsForcedTarget = tag.getFloat("FibrillationsForcedTarget");
+        respiratoryDrive = tag.getFloat("RespiratoryDrive");
+        actualRespiratoryRate = tag.getFloat("ActualRespiratoryRate");
+        breathReserveSeconds = tag.getFloat("BreathReserveSeconds");
         airwayState = AirwayState.valueOf(tag.getString("AirwayState"));
         coreTemperature = tag.getFloat("CoreTemperature");
         oxygenSaturation = tag.getFloat("OxygenSaturation");
         heartRateBPM = tag.getFloat("HeartRateBPM");
         consciousness = tag.getFloat("Consciousness");
         immunity = tag.getFloat("Immunity");
+        stamina = tag.getFloat("Stamina");
+        energy = tag.getFloat("Energy");
+        painShock = tag.getFloat("PainShock");
+        septicShock = tag.getFloat("SepticShock");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
         if (tag.contains("Limbs"))
         {
             CompoundTag limbsTag = tag.getCompound("Limbs");
-            for (LimbNode node: LimbNode.values())
+            for (LimbNode node : LimbNode.values())
             {
                 // If the node is missing from the NBT, the default initialized LimbData stays.
                 if (limbsTag.contains(node.name()))
+                {
                     limbData.get(node).loadFromNBT(limbsTag.getCompound(node.name()));
+                }
             }
         }
         if (tag.contains("LeftLung"))
+        {
             leftLung.loadFromNBT(tag.getCompound("LeftLung"));
+        }
         if (tag.contains("RightLung"))
+        {
             rightLung.loadFromNBT(tag.getCompound("RightLung"));
+        }
 
         // Substances.
         activeSubstances.clear();
@@ -670,9 +1056,15 @@ public class PlayerHealthData
         this.heartRateBPM = other.heartRateBPM;
         this.consciousness = other.consciousness;
         this.immunity = other.immunity;
+        this.stamina = other.stamina;
+        this.energy = other.energy;
+        this.painShock = other.painShock;
+        this.septicShock = other.septicShock;
 
-        for (LimbNode node: LimbNode.values())
+        for (LimbNode node : LimbNode.values())
+        {
             this.limbData.get(node).copyFrom(other.limbData.get(node));
+        }
 
         this.activeSubstances.clear();
         for (CirculatingSubstance s : other.activeSubstances)

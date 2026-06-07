@@ -34,16 +34,18 @@ import java.util.Map;
 // 4. Hemothorax sync. Updates lung content from viscera-level chest wounds.
 // 5. Recompute blood volume.
 // 6. Recompute aggregated pain.
-// 7. Tick substances. Applies medical effects, decays concentrations.
-// 8. Recompute respiratory drive.
-// 9. Recompute actual respiratory rate.
-// 10. Tick respiratory rate's effect on oxygenation.
-// 11. Recompute heart rate.
-// 12. Recompute blood pressure.
-// 13. Recompute consciousness.
-// 14. Tick fibrillations.
-// 15. Recompute total health on all limbs.
-// 16. Sync and dispatch the packet if marked dirty.
+// 7. Tick pain shock and septic shock.
+// 8. Tick stamina and energy.
+// 9. Tick substances. Applies medical effects, decays concentrations.
+// 10. Recompute respiratory drive.
+// 11. Recompute actual respiratory rate.
+// 12. Tick respiratory rate's effect on oxygenation.
+// 13. Recompute heart rate.
+// 14. Recompute blood pressure.
+// 15. Recompute consciousness.
+// 16. Tick fibrillations.
+// 17. Recompute total health on all limbs.
+// 18. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -100,6 +102,10 @@ public class HealthTickSystem
         syncHemothorax(data, limbs);
         data.recomputeBloodVolume();
         data.recomputeAgreggatedPain();
+        data.tickPainShock(dt);
+        data.tickSepticShock(dt);
+        data.tickStamina(player.isSprinting(), data.consumeJumpFlag(), dt);
+        data.tickEnergy(dt);
         tickSubstances(data, limbs);
         data.recomputeRespiratoryDrive();
         data.recomputeActualRespiratoryRate(isUnderwater);
@@ -145,6 +151,30 @@ public class HealthTickSystem
         }
     }
 
+    private static void drainProximally(LimbNode node, float mlToDrain, Map<LimbNode, LimbData> limbs)
+    {
+        if (mlToDrain <= 0f) return;
+
+        LimbData limb = limbs.get(node);
+        if (limb == null) return;
+
+        float available = limb.getActualBloodVolume();
+
+        if (available >= mlToDrain)
+        {
+            limb.setActualBloodVolume(0f);
+            return;
+        }
+
+        // Local volume insufficient, drain what's here, pass remains up.
+        limb.setActualBloodVolume(0f);
+        float remains = mlToDrain - available;
+
+        // Only propagate if this node has proximal circulation.
+        if (node.proximalNode != null && limb.isCirculatingProximally())
+            drainProximally(node.proximalNode, remains, limbs);
+    }
+
     // STEP 2: HEMORRHAGE.
     private static void applyHemorrhage(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
     {
@@ -163,7 +193,7 @@ public class HealthTickSystem
             if (netBleedPerSecond <= 0f) continue;
 
             float mlLostThisTick = netBleedPerSecond * dt;
-            limb.setActualBloodVolume(limb.getActualBloodVolume() - mlLostThisTick);
+            drainProximally(node, mlLostThisTick, limbs);
         }
     }
 
@@ -234,7 +264,7 @@ public class HealthTickSystem
         data.getRightLung().setTensionPneumothorax(rightAirFraction > 0.20f);
     }
 
-    // STEP 7: SUBSTANCES
+    // STEP 9: SUBSTANCES
     private static void tickSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         List<CirculatingSubstance> substances = data.getSubstancesInternal();
@@ -249,14 +279,14 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 15: LIMB HEALTH RECOMPUTE
+    // STEP 17: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 16: SYNC
+    // STEP 18: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag()) return;

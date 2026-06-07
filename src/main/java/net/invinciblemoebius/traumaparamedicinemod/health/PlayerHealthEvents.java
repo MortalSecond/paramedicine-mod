@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -26,6 +27,15 @@ public class PlayerHealthEvents
             event.addCapability(key, provider);
             event.addListener(provider::invalidate);
         }
+    }
+
+    // Detect when the player jumps.
+    @SubscribeEvent
+    public static void onLivingJump(LivingEvent.LivingJumpEvent event)
+    {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+
+        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(PlayerHealthData::setJustJumped);
     }
 
     // Copies health data on death and respawn so values persist through death.
