@@ -162,7 +162,7 @@ public class HealthTickSystem
 
         if (available >= mlToDrain)
         {
-            limb.setActualBloodVolume(0f);
+            limb.setActualBloodVolume(available -  mlToDrain);
             return;
         }
 

@@ -75,6 +75,7 @@ public class PlayerHealthData
     private float consciousnessTarget = 1.0f;
     private float immunity = 1.0f;
     private float aggregatedPain = 0f;
+    private float overexertionPain = 0f;
     private float stamina = 1.0f;
     // NOT to be confused with regular pain, this is neurogenic pain; it only rises after pain crosses a threshold.
     private float painShock = 0f;
@@ -173,8 +174,13 @@ public class PlayerHealthData
             bloodResponse = (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - bloodFraction) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA * 0.14f;
         }
 
-        // Pain response.
+        // Pain response. Up to +8 breaths per miunte.
         float painResponse = aggregatedPain * 8f;
+
+        // Exertion response. Up to +14 breaths per minute.
+        float exertionResponse = 0f;
+        if (stamina < 0.70f)
+            exertionResponse = ((0.70f - stamina) / 0.70f) * 14f;
 
         respiratoryDrive = Math.min(35f, base + hypoxiaResponse + bloodResponse + painResponse);
 
@@ -253,7 +259,7 @@ public class PlayerHealthData
         }
 
         // Clamping it because, in theory, many small wounds together could go above 1.0.
-        this.aggregatedPain = Math.min(1.0f, sum);
+        this.aggregatedPain = Math.min(1.0f, sum + overexertionPain);
     }
 
     // Computes the target consciousness from the current systemic state,
@@ -363,9 +369,12 @@ public class PlayerHealthData
         }
 
         // Exertion from stamina depletion.
+        // Up to +50 BPM at zero stamina.
         float staminaResponse = 0f;
-        if (stamina < 0.50f)
-            staminaResponse = (0.50f - stamina) / 0.50f * 50f;
+        if (stamina < 0.80f)
+        {
+            staminaResponse = ((0.80f - stamina) / 0.80f) * 50f;
+        }
 
         // Hypothermia suppression.
         // Scales down to -40 BPM when hypothermic.
@@ -457,16 +466,24 @@ public class PlayerHealthData
         }
 
         if (painShock > 0.0f)
+        {
             markDirty();
+        }
     }
 
     public void tickSepticShock(float dt)
     {
         float highestInfection = 0f;
-        for (LimbData limb: limbData.values())
-            for (Wound wound: limb.getWounds())
+        for (LimbData limb : limbData.values())
+        {
+            for (Wound wound : limb.getWounds())
+            {
                 if (wound.getInfectionLevel() > highestInfection)
+                {
                     highestInfection = wound.getInfectionLevel();
+                }
+            }
+        }
 
         // Entering septic shock.
         if (highestInfection > 0.70f && immunity < 0.60f)
@@ -484,30 +501,49 @@ public class PlayerHealthData
         {
             septicShock = Math.max(0f, septicShock - (0.0001f * dt));
             if (vascularTone < 1.0f)
+            {
                 setVascularTone(Math.min(1.0f, vascularTone + (0.0002f * dt)));
+            }
         }
 
         if (septicShock > 0f)
+        {
             markDirty();
+        }
     }
 
     public void tickStamina(boolean isSprinting, boolean justJumped, float dt)
     {
-        float lungEfficiency = 1.0f - (getTotalLungCompromise() * 0.80f);
+        float lungEfficiency = Math.max(0f, 1.0f - (getTotalLungCompromise() * 0.80f));
         float energyModifier = 0.60f + (energy * 0.40f);
 
-        float drain = 0f;
         if (isSprinting)
-            drain += ModConstants.STAMINA_SPRINT_DRAIN / dt;
+        {
+            float compressionPenalty = (1.0f - lungEfficiency) * (1.0f - lungEfficiency) * ModConstants.STAMINA_LUNG_DRAIN_MAX;
+            float totalDrainPerSecond = ModConstants.STAMINA_SPRINT_DRAIN + compressionPenalty;
+            stamina = Math.max(0f, stamina - (totalDrainPerSecond * dt));
+        }
+        else
+        {
+            float recoveryPerSecond = ModConstants.STAMINA_BASE_RECOVERY * lungEfficiency * energyModifier;
+            stamina = Math.min(1.0f, stamina + (recoveryPerSecond * dt));
+        }
+
         if (justJumped)
-            drain += ModConstants.STAMINA_JUMP_DRAIN / dt;
+        {
+            stamina = Math.max(0f, stamina - ModConstants.STAMINA_JUMP_DRAIN);
+        }
 
-        float recovery = ModConstants.STAMINA_BASE_RECOVERY * lungEfficiency * energyModifier / dt;
+        // Overexertion pain.
+        if (isSprinting && stamina < 0.15f)
+        {
+            float burnIntensity = ((0.15f - stamina) / 0.15f) * 0.25f;
+            overexertionPain = Math.min(0.30f, burnIntensity);
+        }
+        else
+            overexertionPain = Math.max(0f, overexertionPain - (0.05f * dt));
 
-        float net = isSprinting ? -(drain - recovery) : recovery;
-        stamina = Math.max(0f, Math.min(1.0f, stamina + (net * dt)));
-
-        if (stamina != 1.0f)
+        if (stamina != 1.0f || overexertionPain != 0f)
             markDirty();
     }
 
@@ -517,7 +553,9 @@ public class PlayerHealthData
         float decayRate = 1.0f / 10800;
         energy = Math.max(0f, energy - (decayRate * dt));
         if (energy < 1.0f)
+        {
             markDirty();
+        }
     }
 
     // === LIMB METHODS ===
@@ -867,6 +905,7 @@ public class PlayerHealthData
         energy = 1.0f;
         painShock = 0;
         septicShock = 0;
+        overexertionPain = 0;
 
         // Reinitialize limbs to their defaults.
         for (LimbNode node : LimbNode.values())
@@ -909,6 +948,7 @@ public class PlayerHealthData
                                   Immunity = %.0f%%
                                   Stamina = %.0f%%
                                   Pain = %.0f%%
+                                  Overexertion Pain = %.0f%%
                                   Shock = %.0f%%
                                   Sepsis = %.0f%%
                         }""",
@@ -926,6 +966,7 @@ public class PlayerHealthData
                 immunity * 100f,
                 stamina * 100f,
                 aggregatedPain * 100f,
+                overexertionPain * 100f,
                 painShock * 100f,
                 septicShock * 100f
         );
@@ -954,6 +995,7 @@ public class PlayerHealthData
         tag.putFloat("Energy", energy);
         tag.putFloat("PainShock", painShock);
         tag.putFloat("SepticShock", septicShock);
+        tag.putFloat("OverexertionPain", overexertionPain);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1005,6 +1047,7 @@ public class PlayerHealthData
         energy = tag.getFloat("Energy");
         painShock = tag.getFloat("PainShock");
         septicShock = tag.getFloat("SepticShock");
+        overexertionPain = tag.getFloat("OverexertionPain");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
@@ -1060,6 +1103,7 @@ public class PlayerHealthData
         this.energy = other.energy;
         this.painShock = other.painShock;
         this.septicShock = other.septicShock;
+        this.overexertionPain = other.overexertionPain;
 
         for (LimbNode node : LimbNode.values())
         {
