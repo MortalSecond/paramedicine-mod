@@ -30,10 +30,15 @@ public class ClientboundSyncHealthPacket
     // HUD only needs total compromise to show the lung moodlet.
     private final float leftLungCompromise;
     private final float rightLungCompromise;
+    private final float painShock;
+    private final float septicShock;
+    private final float stamina;
+    private final boolean leftTension;
+    private final boolean rightTension;
+    private final float overexertionPain;
 
     // === CONSTRUCTOR ===
-    private ClientboundSyncHealthPacket(
-            float bloodVolume,
+    private ClientboundSyncHealthPacket(float bloodVolume,
             float heartRateBPM,
             float systolicBP,
             float diastolicBP,
@@ -48,7 +53,13 @@ public class ClientboundSyncHealthPacket
             float immunity,
             float aggregatedPain,
             float leftLungCompromise,
-            float rightLungCompromise
+            float rightLungCompromise,
+            float painShock,
+            float septicShock,
+            float stamina,
+            boolean leftTension,
+            boolean rightTension,
+            float overexertionPain
     )
     {
         this.bloodVolume = bloodVolume;
@@ -67,6 +78,12 @@ public class ClientboundSyncHealthPacket
         this.aggregatedPain = aggregatedPain;
         this.leftLungCompromise = leftLungCompromise;
         this.rightLungCompromise = rightLungCompromise;
+        this.painShock = painShock;
+        this.septicShock = septicShock;
+        this.stamina = stamina;
+        this.leftTension = leftTension;
+        this.rightTension = rightTension;
+        this.overexertionPain = overexertionPain;
     }
 
     // === FACTORY ===
@@ -88,7 +105,13 @@ public class ClientboundSyncHealthPacket
                 data.getImmunity(),
                 data.getAggregatedPain(),
                 data.getLeftLung().getCompromise(),
-                data.getRightLung().getCompromise()
+                data.getRightLung().getCompromise(),
+                data.getPainShock(),
+                data.getSepticShock(),
+                data.getStamina(),
+                data.getLeftLung().hasTensionPneumothorax(),
+                data.getRightLung().hasTensionPneumothorax(),
+                data.getOverexertionPain()
         );
     }
 
@@ -112,27 +135,39 @@ public class ClientboundSyncHealthPacket
         buf.writeFloat(p.aggregatedPain);
         buf.writeFloat(p.leftLungCompromise);
         buf.writeFloat(p.rightLungCompromise);
+        buf.writeFloat(p.painShock);
+        buf.writeFloat(p.septicShock);
+        buf.writeFloat(p.stamina);
+        buf.writeBoolean(p.leftTension);
+        buf.writeBoolean(p.rightTension);
+        buf.writeFloat(p.overexertionPain);
     }
 
     public static ClientboundSyncHealthPacket decode(FriendlyByteBuf buf)
     {
         return new ClientboundSyncHealthPacket(
-                buf.readFloat(),    // bloodVolume
-                buf.readFloat(),    // heartRateBPM
-                buf.readFloat(),    // systolicBP
-                buf.readFloat(),    // diastolicBP
-                buf.readFloat(),    // fibrillations
-                buf.readBoolean(),  // fibrillationsForced
-                buf.readFloat(),    // oxygenSaturation
-                buf.readFloat(),    // actualRespiratoryRate
-                buf.readFloat(),    // breathReserveSeconds
-                buf.readEnum(AirwayState.class), // airwayState
-                buf.readFloat(),    // coreTemperature
-                buf.readFloat(),    // consciousness
-                buf.readFloat(),    // immunity
-                buf.readFloat(),    // aggregatedPain
-                buf.readFloat(),    // leftLungCompromise
-                buf.readFloat()     // rightLungCompromise
+                buf.readFloat(),                        // bloodVolume
+                buf.readFloat(),                        // heartRateBPM
+                buf.readFloat(),                        // systolicBP
+                buf.readFloat(),                        // diastolicBP
+                buf.readFloat(),                        // fibrillations
+                buf.readBoolean(),                      // fibrillationsForced
+                buf.readFloat(),                        // oxygenSaturation
+                buf.readFloat(),                        // actualRespiratoryRate
+                buf.readFloat(),                        // breathReserveSeconds
+                buf.readEnum(AirwayState.class),        // airwayState
+                buf.readFloat(),                        // coreTemperature
+                buf.readFloat(),                        // consciousness
+                buf.readFloat(),                        // immunity
+                buf.readFloat(),                        // aggregatedPain
+                buf.readFloat(),                        // leftLungCompromise
+                buf.readFloat(),                        // rightLungCompromise
+                buf.readFloat(),                        // painShock
+                buf.readFloat(),                        // septicShock
+                buf.readFloat(),                        // stamina
+                buf.readBoolean(),                      // leftTension
+                buf.readBoolean(),                      // rightTension
+                buf.readFloat()                         // overexertionPain
         );
     }
 
@@ -171,6 +206,12 @@ public class ClientboundSyncHealthPacket
         data.setAggregatedPainClientOnly(p.aggregatedPain);
         data.setCoreTemperature(p.coreTemperature);
         data.setConsciousnessClientOnly(p.consciousness);
+        data.setPainShock(p.painShock);
+        data.setSepticShock(p.septicShock);
+        data.setStamina(p.stamina);
+        data.getLeftLung().setTensionPneumothorax(p.leftTension);
+        data.getRightLung().setTensionPneumothorax(p.rightTension);
+        data.setOverexertionPain(p.overexertionPain);
 
         // Lung compromise. Applied to LungData directly.
         data.getLeftLung().setCompromiseClientOnly(p.leftLungCompromise);

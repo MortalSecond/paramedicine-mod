@@ -697,6 +697,11 @@ public class PlayerHealthData
         return septicShock;
     }
 
+    public float getOverexertionPain()
+    {
+        return overexertionPain;
+    }
+
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal()
     {
@@ -788,6 +793,16 @@ public class PlayerHealthData
         if (immunity != c)
         {
             immunity = c;
+            markDirty();
+        }
+    }
+
+    public void setOverexertionPain(float v)
+    {
+        float c = Math.max(0f, Math.min(1f, v));
+        if (overexertionPain != c)
+        {
+            overexertionPain = c;
             markDirty();
         }
     }
