@@ -9,7 +9,6 @@ import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
-import net.minecraftforge.fml.common.Mod;
 
 import java.util.*;
 
@@ -133,13 +132,13 @@ public class PlayerHealthData
         {
             rateModifier = 1.0f;
         }
-        else if (heartRateBPM <= ModConstants.BPM_SEVERE_TACHICARDIA)
+        else if (heartRateBPM <= ModConstants.BPM_SEVERE_TACHYCARDIA)
         {
             rateModifier = 1.0f + ((heartRateBPM - ModConstants.BPM_TACHYCARDIA) / 100f) * 0.1f;
         }
         else
         {
-            rateModifier = 1.1f - ((heartRateBPM - ModConstants.BPM_SEVERE_TACHICARDIA) / 100f) * 0.3f;
+            rateModifier = 1.1f - ((heartRateBPM - ModConstants.BPM_SEVERE_TACHYCARDIA) / 100f) * 0.3f;
         }
         rateModifier = Math.max(0.5f, rateModifier);
 

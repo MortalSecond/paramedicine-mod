@@ -20,7 +20,7 @@ public final class ModConstants
     public static final float BPM_NORMAL_MIN = 60f;
     public static final float BPM_NORMAL_MAX = 100f;
     public static final float BPM_TACHYCARDIA = 100f;
-    public static final float BPM_SEVERE_TACHICARDIA = 150f;
+    public static final float BPM_SEVERE_TACHYCARDIA = 150f;
     public static final float BPM_BRADYCARDIA = 60f;
     public static final float BPM_CARDIAC_ARREST = 0f;
 

@@ -152,7 +152,7 @@ public enum Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float heartRateBPM = data.getHeartRateBPM();
-                    return heartRateBPM > 130f && heartRateBPM <= ModConstants.BPM_SEVERE_TACHICARDIA;
+                    return heartRateBPM > 130f && heartRateBPM <= ModConstants.BPM_SEVERE_TACHYCARDIA;
                 }
             },
 
@@ -163,7 +163,7 @@ public enum Condition
                 {
                     float heartRateBPM = data.getHeartRateBPM();
                     float fibrillations = data.getFibrillations();
-                    return heartRateBPM > ModConstants.BPM_SEVERE_TACHICARDIA && fibrillations < 0.50f;
+                    return heartRateBPM > ModConstants.BPM_SEVERE_TACHYCARDIA && fibrillations < 0.50f;
                 }
             },
 
