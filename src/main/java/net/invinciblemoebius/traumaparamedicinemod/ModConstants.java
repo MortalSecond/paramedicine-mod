@@ -56,6 +56,8 @@ public final class ModConstants
     public static final float SPO2_SERIOUS = 0.90f; // Below this: Serious impairment
     public static final float SPO2_CRITICAL = 0.85f; // Below this: Cyanosis, consciousness drops
     public static final float SPO2_FLOOR = 0.60f; // Below this: Non-survable without intervention
+    public static final float SPO2_HYPEROXIA = 1.0f; // Above this: Excessive oxygen saturation
+    public static final float SPO2_OXYGEN_POISONING = 1.2f; // Above this: Clinical hypoxia
 
     // CONSCIOUSNESS, in AVPU thresholds
     public static final float CONSCIOUSNESS_ALERT = 0.80f; // Above this: Fully consciouss

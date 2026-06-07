@@ -16,7 +16,7 @@ import java.util.Map;
 // even though IRL Class 3 hemorrhage happens at 0.2ml/min, in this mod
 // it's 15ml/s, since players will be able to stop the bleeding in a
 // fraction of the time that IRL medicine would.
-public enum Condition
+public enum     Condition
 {
     // === POSITIVE CONDITIONS ===
 
@@ -572,13 +572,35 @@ public enum Condition
                 }
             },
 
-    HYPERVENTILATION(ConditionSeverity.SEVERE, ObservabilityLevel.VISIBLE)
+    SEVERE_TACHYPNOEA(ConditionSeverity.SEVERE, ObservabilityLevel.VISIBLE)
             {
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float respirations = data.getActualRespiratoryRate();
                     return respirations <= ModConstants.RESPIRATORY_HYPERVENTILATION;
+                }
+            },
+
+    HYPERVENTILATION(ConditionSeverity.MODERATE, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float respirations = data.getActualRespiratoryRate();
+                    float breathingUrge = data.getRespiratoryDrive();
+                    return respirations > breathingUrge;
+                }
+            },
+
+    CHOKING(ConditionSeverity.MODERATE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float respirations = data.getActualRespiratoryRate();
+                    float breathingUrge = data.getRespiratoryDrive();
+                    return respirations < breathingUrge;
                 }
             },
 
@@ -614,13 +636,33 @@ public enum Condition
                 }
             },
 
-    OXYGEN_STARVATION(ConditionSeverity.NEUTRAL, ObservabilityLevel.DIAGNOSTIC)
+    OXYGEN_STARVATION(ConditionSeverity.CRITICAL_GLOW, ObservabilityLevel.DIAGNOSTIC)
             {
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float spo2 = data.getOxygenSaturation();
                     return spo2 < ModConstants.SPO2_FLOOR;
+                }
+            },
+
+    HYPEROXIA(ConditionSeverity.MODERATE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float spo2 = data.getOxygenSaturation();
+                    return spo2 < ModConstants.SPO2_HYPEROXIA;
+                }
+            },
+
+    OXYGEN_POISONING(ConditionSeverity.SEVERE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float spo2 = data.getOxygenSaturation();
+                    return spo2 < ModConstants.SPO2_OXYGEN_POISONING;
                 }
             },
 
@@ -678,6 +720,28 @@ public enum Condition
                     boolean hasPneumoInLeftLung = data.getLeftLung().hasTensionPneumothorax();
                     boolean hasPneumoInRightLung = data.getRightLung().hasTensionPneumothorax();
                     return hasPneumoInLeftLung || hasPneumoInRightLung;
+                }
+            },
+
+    LUNG_FLUID(ConditionSeverity.MODERATE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float fluidInLeftLung = data.getLeftLung().getFluidML();
+                    float fluidInRightLung = data.getRightLung().getFluidML();
+                    return fluidInLeftLung >= 100f || fluidInRightLung >= 100f;
+                }
+            },
+
+    SERIOUS_LUNG_FLUID(ConditionSeverity.MODERATE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float fluidInLeftLung = data.getLeftLung().getFluidML();
+                    float fluidInRightLung = data.getRightLung().getFluidML();
+                    return fluidInLeftLung >= 500f || fluidInRightLung >= 500f;
                 }
             },
 
