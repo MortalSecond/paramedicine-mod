@@ -32,7 +32,7 @@ public class MoodleAnimState
             xOffset = Math.max(0f, xOffset - TWEEN_SPEED);
 
         // Shake
-        if (shakeOffset > 0)
+        if (shakeTicks > 0)
         {
             shakeTicks--;
             float progress = (float)  shakeTicks / SHAKE_DURATION;
@@ -71,6 +71,6 @@ public class MoodleAnimState
     public float glowAlpha()
     {
         // Goes between 0.3 and 1.0.
-        return 0.3f * (float) (Math.sin(glowPhase) * 0.35f + 0.35f);
+        return 0.3f + (float) (Math.sin(glowPhase) * 0.35f + 0.35f);
     }
 }

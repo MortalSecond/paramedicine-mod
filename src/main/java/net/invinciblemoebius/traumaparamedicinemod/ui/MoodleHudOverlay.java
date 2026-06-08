@@ -9,11 +9,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import java.util.*;
 
-@Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class MoodleHudOverlay
 {
     // LAYOUT
@@ -29,6 +30,7 @@ public class MoodleHudOverlay
     // === METHODS ===
 
     // Registers the HUD into the game's GUI.
+    @SubscribeEvent
     public static void onRegisterOverlays(RegisterGuiOverlaysEvent event)
     {
         event.registerAboveAll("moodle_bar", MoodleHudOverlay::render);
