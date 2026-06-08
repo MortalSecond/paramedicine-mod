@@ -5,8 +5,8 @@ import net.invinciblemoebius.traumaparamedicinemod.status.ConditionSeverity;
 public class MoodleAnimState
 {
     // Tween - Right to left.
-    public static final float TWEEN_START = 40f;
-    public static final float TWEEN_SPEED = 8f;
+    public static final float TWEEN_START = 20f;
+    public static final float TWEEN_SPEED = 6f;
     public float xOffset = TWEEN_START;
     // Shake.
     public static final int SHAKE_DURATION = 12;

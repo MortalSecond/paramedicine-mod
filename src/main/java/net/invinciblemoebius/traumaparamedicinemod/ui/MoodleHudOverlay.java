@@ -18,10 +18,13 @@ import java.util.*;
 public class MoodleHudOverlay
 {
     // LAYOUT
-    private static final int MOODLE_SIZE = 20; // Diameter in px.
-    private static final int MOODLE_PADDING = 4; // Space between moodles in px.
-    private static final int BOTTOM_MARGIN = 10; // Distance from the bottom of the screen, in px.
+    private static final int MOODLE_SIZE = 14; // Diameter in px.
+    private static final int MOODLE_PADDING = 6; // Space between moodles in px.
+    private static final int BOTTOM_MARGIN = 6; // Distance from the bottom of the screen, in px.
+    private static final int LEFT_MARGIN = 12; // Distance from the left edge of the screen, in px.
     private static final int GLOW_BORDER = 3; // Border from CRITICAL_GLOW
+    private static final int HOTBAR_WIDTH = 182; // Vanilla hotbar px width.
+    private static final int HOTBAR_MARGIN = 8; // Breathing room before hotbar starts.
     // STATE
     private static final Map<Condition, MoodleAnimState> animStates = new LinkedHashMap<>();
     private static Set<Condition> lastActive = new HashSet<>();
@@ -91,9 +94,12 @@ public class MoodleHudOverlay
                 .sorted(Comparator.comparingInt((Condition condition) -> condition.severity.ordinal()).reversed())
                 .toList();
 
-        int totalWidth = sorted.size() * (MOODLE_SIZE + MOODLE_PADDING) - MOODLE_PADDING;
-        int startX = (screenWidth - totalWidth) / 2;
-        int y = screenHeight - MOODLE_SIZE - BOTTOM_MARGIN;
+        if (sorted.isEmpty()) return;
+
+        // Anchor to the bottom left.
+        int hotbarLeft = (screenWidth / 2) - (HOTBAR_WIDTH / 2);
+        int availableWidth = hotbarLeft - LEFT_MARGIN - HOTBAR_MARGIN;
+        int perRow = Math.max(1, (availableWidth + MOODLE_PADDING) / (MOODLE_SIZE + MOODLE_PADDING));
 
         for (int i = 0; i < sorted.size(); i++)
         {
@@ -101,8 +107,14 @@ public class MoodleHudOverlay
             MoodleAnimState animState = animStates.get(condition);
             MoodleDefinition def = MoodleDefinition.get(condition);
 
+            int col = i % perRow;
+            int row = i / perRow;
+
+            // Anchor.
+            int x = LEFT_MARGIN + col * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.xOffset;
+            int y = screenHeight - BOTTOM_MARGIN - MOODLE_SIZE - row * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.shakeOffset;
+
             int baseColor = MoodleDefinition.severityColor(condition.severity);
-            int x = startX + i * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.xOffset;
             int drawY = y + (int) animState.shakeOffset;
 
             // Fade out alpha masking. Or compositing. Whatever.
