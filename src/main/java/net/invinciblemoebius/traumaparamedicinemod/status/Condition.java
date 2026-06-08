@@ -26,7 +26,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float immunity = data.getImmunity();
-                    return immunity >= 90f;
+                    return immunity >= 0.90f;
                 }
             },
 
@@ -245,8 +245,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    return fibrillations <= ModConstants.BPM_CARDIAC_ARREST;
+                    float heartRateBPM =  data.getHeartRateBPM();
+                    return  heartRateBPM <= ModConstants.BPM_CARDIAC_ARREST;
                 }
             },
 
@@ -292,7 +292,7 @@ public enum     Condition
                 {
                     float systolicBP = data.getSystolicBP();
                     float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP > 60f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    return systolicBP < 60f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
                 }
             },
 
@@ -568,7 +568,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float respirations = data.getActualRespiratoryRate();
-                    return respirations <= ModConstants.RESPIRATORY_HIGH;
+                    return respirations > ModConstants.RESPIRATORY_HIGH && respirations <= ModConstants.RESPIRATORY_HYPERVENTILATION;
                 }
             },
 
@@ -578,7 +578,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float respirations = data.getActualRespiratoryRate();
-                    return respirations <= ModConstants.RESPIRATORY_HYPERVENTILATION;
+                    return respirations > ModConstants.RESPIRATORY_HYPERVENTILATION;
                 }
             },
 
@@ -600,7 +600,7 @@ public enum     Condition
                 {
                     float respirations = data.getActualRespiratoryRate();
                     float breathingUrge = data.getRespiratoryDrive();
-                    return respirations < breathingUrge;
+                    return respirations < (breathingUrge * 0.85f);
                 }
             },
 
@@ -652,7 +652,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float spo2 = data.getOxygenSaturation();
-                    return spo2 < ModConstants.SPO2_HYPEROXIA;
+                    return spo2 > ModConstants.SPO2_HYPEROXIA;
                 }
             },
 
@@ -662,7 +662,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float spo2 = data.getOxygenSaturation();
-                    return spo2 < ModConstants.SPO2_OXYGEN_POISONING;
+                    return spo2 > ModConstants.SPO2_OXYGEN_POISONING;
                 }
             },
 
@@ -858,7 +858,7 @@ public enum     Condition
                 {
                     float worstInfection = highestInfectionLevel(data);
                     float sepsisLevel = data.getSepticShock();
-                    return worstInfection >= 0.80f && sepsisLevel >= 10f;
+                    return worstInfection >= 0.80f && sepsisLevel >= 0.10f;
                 }
             },
 
@@ -900,7 +900,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float immunity = data.getImmunity();
-                    return immunity > 0.80f;
+                    return immunity < 0.50f;
                 }
             },
 
