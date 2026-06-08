@@ -26,7 +26,7 @@ public class MoodleHudOverlay
     private static final int HOTBAR_WIDTH = 182; // Vanilla hotbar px width.
     private static final int HOTBAR_MARGIN = 8; // Breathing room before hotbar starts.
     // STATE
-    private static final Map<Condition, MoodleAnimState> animStates = new LinkedHashMap<>();
+    private static final Map<Condition, MoodleAnimState> animStates = new HashMap<>();
     private static Set<Condition> lastActive = new HashSet<>();
     private static final Map<Condition, ConditionSeverity> lastSeverity = new HashMap<>();
 
