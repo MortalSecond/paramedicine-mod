@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.gameplay;
+package net.invinciblemoebius.traumaparamedicinemod.wounding;
 
 
 import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;

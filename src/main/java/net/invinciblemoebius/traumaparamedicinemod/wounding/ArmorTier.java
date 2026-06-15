@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.gameplay;
+package net.invinciblemoebius.traumaparamedicinemod.wounding;
 
 public enum ArmorTier
 {
