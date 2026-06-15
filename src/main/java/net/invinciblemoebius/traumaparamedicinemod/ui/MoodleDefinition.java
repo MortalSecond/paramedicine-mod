@@ -86,7 +86,7 @@ public class MoodleDefinition
             case COMPOUND_FRACTURE ->  new MoodleDefinition("Compound Fracture", "You can see your own shattered bone tearing through your flesh and exiting into the open air. Besides the obvious, you are going to need serious antibiotics. Oh god.", 'X');
             case DISLOCATION ->  new MoodleDefinition("Dislocation", "A joint has been forced out of its place. The surrounding muscles and ligaments look damaged as well. However, with the bone intact, it can be moved back into place.", '◯');
 
-            // CARDIOVASCULAR - NEUROLOGICAL
+            // WOUND - NEUROLOGICAL
             case CONCUSSION ->  new MoodleDefinition("Concussion", "You have a bad head injury that left you feeling shaken. The world sounds extremely loud, dim lights hurt, and you have trouble standing. It feels like you are going to vomit.", '⚠');
             case SEVERE_HEAD_INJURY ->  new MoodleDefinition("SEVERE HEAD INJURY", "reality ..   stops  making     sense", '.');
 
