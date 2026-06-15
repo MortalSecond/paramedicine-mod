@@ -73,4 +73,11 @@ public final class ModConstants
     public static final float NUTRITION_HEALTHY = 1.0f;
     public static final float NUTRITION_FLOOR = 0.0f;
     public static final float NUTRITION_DECAY_PER_SECOND = 1f / (7f * 24000 / TICKS_PER_SECOND);
+
+    // WOUND POSITION
+    public static final float WOUND_U_ANTERIOR = 0.0f;
+    public static final float WOUND_U_RIGHT_LATERAL = 0.5f;
+    public static final float WOUND_U_POSTERIOR = 1.0f;
+    public static final float WOUND_U_LEFT_LATERAL = 1.5f;
+    public static final float WOUND_U_MAX = 2.0f;
 }

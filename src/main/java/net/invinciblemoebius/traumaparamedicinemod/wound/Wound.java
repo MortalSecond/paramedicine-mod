@@ -17,13 +17,23 @@ public class Wound
     private long ageTicks = 0L;
     private float contamination;
     private float infectionLevel;
+    private boolean isEntry = false;
+    private boolean isExit = false;
+
+    // This represents the circumference of the limb. Goes from 0.0 to 2.0.
+    // 0.0 = Anterior, 1.0 = Posterior. Thus, 0.5 = right, 1.5 = left, and 2.0 wraps back to anterior.
+    private float woundPositionU = 0.0f;
+    // V represents the vertical axis.
+    // 0.0 = proximal end (e.g. the elbow), 1.0 = distal end (e.g. the wrist)
+    private float woundPositionV = 0.5f;
 
     // === TREATMENT STATE ===
     private boolean hasDressing = false;
     private DressingType dressingType = DressingType.NONE;
     // Ticks since the current dressing was applied. Old dressing raises contamination; threshold varies by quality.
     private float dressingAgeTicks = 0f;
-    // Whether wound edges have been closed (sutures, staples, or strips). Closing an infected wound traps bacteria inside.
+    // Whether wound edges have been closed (sutures, staples, or strips).
+    // Closing an infected wound traps bacteria inside.
     private boolean isClosed = false;
     // Whether the wound cavity has been packed with gauze.
     private boolean isPacked = false;
@@ -35,6 +45,8 @@ public class Wound
     private boolean hasShrapnel = false;
     private boolean hasBullet = false;
     private boolean hasArrow = false;
+    private boolean bleedingManaged = false;
+    private float forcedBleedingRateML = 0f;
 
     // === CONSTRUCTORS ===
 
@@ -81,7 +93,10 @@ public class Wound
             default -> 1.00f;
         };
 
-        return base * typeModifier * size;
+        if (bleedingManaged)
+            return forcedBleedingRateML;
+        else
+            return base * typeModifier * size;
     }
 
     // Initial contamination of a wound at the moment of damage,
@@ -103,7 +118,7 @@ public class Wound
         };
     }
 
-    // === CLOTTING COMPUTATION
+    // === CLOTTING COMPUTATION ===
 
     // The rate at which a wound's bleeding rate is being reduced by clotting, in ml/s.
     public float computeClottingRate(float coreTemp, float spo2, float nutritionLevel)
@@ -344,6 +359,16 @@ public class Wound
         bleedRateML = computeInitialBleedRate() * 0.60f;
     }
 
+    public void removeForeignBody()
+    {
+        hasArrow = false;
+        hasShrapnel = false;
+        hasBullet = false;
+
+        bleedingManaged = false;
+        bleedRateML = computeInitialBleedRate();
+    }
+
     // === ACCESSORS ===
 
     public WoundType getType() { return type; }
@@ -362,11 +387,25 @@ public class Wound
     public boolean hasBeenIrrigated() { return hasBeenIrrigated; }
     public boolean hasShrapnel() { return hasShrapnel; }
     public boolean hasBullet() { return hasBullet; }
+    public boolean hasArrow() { return hasArrow; }
+    public boolean isBleedingManaged() { return bleedingManaged; }
+    public float getForcedBleedingRateML() { return forcedBleedingRateML; }
+    public boolean isEntry() { return isEntry; }
+    public boolean isExit() { return isExit; }
+    public float getWoundPositionU() { return woundPositionU; }
+    public float getWoundPositionV() { return woundPositionV; }
 
     public void setHasShrapnel(boolean v) { hasShrapnel = v; }
     public void setHasBullet(boolean v) { hasBullet = v; }
+    public void setHasArrow(boolean v) { hasArrow = v; }
     public void setBleedRateML(float v) { bleedRateML = Math.max(0f, v); }
     public void setContamination(float v) { contamination = Math.max(0f, Math.min(1f, v)); }
+    public void setBleedingManaged(boolean v) { bleedingManaged = v; }
+    public void setForcedBleedingRateML(float v) { forcedBleedingRateML = v; }
+    public void setIsEntry(boolean v) { this.isEntry = v; }
+    public void setIsExit(boolean v) { this.isExit = v; }
+    public void setWoundPositionU(float v) { this.woundPositionU = v; }
+    public void setWoundPositionV(float v) { this.woundPositionV = v; }
 
     // === SAVING STUFF ===
 
@@ -391,6 +430,13 @@ public class Wound
         tag.putBoolean("HasAntiseptic", hasAntiseptic);
         tag.putBoolean("HasShrapnel", hasShrapnel);
         tag.putBoolean("HasBullet", hasBullet);
+        tag.putBoolean("HasArrow", hasArrow);
+        tag.putBoolean("isManagedBleeding", bleedingManaged);
+        tag.putFloat("forcedBleedingRate", forcedBleedingRateML);
+        tag.putBoolean("isEntry", isEntry);
+        tag.putBoolean("isExit", isExit);
+        tag.putFloat("woundPositionU", woundPositionU);
+        tag.putFloat("woundPositionV", woundPositionV);
     }
 
     public void loadFromNBT(CompoundTag tag)
@@ -414,6 +460,13 @@ public class Wound
         hasAntiseptic = tag.getBoolean("HasAntiseptic");
         hasShrapnel = tag.getBoolean("HasShrapnel");
         hasBullet = tag.getBoolean("HasBullet");
+        hasBullet = tag.getBoolean("HasArrow");
+        bleedingManaged = tag.getBoolean("isManagedBleeding");
+        forcedBleedingRateML = tag.getFloat("forcedBleedingRate");
+        isEntry = tag.getBoolean("isEntry");
+        isExit = tag.getBoolean("isExit");
+        woundPositionU = tag.getFloat("woundPositionU");
+        woundPositionV = tag.getFloat("woundPositionV");
     }
 
     public Wound copy()

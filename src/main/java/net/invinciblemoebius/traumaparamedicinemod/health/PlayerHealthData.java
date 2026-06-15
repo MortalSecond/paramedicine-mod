@@ -389,6 +389,23 @@ public class PlayerHealthData
         markDirty();
     }
 
+    // === DIRECT SETTERS ===
+
+    // Applies pain DIRECTLY, circumventing the per-wound accumulation of recomputeAggregatedPain().
+    public void spikeAggregatedPain(float amount)
+    {
+        aggregatedPain = Math.min(1.0f, aggregatedPain + amount);
+        markDirty();
+    }
+
+    // Overwrites consciousness directly, circumventing the inertia system. This one's instantaneous.
+    public void setConsciousnessDirectly(float value)
+    {
+        consciousness = Math.max(0f, Math.min(1f, value));
+        consciousnessTarget = consciousness;
+        markDirty();
+    }
+
     // === TICK METHODS ===
 
     // Applies respiratory effect on oxygenation each tick.
