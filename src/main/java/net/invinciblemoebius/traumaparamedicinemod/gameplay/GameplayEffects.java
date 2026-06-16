@@ -20,7 +20,7 @@ import java.util.UUID;
 // If you're looking for the effects of substances in Paramedicine, go take a peek
 // at SubstanceType instead.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
-public class PlayerEffectsSystem
+public class GameplayEffects
 {
     private static final UUID SPEED_UUID = UUID.fromString("a1b2c3d4-1234-5678-abcd-ef1234567890");
     private static final String SPEED_NAME = "paramedicine_speed";

@@ -1,6 +1,8 @@
-package net.invinciblemoebius.traumaparamedicinemod.health;
+package net.invinciblemoebius.traumaparamedicinemod.gameplay;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
+import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
