@@ -112,7 +112,7 @@ public class MoodleHudOverlay
 
             // Anchor.
             int x = LEFT_MARGIN + col * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.xOffset;
-            int y = screenHeight - BOTTOM_MARGIN - MOODLE_SIZE - row * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.shakeOffset;
+            int y = screenHeight - BOTTOM_MARGIN - MOODLE_SIZE - row * (MOODLE_SIZE + MOODLE_PADDING);
 
             int baseColor = MoodleDefinition.severityColor(condition.severity);
             int drawY = y + (int) animState.shakeOffset;

@@ -460,7 +460,7 @@ public class Wound
         hasAntiseptic = tag.getBoolean("HasAntiseptic");
         hasShrapnel = tag.getBoolean("HasShrapnel");
         hasBullet = tag.getBoolean("HasBullet");
-        hasBullet = tag.getBoolean("HasArrow");
+        hasArrow = tag.getBoolean("HasArrow");
         bleedingManaged = tag.getBoolean("isManagedBleeding");
         forcedBleedingRateML = tag.getFloat("forcedBleedingRate");
         isEntry = tag.getBoolean("isEntry");

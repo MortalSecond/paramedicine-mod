@@ -143,14 +143,19 @@ public class PlayerHealthData
         rateModifier = Math.max(0.5f, rateModifier);
 
         // Computation.
-        systolicBP = volumeBasedSystolic * vascularTone * cardiacEfficiency * rateModifier * bloodViscosity;
+        float newSystolicBP = volumeBasedSystolic * vascularTone * cardiacEfficiency * rateModifier * bloodViscosity;
 
         // Diastolic widens in vasodilation but narrows during vasoconstriction.
         float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, vascularTone)));
         // Diastolic is proportional to systolic at roughly 0.6 ratio.
-        diastolicBP = systolicBP * Math.min(0.85f, pulsePressureRatio);
+        float newDiastolicBP = systolicBP * Math.min(0.85f, pulsePressureRatio);
 
-        markDirty();
+        if (newSystolicBP != systolicBP || newDiastolicBP != diastolicBP)
+        {
+            systolicBP = newSystolicBP;
+            diastolicBP = newDiastolicBP;
+            markDirty();
+        }
     }
 
     public void recomputeRespiratoryDrive()
@@ -181,14 +186,20 @@ public class PlayerHealthData
         if (stamina < 0.70f)
             exertionResponse = ((0.70f - stamina) / 0.70f) * 14f;
 
-        respiratoryDrive = Math.min(35f, base + hypoxiaResponse + bloodResponse + painResponse);
+        float newDrive = Math.min(35f, base + hypoxiaResponse + bloodResponse + painResponse + exertionResponse);
 
-        markDirty();
+        if (newDrive != respiratoryDrive)
+        {
+            respiratoryDrive = newDrive;
+            markDirty();
+        }
     }
 
     public void recomputeActualRespiratoryRate(boolean isUnderwater)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
+        float beforeRate = actualRespiratoryRate;
+        float beforeReserve = breathReserveSeconds;
 
         // Maximum respiratory rate from airway.
         float airwayCeiling = switch (airwayState)
@@ -244,7 +255,8 @@ public class PlayerHealthData
             breathReserveSeconds = Math.min(BREATH_RESERVE_MAX, breathReserveSeconds + (replenishRate * dt));
         }
 
-        markDirty();
+        if (actualRespiratoryRate != beforeRate || breathReserveSeconds != beforeReserve)
+            markDirty();
     }
 
     // Sum of all the limb's pain values.
@@ -282,7 +294,7 @@ public class PlayerHealthData
         }
         else
         {
-            bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA;
+            bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA);
         }
 
         // SpO2 ceiling.
@@ -326,6 +338,7 @@ public class PlayerHealthData
 
         // Apply inertia.
         float inertiaRate = 0.001f;
+        float before = consciousness;
         if (consciousness < consciousnessTarget)
         {
             consciousness = Math.min(consciousnessTarget, consciousness + inertiaRate);
@@ -335,7 +348,8 @@ public class PlayerHealthData
             consciousness = Math.max(consciousnessTarget, consciousness - inertiaRate);
         }
 
-        markDirty();
+        if (consciousness != before)
+            markDirty();
     }
 
     // Computes the heartrate from the current systemic state.
@@ -384,9 +398,14 @@ public class PlayerHealthData
         }
 
         // Computation.
-        float computed = base + bloodResponse + painResponse + spo2Response - tempSuppression;
-        this.heartRateBPM = Math.max(0f, Math.min(220f, computed));
-        markDirty();
+        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse - tempSuppression;
+        float newBPM = Math.max(0f, Math.min(220f, computed));
+
+        if (newBPM != this.heartRateBPM)
+        {
+            this.heartRateBPM = newBPM;
+            markDirty();
+        }
     }
 
     // === DIRECT SETTERS ===
@@ -473,18 +492,16 @@ public class PlayerHealthData
         if (aggregatedPain > 0.70f)
         {
             float excess = (aggregatedPain - 0.70f) / 0.30f;
-            painShock = Math.max(1f, painShock + (excess * 0.0003f * dt));
+            painShock = Math.min(1f, painShock + (excess * 0.0003f * dt));
         }
         // If under the threshold, decrease it.
-        else if (painShock < 0.5f)
+        else if (painShock > 0f)
         {
             painShock = Math.max(0f, painShock - (0.0001f * dt));
         }
 
         if (painShock > 0.0f)
-        {
             markDirty();
-        }
     }
 
     public void tickSepticShock(float dt)
@@ -796,7 +813,7 @@ public class PlayerHealthData
 
     public void setOxygenSaturation(float v)
     {
-        float c = Math.max(0f, Math.min(1f, v));
+        float c = Math.max(0f, Math.min(ModConstants.SPO2_MAX, v));
         if (oxygenSaturation != c)
         {
             oxygenSaturation = c;
@@ -1135,11 +1152,25 @@ public class PlayerHealthData
         this.painShock = other.painShock;
         this.septicShock = other.septicShock;
         this.overexertionPain = other.overexertionPain;
+        this.systolicBP   = other.systolicBP;
+        this.diastolicBP  = other.diastolicBP;
+        this.vascularTone = other.vascularTone;
+        this.bloodViscosity = other.bloodViscosity;
+        this.fibrillations  = other.fibrillations;
+        this.fibrillationsForced = other.fibrillationsForced;
+        this.fibrillationsForcedTarget = other.fibrillationsForcedTarget;
+        this.respiratoryDrive      = other.respiratoryDrive;
+        this.actualRespiratoryRate = other.actualRespiratoryRate;
+        this.breathReserveSeconds  = other.breathReserveSeconds;
+        this.airwayState           = other.airwayState;
 
         for (LimbNode node : LimbNode.values())
         {
             this.limbData.get(node).copyFrom(other.limbData.get(node));
         }
+
+        this.leftLung.copyFrom(other.leftLung);
+        this.rightLung.copyFrom(other.rightLung);
 
         this.activeSubstances.clear();
         for (CirculatingSubstance s : other.activeSubstances)

@@ -45,15 +45,23 @@ public class PlayerHealthEvents
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event)
     {
-        // Edge case for dimension traveling; this will be handled on another method.
-        if(!event.isWasDeath())
-            return;
-
         event.getOriginal().reviveCaps();
 
-        event.getOriginal().getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent((oldData ->
+        event.getOriginal().getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(oldData ->
                 event.getEntity().getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(newData ->
-                        newData.copyFrom(oldData))));
+                {
+                    if (event.isWasDeath())
+                    {
+                        // Death is a clean slate for now. I'll add stuff to it once
+                        // i get around to doing the Give Up functionality.
+                        newData.resetToDefaults();
+                    }
+                    else
+                    {
+                        // Dimension change. Preserve everything.
+                        newData.copyFrom(oldData);
+                    }
+                }));
 
         event.getOriginal().invalidateCaps();
     }

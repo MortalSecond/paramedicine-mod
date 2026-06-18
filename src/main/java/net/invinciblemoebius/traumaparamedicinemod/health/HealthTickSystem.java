@@ -238,7 +238,6 @@ public class HealthTickSystem
 
     // STEP 4: HEMOTHORAX SYNC.
     // Each VISCERAL wound on UPPER_TORSO contributes its bleed rate to one lung.
-    // TODO: Distinguish left/right chest wounds. For now, all chest wounds go left.
     private static void syncHemothorax(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
@@ -260,8 +259,10 @@ public class HealthTickSystem
         // For now, flag pneumo when airML exceeds 20% of max capacity.
         float leftAirFraction = data.getLeftLung().getAirML() / LungData.MAX_AIR_ML;
         float rightAirFraction = data.getRightLung().getAirML() / LungData.MAX_AIR_ML;
-        data.getLeftLung().setTensionPneumothorax(leftAirFraction > 0.20f);
-        data.getRightLung().setTensionPneumothorax(rightAirFraction > 0.20f);
+        if (leftAirFraction  > 0.20f)
+            data.getLeftLung().setTensionPneumothorax(true);
+        if (rightAirFraction > 0.20f)
+            data.getRightLung().setTensionPneumothorax(true);
     }
 
     // STEP 9: SUBSTANCES

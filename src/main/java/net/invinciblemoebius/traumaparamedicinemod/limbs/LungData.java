@@ -74,7 +74,7 @@ public class LungData
         airML = Math.max(0f, airML - ml);
 
         // Small flag to remove tension pneumothorax status if all air is cleared.
-        if (airML < MAX_AIR_ML * 0.1f)
+        if (airML <= MAX_AIR_ML * 0.20f)
             hasTensionPneumothorax = false;
 
         return before - airML;

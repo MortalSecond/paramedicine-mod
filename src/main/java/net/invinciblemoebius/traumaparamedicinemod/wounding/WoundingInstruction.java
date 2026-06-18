@@ -1,5 +1,6 @@
 package net.invinciblemoebius.traumaparamedicinemod.wounding;
 
+import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
@@ -189,7 +190,7 @@ public class WoundingInstruction
 
     public WoundingInstruction atPosition(float u, float v)
     {
-        this.woundPositionU = Math.max(0f, Math.min(1f, u));
+        this.woundPositionU = ((u % ModConstants.WOUND_U_MAX) + ModConstants.WOUND_U_MAX) % ModConstants.WOUND_U_MAX;
         this.woundPositionV = Math.max(0f, Math.min(1f, v));
         return this;
     }
