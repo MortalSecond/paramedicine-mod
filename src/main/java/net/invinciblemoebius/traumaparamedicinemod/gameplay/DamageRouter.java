@@ -11,6 +11,7 @@ import net.invinciblemoebius.traumaparamedicinemod.wounding.WoundingContext;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -237,6 +238,7 @@ public class DamageRouter
         // and damage stuff. In the future, starvation damage, and probably
         // magic will be added once i get those systems going.
         return source.is(DamageTypeTags.IS_DROWNING)
+                || source.is(DamageTypes.FELL_OUT_OF_WORLD)
                 || source.is(DamageTypeTags.IS_FREEZING)
                 || source.is(DamageTypeTags.BYPASSES_ARMOR) && source.is(DamageTypeTags.WITCH_RESISTANT_TO);
     }
