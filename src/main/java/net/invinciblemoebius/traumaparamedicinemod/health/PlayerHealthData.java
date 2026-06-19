@@ -72,7 +72,12 @@ public class PlayerHealthData
     private float heartRateBPM = 72f;
     private float consciousness = 1.0f;
     private float consciousnessTarget = 1.0f;
+    // Immune STRENGTH. This is the regen rate of the immune system.
     private float immunity = 1.0f;
+    // The deployable "resources" of the immune system.
+    private float immuneReserve = ModConstants.IMMUNE_RESERVE_MAX;
+    // Systemic pathogen load.
+    private float bacteremia = 0f;
     private float aggregatedPain = 0f;
     private float overexertionPain = 0f;
     private float stamina = 1.0f;
@@ -504,45 +509,102 @@ public class PlayerHealthData
             markDirty();
     }
 
-    public void tickSepticShock(float dt)
+    public void tickImmuneSystem(float dt)
     {
-        float highestInfection = 0f;
-        for (LimbData limb : limbData.values())
+        // Total demand from reachable, infected wounds + bacteremia.
+        float totalDemand = 0f;
+
+        for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
+            LimbData limb = entry.getValue();
+            if (!limb.hasProximalCirculation(entry.getKey(), limbData))
+                continue;
+
             for (Wound wound : limb.getWounds())
             {
-                if (wound.getInfectionLevel() > highestInfection)
-                {
-                    highestInfection = wound.getInfectionLevel();
-                }
+                float weight = wound.infectionSuceptibility();
+                if (weight <= 0f)
+                    continue;
+                totalDemand += wound.getInfectionLevel() * weight;
             }
         }
 
-        // Entering septic shock.
-        if (highestInfection > 0.70f && immunity < 0.60f)
+        float bacteremiaDemand = bacteremia * ModConstants.BACTEREMIA_SYSTEMIC_WEIGHT;
+        totalDemand += bacteremiaDemand;
+        float deployed = Math.min(immuneReserve, totalDemand);
+
+        // Growth vs. Suppression per wound; seed bacteremia on overflow.
+        for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
-            float severity = (highestInfection - 0.70f) / 0.30f;
+            LimbData limb = entry.getValue();
+            boolean reachable = limb.hasProximalCirculation(entry.getKey(), limbData);
+
+            for (Wound wound : limb.getWounds())
+            {
+                float weight = wound.infectionSuceptibility();
+                if (weight <= 0f)
+                    continue;
+
+                float growth = wound.getContamination() * ModConstants.INFECTION_GROWTH_RATE;
+                float suppress = 0f;
+
+                if (reachable && totalDemand > 0f)
+                {
+                    float demandRate = wound.getInfectionLevel() * weight;
+                    float share = deployed * (demandRate / totalDemand);
+                    suppress = share * ModConstants.IMMUNE_SUPPRESS_EFF;
+                }
+
+                float net = (growth - suppress) * dt;
+                if (net != 0f)
+                    wound.setInfectionLevel(wound.getInfectionLevel() + net);
+
+                // Only a "reachable" wound can spill into the bloodstream.
+                if (reachable && growth > suppress)
+                    bacteremia += (growth - suppress) * weight * ModConstants.BACTEREMIA_SPILL * dt;
+            }
+        }
+
+        // Bacteremia suppression from its own share.
+        if (bacteremiaDemand > 0f && totalDemand > 0f)
+        {
+            float bacteremiaShare = deployed * (bacteremiaDemand / totalDemand);
+            bacteremia -= bacteremiaShare * ModConstants.BACTEREMIA_SUPPRESS_EFF * dt;
+        }
+        bacteremia = Math.max(0f, bacteremia);
+
+        // Reserves. Consume on deployment, regen by strength (and multiply by emergency if septic).
+        float regenMult = (septicShock > 0f) ? ModConstants.SEPSIS_EMERGENCY_REGEN_MULT : 1.0f;
+        float regen = immunity * ModConstants.IMMUNE_REGEN_PER_SECOND * regenMult * dt;
+        float consumption = deployed * ModConstants.IMMUNE_CONSUMPTION * dt;
+
+        immuneReserve = Math.max(0f, Math.min(ModConstants.IMMUNE_RESERVE_MAX, immuneReserve + regen - consumption));
+    }
+
+    public void tickSepticShock(float dt)
+    {
+        boolean reserveExhausted = immuneReserve <= ModConstants.IMMUNE_EXHAUSTION_MIN;
+
+        // Enter/sustain. Bacteria in the blood the reserve can't clean.
+        if (bacteremia >= ModConstants.SEPSIS_ENTER_LOAD && reserveExhausted)
+        {
+            float severity = Math.min(1.0f, (bacteremia - ModConstants.SEPSIS_ENTER_LOAD) / (1.0f - ModConstants.SEPSIS_ENTER_LOAD));
             septicShock = Math.min(1.0f, septicShock + (severity * 0.0002f * dt));
 
-            // Vasodilation. It's divided into the warm phase (under 0.5) and cold phase (over 0.5)
             boolean isWarmPhase = septicShock < 0.50f;
             float targetTone = isWarmPhase ? (1.0f - (septicShock * 0.60f)) : (0.70f - ((septicShock - 0.50f) * 1.0f));
             setVascularTone(Math.max(0.15f, targetTone));
         }
-        // Recovering from septic shock.
-        else if (highestInfection < 0.40f)
+        // Recover only once load drops below the lower threshold.
+        else if (bacteremia < ModConstants.SEPSIS_EXIT_LOAD)
         {
             septicShock = Math.max(0f, septicShock - (0.0001f * dt));
             if (vascularTone < 1.0f)
-            {
-                setVascularTone(Math.min(1.0f, vascularTone + (0.0002f * dt)));
-            }
+                setVascularTone(Math.min(1f, vascularTone + (0.0002f * dt)));
         }
 
         if (septicShock > 0f)
-        {
             markDirty();
-        }
     }
 
     public void tickStamina(boolean isSprinting, boolean justJumped, float dt)
@@ -701,6 +763,16 @@ public class PlayerHealthData
         return immunity;
     }
 
+    public float getImmuneReserve()
+    {
+        return immuneReserve;
+    }
+
+    public float getBacteremia()
+    {
+        return bacteremia;
+    }
+
     public float getAggregatedPain()
     {
         return aggregatedPain;
@@ -831,6 +903,26 @@ public class PlayerHealthData
         }
     }
 
+    public void setImmuneReserve(float v)
+    {
+        float c = Math.max(0f, Math.min(ModConstants.IMMUNE_RESERVE_MAX, v));
+        if (immuneReserve != c)
+        {
+            immuneReserve = c;
+            markDirty();
+        }
+    }
+
+    public void setBacteremia(float v)
+    {
+        float c = Math.max(0f, v);
+        if (bacteremia != c)
+        {
+            bacteremia = c;
+            markDirty();
+        }
+    }
+
     public void setOverexertionPain(float v)
     {
         float c = Math.max(0f, Math.min(1f, v));
@@ -949,6 +1041,8 @@ public class PlayerHealthData
         heartRateBPM = 72f;
         consciousness = 1.0f;
         immunity = 1.0f;
+        immuneReserve = ModConstants.IMMUNE_RESERVE_MAX;
+        bacteremia = 0f;
         stamina = 1.0f;
         energy = 1.0f;
         painShock = 0;
@@ -994,6 +1088,8 @@ public class PlayerHealthData
                                   Temperature = %.1f°C
                                   Consciousness = %.0f%%
                                   Immunity = %.0f%%
+                                  Immune Reserves = %.0f%%
+                                  Bacteremia = %.0f%%
                                   Stamina = %.0f%%
                                   Pain = %.0f%%
                                   Overexertion Pain = %.0f%%
@@ -1012,6 +1108,8 @@ public class PlayerHealthData
                 coreTemperature,
                 consciousness * 100f,
                 immunity * 100f,
+                immuneReserve * 100f,
+                bacteremia * 100f,
                 stamina * 100f,
                 aggregatedPain * 100f,
                 overexertionPain * 100f,
@@ -1044,6 +1142,8 @@ public class PlayerHealthData
         tag.putFloat("PainShock", painShock);
         tag.putFloat("SepticShock", septicShock);
         tag.putFloat("OverexertionPain", overexertionPain);
+        tag.putFloat("ImmuneReserve", immuneReserve);
+        tag.putFloat("Bacteremia", bacteremia);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1091,6 +1191,8 @@ public class PlayerHealthData
         heartRateBPM = tag.getFloat("HeartRateBPM");
         consciousness = tag.getFloat("Consciousness");
         immunity = tag.getFloat("Immunity");
+        immuneReserve = tag.getFloat("ImmuneReserve");
+        bacteremia = tag.getFloat("Bacteremia");
         stamina = tag.getFloat("Stamina");
         energy = tag.getFloat("Energy");
         painShock = tag.getFloat("PainShock");
@@ -1147,22 +1249,24 @@ public class PlayerHealthData
         this.heartRateBPM = other.heartRateBPM;
         this.consciousness = other.consciousness;
         this.immunity = other.immunity;
+        this.immuneReserve = other.immuneReserve;
+        this.bacteremia = other.bacteremia;
         this.stamina = other.stamina;
         this.energy = other.energy;
         this.painShock = other.painShock;
         this.septicShock = other.septicShock;
         this.overexertionPain = other.overexertionPain;
-        this.systolicBP   = other.systolicBP;
-        this.diastolicBP  = other.diastolicBP;
+        this.systolicBP = other.systolicBP;
+        this.diastolicBP = other.diastolicBP;
         this.vascularTone = other.vascularTone;
         this.bloodViscosity = other.bloodViscosity;
-        this.fibrillations  = other.fibrillations;
+        this.fibrillations = other.fibrillations;
         this.fibrillationsForced = other.fibrillationsForced;
         this.fibrillationsForcedTarget = other.fibrillationsForcedTarget;
-        this.respiratoryDrive      = other.respiratoryDrive;
+        this.respiratoryDrive = other.respiratoryDrive;
         this.actualRespiratoryRate = other.actualRespiratoryRate;
-        this.breathReserveSeconds  = other.breathReserveSeconds;
-        this.airwayState           = other.airwayState;
+        this.breathReserveSeconds = other.breathReserveSeconds;
+        this.airwayState = other.airwayState;
 
         for (LimbNode node : LimbNode.values())
         {

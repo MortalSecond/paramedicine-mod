@@ -862,13 +862,24 @@ public enum     Condition
                 }
             },
 
+    BACTEREMIA(ConditionSeverity.MODERATE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float bacteria = data.getBacteremia();
+                    float sepsis = data.getSepticShock();
+                    return bacteria >= 0.02f && sepsis <= 0f;
+                }
+            },
+
     SEPSIS(ConditionSeverity.SEVERE, ObservabilityLevel.DIAGNOSTIC)
             {
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float sepsisLevel = data.getSepticShock();
-                    return sepsisLevel > 0f;
+                    return sepsisLevel > 0f && sepsisLevel < 0.50f;
                 }
             },
 
@@ -901,6 +912,17 @@ public enum     Condition
                 {
                     float immunity = data.getImmunity();
                     return immunity < 0.50f;
+                }
+            },
+
+    IMMUNE_EXHAUSTION(ConditionSeverity.SEVERE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float immuneReserves = data.getImmuneReserve();
+                    float sepsis = data.getSepticShock();
+                    return immuneReserves < ModConstants.IMMUNE_EXHAUSTION_MIN && sepsis <= 0f && hasAnyActiveInfection(data);
                 }
             },
 

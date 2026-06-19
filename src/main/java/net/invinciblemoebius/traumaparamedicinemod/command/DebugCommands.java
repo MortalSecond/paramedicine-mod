@@ -3,6 +3,7 @@ package net.invinciblemoebius.traumaparamedicinemod.command;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
+import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
@@ -45,6 +46,9 @@ public class DebugCommands
                         .then(cmdSetSpO2())
                         .then(cmdTourniquet())
                         .then(cmdLimbStatus())
+                        .then(cmdSetReserve())
+                        .then(cmdSetBacteremia())
+                        .then(cmdInfectWounds())
         );
     }
 
@@ -595,6 +599,101 @@ public class DebugCommands
                                     });
                             return 1;
                         }));
+    }
+
+    // /paramedicine setreserve <0.0 - MAX>
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetReserve()
+    {
+        return Commands.literal("setreserve")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("value", FloatArgumentType.floatArg(0f, ModConstants.IMMUNE_RESERVE_MAX))
+                        .executes(ctx ->
+                        {
+                            float value = FloatArgumentType.getFloat(ctx, "value");
+                            ServerPlayer player = requirePlayer(ctx.getSource());
+                            if (player == null) return 0;
+
+                            player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                            {
+                                data.setImmuneReserve(value);
+                                ctx.getSource().sendSuccess(() -> Component.literal(String.format(
+                                        "[Debug] Immune reserve set to %.2f / %.1f", value, ModConstants.IMMUNE_RESERVE_MAX)), false);
+                                syncToClient(player, data);
+                            });
+                            return 1;
+                        }));
+    }
+
+    // /paramedicine setbacteremia <0.0 - 5.0>
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetBacteremia()
+    {
+        return Commands.literal("setbacteremia")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("value", FloatArgumentType.floatArg(0f, 5f))
+                        .executes(ctx ->
+                        {
+                            float value = FloatArgumentType.getFloat(ctx, "value");
+                            ServerPlayer player = requirePlayer(ctx.getSource());
+                            if (player == null) return 0;
+
+                            player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                            {
+                                data.setBacteremia(value);
+                                ctx.getSource().sendSuccess(() -> Component.literal(String.format(
+                                        "[Debug] Bacteremia set to %.3f", value)), false);
+                                syncToClient(player, data);
+                            });
+                            return 1;
+                        }));
+    }
+
+    // /paramedicine infectwounds <limb> <0.0 - 1.0>
+// Forces infection onto every wound of a limb so the systemic pass has something to chew on.
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdInfectWounds()
+    {
+        return Commands.literal("infectwounds")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("limb", StringArgumentType.word())
+                        .suggests((ctx, builder) ->
+                        {
+                            for (LimbNode n : LimbNode.values())
+                                builder.suggest(n.name());
+                            return builder.buildFuture();
+                        })
+                        .then(Commands.argument("level", FloatArgumentType.floatArg(0f, 1f))
+                                .executes(ctx ->
+                                {
+                                    String limbStr = StringArgumentType.getString(ctx, "limb");
+                                    float  level   = FloatArgumentType.getFloat(ctx, "level");
+
+                                    LimbNode node;
+                                    try { node = LimbNode.valueOf(limbStr.toUpperCase()); }
+                                    catch (IllegalArgumentException e)
+                                    {
+                                        ctx.getSource().sendFailure(Component.literal("Unknown limb node: " + limbStr));
+                                        return 0;
+                                    }
+
+                                    ServerPlayer player = requirePlayer(ctx.getSource());
+                                    if (player == null) return 0;
+
+                                    LimbNode finalNode = node;
+                                    player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                                    {
+                                        var limb = data.getLimb(finalNode);
+                                        int count = 0;
+                                        for (var wound : limb.getWounds())
+                                        {
+                                            wound.setInfectionLevel(level);
+                                            count++;
+                                        }
+                                        int finalCount = count;
+                                        ctx.getSource().sendSuccess(() -> Component.literal(String.format(
+                                                "[Debug] Set infection to %.2f on %d wound(s) in %s.", level, finalCount, finalNode)), false);
+                                        syncToClient(player, data);
+                                    });
+                                    return 1;
+                                })));
     }
 
     // === HELPERS ===

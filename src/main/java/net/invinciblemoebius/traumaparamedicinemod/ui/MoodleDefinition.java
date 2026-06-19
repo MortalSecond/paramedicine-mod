@@ -127,6 +127,7 @@ public class MoodleDefinition
             case HEAT_STROKE ->  new MoodleDefinition("HEAT STROKE", "There is a small furnace inside you. Your brain is quite literally being cooked every second. You need to dip yourself in cold water immediately to prevent further damage.", '▲');
 
             // SYSTEMIC - INFECTION
+            case BACTEREMIA -> new MoodleDefinition("Bacteremia", "Bacteria has breached your bloodstream. Not septic yet, though it is one step closer to it.", '~');
             case INFECTION ->  new MoodleDefinition("Infection", "Bacteria has accumulated near a wound and may need further attention soon.", '~');
             case PAINFUL_INFECTION ->  new MoodleDefinition("Painful Infection", "An infection has become warm and red. It hurts to touch it. Consider antiseptic or mild antibiotics.", '!');
             case SEVERE_INFECTION ->  new MoodleDefinition("Serious Infection", "An infection has become badly swollen and smells terrible. It gives constant waves of pinprick-like stinging pain. You need serious antiobiotics before it reaches your bloodstream.", '‼');
@@ -137,6 +138,7 @@ public class MoodleDefinition
 
             // SYSTEMIC - IMMUNITY
             case IMMUNOCOMPROMISED ->  new MoodleDefinition("Weak Immune System", "Your immune system isn't quite what it used to be. You may have trouble fighting off existing infections, and are more likely to gain them from wounds.", '.');
+            case IMMUNE_EXHAUSTION -> new MoodleDefinition("Immune System Overwhelmed", "Your body is fighting on more fronts than it can supply. Without rest, antibiotics, or fewer open wounds, the infections you're holding back will start to win.", '!');
 
             // SUBSTANCES - OPIATES
             case ANALGESIA ->  new MoodleDefinition("Analgesia", "Opiates in your bloodstream. You feel relaxed and calm.", '↑');

@@ -23,6 +23,8 @@ public class ClientboundSyncHealthPacket
     private final float breathReserveSeconds;
     private final AirwayState airwayState;
     private final float immunity;
+    private final float immuneReserve;
+    private final float bacteremia;
     private final float aggregatedPain;
     private final float coreTemperature;
     private final float consciousness;
@@ -51,6 +53,8 @@ public class ClientboundSyncHealthPacket
             float coreTemperature,
             float consciousness,
             float immunity,
+            float immuneReserve,
+            float bacteremia,
             float aggregatedPain,
             float leftLungCompromise,
             float rightLungCompromise,
@@ -75,6 +79,8 @@ public class ClientboundSyncHealthPacket
         this.coreTemperature = coreTemperature;
         this.consciousness = consciousness;
         this.immunity = immunity;
+        this.immuneReserve = immuneReserve;
+        this.bacteremia = bacteremia;
         this.aggregatedPain = aggregatedPain;
         this.leftLungCompromise = leftLungCompromise;
         this.rightLungCompromise = rightLungCompromise;
@@ -103,6 +109,8 @@ public class ClientboundSyncHealthPacket
                 data.getCoreTemperature(),
                 data.getConsciousness(),
                 data.getImmunity(),
+                data.getImmuneReserve(),
+                data.getBacteremia(),
                 data.getAggregatedPain(),
                 data.getLeftLung().getCompromise(),
                 data.getRightLung().getCompromise(),
@@ -132,6 +140,8 @@ public class ClientboundSyncHealthPacket
         buf.writeFloat(p.coreTemperature);
         buf.writeFloat(p.consciousness);
         buf.writeFloat(p.immunity);
+        buf.writeFloat(p.immuneReserve);
+        buf.writeFloat(p.bacteremia);
         buf.writeFloat(p.aggregatedPain);
         buf.writeFloat(p.leftLungCompromise);
         buf.writeFloat(p.rightLungCompromise);
@@ -159,6 +169,8 @@ public class ClientboundSyncHealthPacket
                 buf.readFloat(),                        // coreTemperature
                 buf.readFloat(),                        // consciousness
                 buf.readFloat(),                        // immunity
+                buf.readFloat(),                        // immuneReserve
+                buf.readFloat(),                        // bacteremia
                 buf.readFloat(),                        // aggregatedPain
                 buf.readFloat(),                        // leftLungCompromise
                 buf.readFloat(),                        // rightLungCompromise
@@ -203,6 +215,8 @@ public class ClientboundSyncHealthPacket
         data.setBreathReserveSecondsClientOnly(p.breathReserveSeconds);
         data.setAirwayState(p.airwayState);
         data.setImmunity(p.immunity);
+        data.setImmuneReserve(p.immuneReserve);
+        data.setBacteremia(p.bacteremia);
         data.setAggregatedPainClientOnly(p.aggregatedPain);
         data.setCoreTemperature(p.coreTemperature);
         data.setConsciousnessClientOnly(p.consciousness);

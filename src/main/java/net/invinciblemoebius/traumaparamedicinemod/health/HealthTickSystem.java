@@ -35,17 +35,18 @@ import java.util.Map;
 // 5. Recompute blood volume.
 // 6. Recompute aggregated pain.
 // 7. Tick pain shock and septic shock.
-// 8. Tick stamina and energy.
-// 9. Tick substances. Applies medical effects, decays concentrations.
-// 10. Recompute respiratory drive.
-// 11. Recompute actual respiratory rate.
-// 12. Tick respiratory rate's effect on oxygenation.
-// 13. Recompute heart rate.
-// 14. Recompute blood pressure.
-// 15. Recompute consciousness.
-// 16. Tick fibrillations.
-// 17. Recompute total health on all limbs.
-// 18. Sync and dispatch the packet if marked dirty.
+// 8. Tick immune system and sepsis progression.
+// 9. Tick stamina and energy.
+// 10. Tick substances. Applies medical effects, decays concentrations.
+// 11. Recompute respiratory drive.
+// 12. Recompute actual respiratory rate.
+// 13. Tick respiratory rate's effect on oxygenation.
+// 14. Recompute heart rate.
+// 15. Recompute blood pressure.
+// 16. Recompute consciousness.
+// 17. Tick fibrillations.
+// 18. Recompute total health on all limbs.
+// 19. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -103,6 +104,7 @@ public class HealthTickSystem
         data.recomputeBloodVolume();
         data.recomputeAgreggatedPain();
         data.tickPainShock(dt);
+        data.tickImmuneSystem(dt);
         data.tickSepticShock(dt);
         data.tickStamina(player.isSprinting(), data.consumeJumpFlag(), dt);
         data.tickEnergy(dt);
@@ -141,8 +143,9 @@ public class HealthTickSystem
                         data.getNutritionLevel()
                 );
 
-                boolean changed = wound.tickAdvance(clottingRate, immunity);
-                if (changed) syncDirty = true;
+                boolean changed = wound.tickAdvance(clottingRate);
+                if (changed)
+                    syncDirty = true;
             }
 
             limb.recomputeRawPain();

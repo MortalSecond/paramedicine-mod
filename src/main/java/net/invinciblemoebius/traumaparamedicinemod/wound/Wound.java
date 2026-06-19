@@ -188,7 +188,7 @@ public class Wound
 
     // === TICK ADVANCEMENT ===
 
-    public boolean tickAdvance(float netClottingRate, float immunityLevel)
+    public boolean tickAdvance(float netClottingRate)
     {
         boolean changed = false;
         ageTicks++;
@@ -208,31 +208,23 @@ public class Wound
             }
         }
 
-        // Infection.
-        changed |= tickInfection(immunityLevel);
-
         // Stage advancement.
         changed |= tickStageProgress(netClottingRate);
 
         return changed;
     }
 
-    private boolean tickInfection(float immunityLevel)
+    public float infectionSuceptibility()
     {
-        boolean changed = false;
-
-        // Contamination drives infection rise, immunity fights it.
-        float riseRate = contamination * 0.0002f;
-        float fallRate = immunityLevel * 0.0003f;
-        float delta = riseRate - fallRate;
-
-        if (delta != 0f)
+        return switch (depth)
         {
-            infectionLevel = Math.max(0f, Math.min(1f, infectionLevel + delta));
-            changed = true;
-        }
-
-        return changed;
+            case SUPERFICIAL -> 0.10f;
+            case DERMAL -> 0.25f;
+            case SUBDERMAL -> 0.50f;
+            case MUSCULAR -> 0.85f;
+            case ARTERIAL -> 1.00f;
+            case VISCERAL -> 0.00f;
+        };
     }
 
     private boolean tickStageProgress(float netClottingRate)
@@ -406,6 +398,7 @@ public class Wound
     public void setIsExit(boolean v) { this.isExit = v; }
     public void setWoundPositionU(float v) { this.woundPositionU = v; }
     public void setWoundPositionV(float v) { this.woundPositionV = v; }
+    public void setInfectionLevel(float v) { infectionLevel = Math.max(0f, Math.min(1f, v)); }
 
     // === SAVING STUFF ===
 
