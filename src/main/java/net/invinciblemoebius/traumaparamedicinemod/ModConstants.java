@@ -16,6 +16,13 @@ public final class ModConstants
     public static final float BLOOD_CRITICAL_HYPOVOLEMIA = 0.30f; // 70% Blood loss, Class 4 hemorrhage.
     public static final float BLOOD_MIN = 0f; // Total exsanguination.
 
+    // BLOOD COMPOSITION
+    public static final float COMP_RESTING_HEMATOCRIT = 0.45f; // Red-cell fraction of resting whole blood.
+    public static final float COMP_HYPERVOLEMIA_CEILING_MULT = 2.0f; // Per-node max.
+    public static final float COMP_PERFUSION_RATE_FACTOR = 0.04f; // Arterial resupply per node.
+    public static final float COMP_VENOUS_RETURN_FACTOR  = 0.04f; // Venous return per node.
+    public static final float COMP_RESTING_REDCELL_MASS = BLOOD_NORMAL * COMP_RESTING_HEMATOCRIT; // 2250ml baseline carrier mass.
+
     // HEART RATE (BPM)
     public static final float BPM_NORMAL_MIN = 60f;
     public static final float BPM_NORMAL_MAX = 100f;

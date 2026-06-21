@@ -6,6 +6,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
+import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -22,10 +23,6 @@ public class PlayerHealthData
     // while above 0.8 means having a healthy nutrient reserve (boost).
     // It's set up like that because nutrition is a clotting multiplier.
     private static final float NUTRITION_PLACEHOLDER = 0.8f;
-    // How thick the blood is. ALWAYS 1.0 UNLESS THERE'S A HYDRATION MOD.
-    // It's a placeholder because, ngl, i don't think there's any hemotoxic mobs in MC.
-    // Over 1.4 value means there's an increased risk of thrombosis and stroke.
-    private float bloodViscosity = 1.0f;
     // This is the long-term fatigue level. Basically sleep debt. It's a placeholder
     // because i don't know how to implement this to Minecraft without forcing the player
     // to go to bed and interrupt their regular gameplay annoyingly. Full sleep system TBD.
@@ -43,6 +40,11 @@ public class PlayerHealthData
     // CARDIOVASCULAR VALUES
     // The blood volume value is DERIVED, this is just cache.
     private float bloodVolume = 5000f;
+    private float systemicHematocrit = ModConstants.COMP_RESTING_HEMATOCRIT;
+    private float redCellFraction = 1.0f;
+    // How thick the blood is. Over 1.4 value means there's an
+    // increased risk of thrombosis and stroke.
+    private float bloodViscosity = 1.0f;
     // Blood pressure. Both values are DERIVED, don't set directly.
     private float systolicBP = 120f;
     private float diastolicBP = 80f;
@@ -55,6 +57,12 @@ public class PlayerHealthData
     // Whether an underlying cause is maintaining fibs
     private boolean fibrillationsForced = false;
     private float fibrillationsForcedTarget = 0.0f;
+
+    // TRANSIENT MODIFIERS
+    // These reset every tick before substances run.
+    private float chronotropicModifier = 0f;
+    private float vascularToneModifier = 0f;
+    private float infectionGrowthModifier = 1f;
 
     // RESPIRATORY VALUES
     // Represents the "urge" to breathe, or how many breaths the body "wants."
@@ -119,6 +127,26 @@ public class PlayerHealthData
         }
     }
 
+    public void recomputeHematocritAndViscosity()
+    {
+        float plasma = 0f;
+        float cells =  0f;
+        for (LimbData limb : limbData.values())
+        {
+            plasma += limb.getPlasmaVolume();
+            cells += limb.getRedCellVolume();
+        }
+        float total = plasma + cells;
+
+        systemicHematocrit = total > 0f ? cells / total : 0f;
+        redCellFraction = cells / ModConstants.COMP_RESTING_REDCELL_MASS;
+
+        // Higher RBC ratio = thicker blood. Higher plasma ratio = thinner blood.
+        // Thick, thick, thick, thick blood, yummy-yum.
+        float v = 0.5f + (systemicHematocrit / ModConstants.COMP_RESTING_HEMATOCRIT) * 0.5f;
+        bloodViscosity = Math.max(0.3f, Math.min(2.0f, v));
+    }
+
     // Really complicated BP math that i REALLY encourage understanding bit-by-bit.
     // I'm not very satisfied with it, but my research didn't turn up any concrete formula.
     // At least, not one that fit Paramedicine's variables. If there's an IRL medic that
@@ -148,10 +176,11 @@ public class PlayerHealthData
         rateModifier = Math.max(0.5f, rateModifier);
 
         // Computation.
-        float newSystolicBP = volumeBasedSystolic * vascularTone * cardiacEfficiency * rateModifier * bloodViscosity;
+        float effectiveTone = Math.max(0.1f, Math.min(3.0f, vascularTone + vascularToneModifier));
+        float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency * rateModifier * bloodViscosity;
 
         // Diastolic widens in vasodilation but narrows during vasoconstriction.
-        float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, vascularTone)));
+        float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, effectiveTone)));
         // Diastolic is proportional to systolic at roughly 0.6 ratio.
         float newDiastolicBP = systolicBP * Math.min(0.85f, pulsePressureRatio);
 
@@ -303,19 +332,14 @@ public class PlayerHealthData
         }
 
         // SpO2 ceiling.
+        float delivery = getOxygenDelivery();
         float spo2Ceiling;
-        if (oxygenSaturation >= ModConstants.SPO2_HYPOXIA)
-        {
+        if (delivery >= ModConstants.SPO2_HYPOXIA)
             spo2Ceiling = 1.0f;
-        }
-        else if (oxygenSaturation <= ModConstants.SPO2_FLOOR)
-        {
+        else if (delivery <= ModConstants.SPO2_FLOOR)
             spo2Ceiling = 0.0f;
-        }
         else
-        {
-            spo2Ceiling = (oxygenSaturation - ModConstants.SPO2_FLOOR) / 0.19f;
-        }
+            spo2Ceiling = (delivery - ModConstants.SPO2_FLOOR) / 0.19f;
 
         // Pain ceiling.
         float painCeiling;
@@ -403,7 +427,7 @@ public class PlayerHealthData
         }
 
         // Computation.
-        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse - tempSuppression;
+        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse - tempSuppression + chronotropicModifier;
         float newBPM = Math.max(0f, Math.min(220f, computed));
 
         if (newBPM != this.heartRateBPM)
@@ -545,7 +569,7 @@ public class PlayerHealthData
                 if (weight <= 0f)
                     continue;
 
-                float growth = wound.getContamination() * ModConstants.INFECTION_GROWTH_RATE;
+                float growth = wound.getContamination() * ModConstants.INFECTION_GROWTH_RATE * getInfectionGrowthModifier();
                 float suppress = 0f;
 
                 if (reachable && totalDemand > 0f)
@@ -653,6 +677,53 @@ public class PlayerHealthData
         }
     }
 
+    // === TRANSIENT METHODS ===
+
+    public void addChronotropicModifier(float dt)
+    {
+        chronotropicModifier += dt;
+    }
+
+    public void addVascularToneModifier(float dt)
+    {
+        vascularToneModifier += dt;
+    }
+
+    public void resetTransientModifiers()
+    {
+        chronotropicModifier = 0f;
+        vascularToneModifier = 0f;
+        infectionGrowthModifier = 1f;
+    }
+
+    public void applyInfectionGrowthModifier(float modifier)
+    {
+        infectionGrowthModifier *= modifier;
+    }
+
+    public void applyAntibioticToReachableWounds(float amountPerWound, boolean deepOnly)
+    {
+        if (amountPerWound <= 0f)
+            return;
+
+        for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
+        {
+            LimbData limb = entry.getValue();
+            if (!limb.hasProximalCirculation(entry.getKey(), limbData))
+                continue;
+
+            for (Wound wound : limb.getWounds())
+            {
+                if (wound.getInfectionLevel() <= 0f)
+                    continue;
+                if (deepOnly && wound.getDepth().ordinal() < WoundDepth.MUSCULAR.ordinal())
+                    continue;
+
+                wound.setInfectionLevel(wound.getInfectionLevel() - amountPerWound);
+            }
+        }
+    }
+
     // === LIMB METHODS ===
 
     public Map<LimbNode, LimbData> getLimbs()
@@ -681,6 +752,16 @@ public class PlayerHealthData
     public float getBloodVolume()
     {
         return bloodVolume;
+    }
+
+    public float getHematocrit()
+    {
+        return systemicHematocrit;
+    }
+
+    public float getRedCellFraction()
+    {
+        return redCellFraction;
     }
 
     public float getSystolicBP()
@@ -731,6 +812,11 @@ public class PlayerHealthData
     public float getOxygenSaturation()
     {
         return oxygenSaturation;
+    }
+
+    public float getOxygenDelivery()
+    {
+        return oxygenSaturation * redCellFraction;
     }
 
     public float getHeartRateBPM()
@@ -806,6 +892,11 @@ public class PlayerHealthData
     public float getOverexertionPain()
     {
         return overexertionPain;
+    }
+
+    public float getInfectionGrowthModifier()
+    {
+        return infectionGrowthModifier;
     }
 
     // Special accessors.
@@ -1029,6 +1120,9 @@ public class PlayerHealthData
         systolicBP = 120f;
         diastolicBP = 80f;
         vascularTone = 1.0f;
+        bloodViscosity = 1.0f;
+        systemicHematocrit = ModConstants.COMP_RESTING_HEMATOCRIT;
+        redCellFraction = 1.0f;
         fibrillations = 0.0f;
         fibrillationsForced = false;
         fibrillationsForcedTarget = 0.0f;
@@ -1062,6 +1156,7 @@ public class PlayerHealthData
 
         recomputeBloodVolume();
         recomputeAgreggatedPain();
+        resetTransientModifiers();
         markDirty();
     }
 
@@ -1074,6 +1169,7 @@ public class PlayerHealthData
                             CARDIOVASCULAR
                                 Blood Volume = %.0fml
                                 Blood Pressure = %d/%d
+                                Blood Viscosity = %.0f
                                 Heart Rate = %.0f BPM
                                 Fibrillations = %.2f%s
                             RESPIRATORY:
@@ -1088,7 +1184,7 @@ public class PlayerHealthData
                                   Temperature = %.1f°C
                                   Consciousness = %.0f%%
                                   Immunity = %.0f%%
-                                  Immune Reserves = %.0f%%
+                                  Immune Reserves = %.0f
                                   Bacteremia = %.0f%%
                                   Stamina = %.0f%%
                                   Pain = %.0f%%
@@ -1098,6 +1194,7 @@ public class PlayerHealthData
                         }""",
                 bloodVolume,
                 (int) systolicBP, (int) diastolicBP,
+                bloodViscosity,
                 heartRateBPM,
                 fibrillations, fibrillationsForced ? "(forced)" : "",
                 oxygenSaturation * 100f,

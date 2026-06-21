@@ -12,6 +12,8 @@ import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
+import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
@@ -49,6 +51,7 @@ public class DebugCommands
                         .then(cmdSetReserve())
                         .then(cmdSetBacteremia())
                         .then(cmdInfectWounds())
+                        .then(cmdGiveSubstance())
         );
     }
 
@@ -648,7 +651,7 @@ public class DebugCommands
     }
 
     // /paramedicine infectwounds <limb> <0.0 - 1.0>
-// Forces infection onto every wound of a limb so the systemic pass has something to chew on.
+    // Forces infection onto every wound of a limb so the systemic pass has something to chew on.
     private static ArgumentBuilder<CommandSourceStack, ?> cmdInfectWounds()
     {
         return Commands.literal("infectwounds")
@@ -694,6 +697,45 @@ public class DebugCommands
                                     });
                                     return 1;
                                 })));
+    }
+
+    // /paramedicine give <type> <ml> <limb>
+    // Drops a substance into a node's LOCAL list.
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdGiveSubstance()
+    {
+        return Commands.literal("give")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("type", StringArgumentType.word())
+                        .suggests((ctx, b) -> { for (SubstanceType t : SubstanceType.values()) b.suggest(t.name()); return b.buildFuture(); })
+                        .then(Commands.argument("ml", FloatArgumentType.floatArg(0.0001f, 5000f))
+                                .then(Commands.argument("limb", StringArgumentType.word())
+                                        .suggests((ctx, b) -> { for (LimbNode n : LimbNode.values()) b.suggest(n.name()); return b.buildFuture(); })
+                                        .executes(ctx ->
+                                        {
+                                            String typeStr = StringArgumentType.getString(ctx, "type");
+                                            float ml = FloatArgumentType.getFloat(ctx, "ml");
+                                            String limbStr = StringArgumentType.getString(ctx, "limb");
+
+                                            SubstanceType type;
+                                            LimbNode node;
+                                            try { type = SubstanceType.valueOf(typeStr.toUpperCase()); }
+                                            catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown substance: " + typeStr)); return 0; }
+                                            try { node = LimbNode.valueOf(limbStr.toUpperCase()); }
+                                            catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown limb: " + limbStr)); return 0; }
+
+                                            ServerPlayer player = requirePlayer(ctx.getSource());
+                                            if (player == null) return 0;
+
+                                            SubstanceType ft = type; LimbNode fn = node;
+                                            player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                                            {
+                                                data.getLimb(fn).addLocalSubstance(new CirculatingSubstance(ft, ml, 5f));
+                                                ctx.getSource().sendSuccess(() -> Component.literal(String.format(
+                                                        "[Debug] Gave %.2fml %s to %s (local).", ml, ft, fn)), false);
+                                                syncToClient(player, data);
+                                            });
+                                            return 1;
+                                        }))));
     }
 
     // === HELPERS ===

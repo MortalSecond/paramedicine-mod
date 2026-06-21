@@ -1,5 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.limbs;
 
+import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
+import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -11,62 +13,70 @@ import java.util.Map;
 
 public class LimbData
 {
-    // === INTEGRITY ===
+    // INTEGRITY
     // Soft tissue integrity. 0.0 = destroyed, 1.0 = healthy.
     private float muscleHealth = 1.0f;
     // Bone integrity. 0.0 = compound fracture, 1.0 = intact.
     private float boneHealth = 1.0f;
     private BoneState boneState = BoneState.INTACT;
-    // === CIRCULATION ===
+    // CIRCULATION
     private boolean isCirculatingProximally = true;
     private boolean isCirculatingDistally = true;
     // Actual amount of blood inside this node's tissue (ml).
-    private float actualBloodVolume;
+    // Now it's divided between plasma and RBCs, at a 45% RBC : 65% plasma ratio.
+    private float plasmaVolume;
+    private float redCellVolume;
     // Ideal healthy amount of blood for this node (ml).
     private final float restingBloodVolume;
     // Maximum amount of blood the node can take before hypervolemia kicks in (ml).
     private final float maxBloodVolume;
     private float perfusionRate;
-    // === WOUNDS ===
+    private float venousReturnRate;
+    // LOCAL SUBSTANCES
+    // Compartmentalized, they only become systemic once they reach the heart.
+    private final List<CirculatingSubstance> localSubstances = new ArrayList<>();
+    // WOUNDS
     private final List<Wound> wounds = new ArrayList<>();
-    // === PAIN ===
+    // PAIN
     private float rawPain = 0.0f;
     // Pain multiplier. 1.0 = Normal sensation, 0.0 = Anesthesized, >1.0 = Hyperalgesia.
     private float sensitivity = 1.0f;
-    // === DERIVED ===
+    // SUMMARIES
     private float totalHealth = 1.0f;
     private boolean syncNeeded = true;
 
     // === CONSTRUCTOR ===
     public LimbData(LimbNode node)
     {
-        float[] volumes = restingAndMaxVolumes(node);
-        this.restingBloodVolume = volumes[0];
-        this.maxBloodVolume = volumes[1];
-        this.actualBloodVolume = volumes[0];
-        this.perfusionRate = restingBloodVolume * 0.04f;
+        float resting = restingVolume(node);
+        this.restingBloodVolume = resting;
+        this.maxBloodVolume = resting * ModConstants.COMP_HYPERVOLEMIA_CEILING_MULT;
+        this.plasmaVolume = resting * (1f - ModConstants.COMP_RESTING_HEMATOCRIT);
+        this.redCellVolume = resting * ModConstants.COMP_RESTING_HEMATOCRIT;
+        this.perfusionRate = resting * ModConstants.COMP_PERFUSION_RATE_FACTOR;
+        this.venousReturnRate = resting * ModConstants.COMP_VENOUS_RETURN_FACTOR;
     }
 
     // Returns the resting and maximum blood volume values for each node.
-    private static float[] restingAndMaxVolumes(LimbNode node)
+    private static float restingVolume(LimbNode node)
     {
         return switch (node)
         {
-            case UPPER_TORSO -> new float[]{1650f, 1950f};
-            case LOWER_TORSO -> new float[]{1100f, 1400f};
-            case GROIN -> new float[]{400f, 550f};
-            case NECK -> new float[]{100f, 160f};
-            case HEAD -> new float[]{350f, 420f};
-            case LEFT_UPPER_ARM, RIGHT_UPPER_ARM -> new float[]{100f, 160f};
-            case LEFT_FOREARM, RIGHT_FOREARM -> new float[]{70f, 120f};
-            case LEFT_HAND, RIGHT_HAND -> new float[]{30f, 60f};
-            case LEFT_UPPER_LEG, RIGHT_UPPER_LEG -> new float[]{300f, 450f};
-            case LEFT_LOWER_LEG, RIGHT_LOWER_LEG -> new float[]{150f, 240f};
-            case LEFT_FOOT, RIGHT_FOOT -> new float[]{50f, 90f};
+            case UPPER_TORSO -> 1650f;
+            case LOWER_TORSO -> 1100f;
+            case GROIN -> 400f;
+            case NECK -> 100f;
+            case HEAD -> 350f;
+            case LEFT_UPPER_ARM, RIGHT_UPPER_ARM -> 100f;
+            case LEFT_FOREARM, RIGHT_FOREARM -> 70f;
+            case LEFT_HAND, RIGHT_HAND -> 30f;
+            case LEFT_UPPER_LEG, RIGHT_UPPER_LEG -> 300f;
+            case LEFT_LOWER_LEG, RIGHT_LOWER_LEG -> 150f;
+            case LEFT_FOOT, RIGHT_FOOT -> 50f;
         };
     }
 
-    // === GRAPH NAVIGATOIN ===
+    // === GRAPH NAVIGATION ===
 
     // Does this node currently receive oxygenated blood from the heart?
     // True ONLY if every node up to the upper chest has isCirculatingDistally = true,
@@ -134,11 +144,6 @@ public class LimbData
         markDirty();
     }
 
-    public float getEffectivePain()
-    {
-        return rawPain * sensitivity;
-    }
-
     // === SUMMARY METHODS ===
 
     // Muscle Health = 50% Weight
@@ -167,14 +172,10 @@ public class LimbData
         markDirty();
     }
 
-    public List<Wound> getWounds()
+    public void addLocalSubstance(CirculatingSubstance substance)
     {
-        return wounds;
-    }
-
-    public boolean hasActiveWounds()
-    {
-        return !wounds.isEmpty();
+        localSubstances.add(substance);
+        markDirty();
     }
 
     // === ACCESSORS ===
@@ -184,13 +185,25 @@ public class LimbData
     public BoneState getBoneState() {return boneState;}
     public boolean isCirculatingProximally() {return isCirculatingProximally;}
     public boolean isCirculatingDistally() {return isCirculatingDistally;}
-    public float getActualBloodVolume() {return actualBloodVolume;}
+    public float getActualBloodVolume() {return plasmaVolume + redCellVolume;}
+    public float getPlasmaVolume() { return plasmaVolume; }
+    public float getRedCellVolume() { return redCellVolume; }
+    public float getHematocrit()
+    {
+        float total = plasmaVolume + redCellVolume;
+        return total > 0f ? redCellVolume / total : 0f;
+    }
+    public float getVenousReturnRate() { return venousReturnRate; }
     public float getRestingBloodVolume() {return restingBloodVolume;}
     public float getMaxBloodVolume() {return maxBloodVolume;}
     public float getPerfusionRate() {return perfusionRate;}
     public float getRawPain() {return rawPain;}
+    public float getEffectivePain() { return rawPain * sensitivity; }
     public float getSensitivity() {return sensitivity;}
     public float getTotalHealth() {return totalHealth;}
+    public List<Wound> getWounds() { return wounds; }
+    public boolean hasActiveWounds() { return !wounds.isEmpty(); }
+    public List<CirculatingSubstance> getLocalSubstances() {return localSubstances;}
 
     public void setMuscleHealth(float v)
     {
@@ -219,10 +232,42 @@ public class LimbData
         if (isCirculatingDistally != v){isCirculatingDistally=v; markDirty();}
     }
 
+    public void setPlasmaVolume(float v)
+    {
+        float c = Math.max(0f, v);
+        if (plasmaVolume != c)
+        {
+            plasmaVolume = c;
+            markDirty();
+        }
+    }
+
+    public void setRedCellVolume(float v)
+    {
+        float c = Math.max(0f, v);
+        if (redCellVolume != c)
+        {
+            redCellVolume = c;
+            markDirty();
+        }
+    }
+
     public void setActualBloodVolume(float v)
     {
-        float c = Math.max(0f, Math.min(maxBloodVolume, v));
-        if (actualBloodVolume != c){actualBloodVolume=c; markDirty();}
+        float target = Math.max(0f, Math.min(maxBloodVolume, v));
+        float current = plasmaVolume + redCellVolume;
+        if (current <= 0f)
+        {
+            plasmaVolume = target * (1f - ModConstants.COMP_RESTING_HEMATOCRIT);
+            redCellVolume = target * ModConstants.COMP_RESTING_HEMATOCRIT;
+        }
+        else
+        {
+            float scale = target / current;
+            plasmaVolume *= scale;
+            redCellVolume *= scale;
+        }
+        markDirty();
     }
 
     public void setSensitivity(float v)
@@ -258,7 +303,9 @@ public class LimbData
         tag.putFloat("RawPain", rawPain);
         tag.putFloat("Sensitivity", sensitivity);
         tag.putFloat("TotalHealth", totalHealth);
-        tag.putFloat("ActualBloodVolume", actualBloodVolume);
+        tag.putFloat("PlasmaVolume", plasmaVolume);
+        tag.putFloat("RedCellVolume", redCellVolume);
+        tag.putFloat("VenousReturnRate", venousReturnRate);
 
         // Wounds serialized as a list of compound tags.
         ListTag woundList = new ListTag();
@@ -269,6 +316,16 @@ public class LimbData
             woundList.add(woundTag);
         }
         tag.put("Wounds", woundList);
+
+        // Substances serialized as a list of compound tags as well.
+        ListTag subList = new ListTag();
+        for (CirculatingSubstance s : localSubstances)
+        {
+            CompoundTag st = new CompoundTag();
+            s.saveToNBT(st);
+            subList.add(st);
+        }
+        tag.put("LocalSubstances", subList);
     }
 
     public void loadFromNBT(CompoundTag tag)
@@ -282,7 +339,9 @@ public class LimbData
         rawPain = tag.getFloat("RawPain");
         sensitivity = tag.getFloat("Sensitivity");
         totalHealth = tag.getFloat("TotalHealth");
-        actualBloodVolume = tag.getFloat("ActualBloodVolume");
+        plasmaVolume = tag.getFloat("PlasmaVolume");
+        redCellVolume = tag.getFloat("RedCellVolume");
+        venousReturnRate = tag.getFloat("VenousReturnRate");
 
         wounds.clear();
         ListTag woundList = tag.getList("Wounds", Tag.TAG_COMPOUND);
@@ -291,6 +350,15 @@ public class LimbData
             Wound wound = new Wound();
             wound.loadFromNBT(woundList.getCompound(i));
             wounds.add(wound);
+        }
+
+        localSubstances.clear();
+        ListTag subList = tag.getList("LocalSubstances", Tag.TAG_COMPOUND);
+        for (int i = 0; i < subList.size(); i++)
+        {
+            CirculatingSubstance s = new CirculatingSubstance();
+            s.loadFromNBT(subList.getCompound(i));
+            localSubstances.add(s);
         }
     }
 
@@ -305,11 +373,23 @@ public class LimbData
         this.rawPain = other.rawPain;
         this.sensitivity = other.sensitivity;
         this.totalHealth = other.totalHealth;
-        this.actualBloodVolume = other.actualBloodVolume;
+        this.plasmaVolume = other.plasmaVolume;
+        this.redCellVolume = other.redCellVolume;
+        this.venousReturnRate = other.venousReturnRate;
 
         this.wounds.clear();
         for (Wound w: other.wounds)
             this.wounds.add(w.copy());
+
+        this.localSubstances.clear();
+        for (CirculatingSubstance s : other.localSubstances)
+        {
+            CirculatingSubstance copy = new CirculatingSubstance();
+            CompoundTag t = new CompoundTag();
+            s.saveToNBT(t);
+            copy.loadFromNBT(t);
+            this.localSubstances.add(copy);
+        }
 
         markDirty();
     }
@@ -326,7 +406,7 @@ public class LimbData
     {
         return String.format(
                 "LimbData{muscle=%.2f, bone=%.2f(%s), blood=%.1fml, pain=%.2f*%.2f, health=%.2f, circ=[P:%b D:%b]}",
-                muscleHealth, boneHealth, boneState, actualBloodVolume, rawPain, sensitivity,
+                muscleHealth, boneHealth, boneState, (plasmaVolume + redCellVolume), rawPain, sensitivity,
                 totalHealth, isCirculatingProximally, isCirculatingDistally
         );
     }
