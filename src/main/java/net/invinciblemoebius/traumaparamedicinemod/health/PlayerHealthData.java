@@ -876,187 +876,48 @@ public class PlayerHealthData
 
     // === ACCESSORS ===
 
-    public float getBloodVolume()
-    {
-        return bloodVolume;
-    }
-
-    public float getHematocrit()
-    {
-        return systemicHematocrit;
-    }
-
-    public float getRedCellFraction()
-    {
-        return redCellFraction;
-    }
-
-    public float getSystolicBP()
-    {
-        return systolicBP;
-    }
-
-    public float getDiastolicBP()
-    {
-        return diastolicBP;
-    }
-
-    public float getVascularTone()
-    {
-        return vascularTone;
-    }
-
-    public float getFibrillations()
-    {
-        return fibrillations;
-    }
-
-    public boolean isFibrillationsForced()
-    {
-        return fibrillationsForced;
-    }
-
-    public float getRespiratoryDrive()
-    {
-        return respiratoryDrive;
-    }
-
-    public float getActualRespiratoryRate()
-    {
-        return actualRespiratoryRate;
-    }
-
-    public float getBreathReserveSeconds()
-    {
-        return breathReserveSeconds;
-    }
-
-    public AirwayState getAirwayState()
-    {
-        return airwayState;
-    }
-
-    public float getOxygenSaturation()
-    {
-        return oxygenSaturation;
-    }
-
-    public float getOxygenDelivery()
-    {
-        return oxygenSaturation * Math.min(1.0f, redCellFraction);
-    }
-
-    public float getHeartRateBPM()
-    {
-        return heartRateBPM;
-    }
-
-    public LungData getLeftLung()
-    {
-        return leftLung;
-    }
-
-    public LungData getRightLung()
-    {
-        return rightLung;
-    }
-
-    public float getCoreTemperature()
-    {
-        return coreTemperature;
-    }
-
-    public float getConsciousness()
-    {
-        return consciousness;
-    }
-
-    public float getImmunity()
-    {
-        return immunity;
-    }
-
-    public float getImmuneReserve()
-    {
-        return immuneReserve;
-    }
-
-    public float getBacteremia()
-    {
-        return bacteremia;
-    }
-
-    public float getAggregatedPain()
-    {
-        return aggregatedPain;
-    }
-
-    public float getNutritionLevel()
-    {
-        return NUTRITION_PLACEHOLDER;
-    }
-
-    public float getStamina()
-    {
-        return stamina;
-    }
-
-    public float getEnergy()
-    {
-        return energy;
-    }
-
-    public float getPainShock()
-    {
-        return painShock;
-    }
-
-    public float getSepticShock()
-    {
-        return septicShock;
-    }
-
-    public float getOverexertionPain()
-    {
-        return overexertionPain;
-    }
-
-    public float getInfectionGrowthModifier()
-    {
-        return infectionGrowthModifier;
-    }
-
-    public float getClottingModifier()
-    {
-        return clottingBoostModifier;
-    }
+    public float getBloodVolume() { return bloodVolume; }
+    public float getHematocrit() { return systemicHematocrit; }
+    public float getRedCellFraction() { return redCellFraction; }
+    public float getSystolicBP() { return systolicBP; }
+    public float getDiastolicBP() { return diastolicBP; }
+    public float getVascularTone() { return vascularTone; }
+    public float getFibrillations() { return fibrillations; }
+    public boolean isFibrillationsForced() { return fibrillationsForced; }
+    public float getRespiratoryDrive() { return respiratoryDrive; }
+    public float getActualRespiratoryRate() { return actualRespiratoryRate; }
+    public float getBreathReserveSeconds() { return breathReserveSeconds; }
+    public AirwayState getAirwayState() { return airwayState; }
+    public float getOxygenSaturation() { return oxygenSaturation; }
+    public float getOxygenDelivery() { return oxygenSaturation * Math.min(1.0f, redCellFraction); }
+    public float getHeartRateBPM() { return heartRateBPM; }
+    public LungData getLeftLung() { return leftLung; }
+    public LungData getRightLung() { return rightLung; }
+    public float getCoreTemperature() { return coreTemperature; }
+    public float getConsciousness() { return consciousness; }
+    public float getImmunity() { return immunity; }
+    public float getImmuneReserve() { return immuneReserve; }
+    public float getBacteremia() { return bacteremia; }
+    public float getAggregatedPain() { return aggregatedPain; }
+    public float getNutritionLevel() { return NUTRITION_PLACEHOLDER; }
+    public float getStamina() { return stamina; }
+    public float getEnergy() { return energy; }
+    public float getPainShock() { return painShock; }
+    public float getSepticShock() { return septicShock; }
+    public float getOverexertionPain() { return overexertionPain; }
+    public float getInfectionGrowthModifier() { return infectionGrowthModifier; }
+    public float getClottingModifier() { return clottingBoostModifier; }
 
     // Special accessors.
-    Map<LimbNode, LimbData> getLimbsInternal()
-    {
-        return limbData;
-    }
-
-    List<CirculatingSubstance> getSubstancesInternal()
-    {
-        return activeSubstances;
-    }
-
-    public List<CirculatingSubstance> getActiveSubstances()
-    {
-        return Collections.unmodifiableList(activeSubstances);
-    }
-
+    Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
+    List<CirculatingSubstance> getSubstancesInternal() { return activeSubstances; }
+    public List<CirculatingSubstance> getActiveSubstances() { return Collections.unmodifiableList(activeSubstances); }
+    public void setJustJumped() { justJumped = true; }
     public boolean consumeJumpFlag()
     {
         if (!justJumped) return false;
         justJumped = false;
         return true;
-    }
-
-    public void setJustJumped()
-    {
-        justJumped = true;
     }
 
     public void setVascularTone(float v)
@@ -1159,65 +1020,18 @@ public class PlayerHealthData
     // === CLIENT-ONLY SETTERS ===
     // These write received packet values directly into cached fields.
 
-    public void setBloodVolumeClientOnly(float v)
-    {
-        bloodVolume = v;
-    }
-
-    public void setHeartRateBPMClientOnly(float v)
-    {
-        heartRateBPM = v;
-    }
-
-    public void setSystolicBPClientOnly(float v)
-    {
-        systolicBP = v;
-    }
-
-    public void setDiastolicBPClientOnly(float v)
-    {
-        diastolicBP = v;
-    }
-
-    public void setActualRespiratoryRateClientOnly(float v)
-    {
-        actualRespiratoryRate = v;
-    }
-
-    public void setBreathReserveSecondsClientOnly(float v)
-    {
-        breathReserveSeconds = v;
-    }
-
-    public void setConsciousnessClientOnly(float v)
-    {
-        consciousness = v;
-    }
-
-    public void setStamina(float v)
-    {
-        stamina = v;
-    }
-
-    public void setEnergy(float v)
-    {
-        energy = v;
-    }
-
-    public void setPainShock(float v)
-    {
-        painShock = v;
-    }
-
-    public void setSepticShock(float v)
-    {
-        septicShock = v;
-    }
-
-    public void setAggregatedPainClientOnly(float v)
-    {
-        aggregatedPain = v;
-    }
+    public void setBloodVolumeClientOnly(float v) { bloodVolume = v; }
+    public void setHeartRateBPMClientOnly(float v) { heartRateBPM = v; }
+    public void setSystolicBPClientOnly(float v) { systolicBP = v; }
+    public void setDiastolicBPClientOnly(float v) { diastolicBP = v; }
+    public void setActualRespiratoryRateClientOnly(float v) { actualRespiratoryRate = v; }
+    public void setBreathReserveSecondsClientOnly(float v) { breathReserveSeconds = v; }
+    public void setConsciousnessClientOnly(float v) { consciousness = v; }
+    public void setStamina(float v) { stamina = v; }
+    public void setEnergy(float v) { energy = v; }
+    public void setPainShock(float v) { painShock = v; }
+    public void setSepticShock(float v) { septicShock = v; }
+    public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
 
     // === PACKET SYNC STUFF ===
 
