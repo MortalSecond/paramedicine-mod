@@ -11,26 +11,28 @@ import javax.annotation.Nullable;
 // Essentially to make SubstanceType be more readable and exercise good separation of concerns.
 public class SubstanceEffects
 {
-    private float painMin, painMax, painStrength, painLerp;
+    private float painUnderdose, painTherapeutic, painStrength, painLerp;
     private boolean painLocalOnly = false;
-    private float respThreshold, respCoefficient;
-    private float plasmaFraction = 0f;
-    private float redCellFraction = 0f;
-    private float chronoMin, chronoMax, chronoMaxDelta;
+    private float respUnderdose, respTherapeutic, respTherapeuticFloor;
+    private float respToxicThreshold, respToxicCoefficient;
+    private float plasmaFraction = 0f, redCellFraction = 0f;
+    private float chronoUnderdose, chronoTherapeutic, chronoTherapeuticDelta;
+    private float chronoToxicThreshold, chronoToxicCoefficient;
     private float vasoDeltaPerUnit = 0f;
-    private float reversalLerp = 0f;
-    private float reversalSpo2PerUnit = 0f;
+    private float reversalUnderdose, reversalTherapeutic, reversalLerp, reversalSpo2PerUnit;
     private float woundInfectionKill = 0f;
     private boolean woundDeepOnly = false;
     private float infectionGrowthMult = 1f;
     private float bacteremiaKill = 0f;
+    private float clottingBoost = 1f;
+    private float clotUnderdose, clotTherapeutic;
 
     // === CONFIGURATION METHODS ===
 
-    public SubstanceEffects reducesPain(float min, float max, float strength, float lerp)
+    public SubstanceEffects reducesPain(float underdose, float therapeutic, float strength, float lerp)
     {
-        painMin = min;
-        painMax = max;
+        painUnderdose = underdose;
+        painTherapeutic = therapeutic;
         painStrength = strength;
         painLerp = lerp;
         return this;
@@ -42,10 +44,13 @@ public class SubstanceEffects
         return this;
     }
 
-    public SubstanceEffects respiratoryDepression(float threshold, float coefficient)
+    public SubstanceEffects suppressesRespiration(float underdose, float therapeutic, float therapeuticFloor, float toxicThreshold, float toxicCoefficient)
     {
-        respThreshold = threshold;
-        respCoefficient = coefficient;
+        respUnderdose = underdose;
+        respTherapeutic = therapeutic;
+        respTherapeuticFloor = therapeuticFloor;
+        respToxicThreshold = toxicThreshold;
+        respToxicCoefficient = toxicCoefficient;
         return this;
     }
 
@@ -54,37 +59,40 @@ public class SubstanceEffects
         plasmaFraction = fraction;
         return this;
     }
-
     public SubstanceEffects increasesRedCells(float fraction)
     {
         redCellFraction = fraction;
         return this;
     }
 
-    public SubstanceEffects chronotropic(float min, float max, float maxBPMDelta)
+    public SubstanceEffects chronotropic(float underdose, float therapeutic, float therapeuticDelta, float toxicThreshold, float toxicCoefficient)
     {
-        chronoMin = min;
-        chronoMax = max;
-        chronoMaxDelta = maxBPMDelta;
+        chronoUnderdose = underdose;
+        chronoTherapeutic = therapeutic;
+        chronoTherapeuticDelta = therapeuticDelta;
+        chronoToxicThreshold = toxicThreshold;
+        chronoToxicCoefficient = toxicCoefficient;
         return this;
     }
 
-    public SubstanceEffects vasoactive(float vascularToneDeltaPerUnit)
+    public SubstanceEffects vasoactive(float toneDeltaPerUnit)
     {
-        vasoDeltaPerUnit = vascularToneDeltaPerUnit;
+        vasoDeltaPerUnit = toneDeltaPerUnit;
         return this;
     }
 
-    public SubstanceEffects reversesOpioidEffects(float lerp, float spo2PerUnit)
+    public SubstanceEffects reversesOpioidEffects(float underdose, float therapeutic, float lerp, float spo2PerUnit)
     {
+        reversalUnderdose = underdose;
+        reversalTherapeutic = therapeutic;
         reversalLerp = lerp;
         reversalSpo2PerUnit = spo2PerUnit;
         return this;
     }
 
-    public SubstanceEffects reducesWoundInfection(float perSecAtFullConcentration, boolean deepOnly)
+    public SubstanceEffects reducesWoundInfection(float perSecAtFullConc, boolean deepOnly)
     {
-        woundInfectionKill = perSecAtFullConcentration;
+        woundInfectionKill = perSecAtFullConc;
         woundDeepOnly = deepOnly;
         return this;
     }
@@ -95,9 +103,17 @@ public class SubstanceEffects
         return this;
     }
 
-    public SubstanceEffects reducesBacteremia(float perSecAtFullConcentration)
+    public SubstanceEffects reducesBacteremia(float perSecAtFullConc)
     {
-        bacteremiaKill = perSecAtFullConcentration;
+        bacteremiaKill = perSecAtFullConc;
+        return this;
+    }
+
+    public SubstanceEffects boostsClotting(float maxMultiplier, float underdose, float therapeutic)
+    {
+        clottingBoost = maxMultiplier;
+        clotUnderdose = underdose;
+        clotTherapeutic = therapeutic;
         return this;
     }
 
@@ -109,37 +125,39 @@ public class SubstanceEffects
 
         if (painStrength > 0f)
             applyPain(concentration, dt, data, locationLimb);
-        if (respCoefficient > 0f && systemic)
-            applyRespDepression(concentration, dt, data);
+        if (respTherapeuticFloor > 0f || respToxicCoefficient > 0f)
+            applyRespiratorySuppression(concentration, data);
         if (plasmaFraction > 0f || redCellFraction > 0f)
             applyBulkFluid(eliminatedThisTick, locationLimb, data);
-        if (chronoMaxDelta != 0f && systemic)
-            data.addChronotropicModifier(therapeuticCurve(concentration, chronoMin, chronoMax) * chronoMaxDelta);
+        if (chronoTherapeuticDelta != 0f && systemic)
+            applyChronotropic(concentration, data);
         if (vasoDeltaPerUnit != 0f && systemic)
             data.addVascularToneModifier(vasoDeltaPerUnit * concentration);
         if (reversalLerp > 0f)
             applyReversal(concentration, dt, data);
         if (woundInfectionKill > 0f && systemic)
             data.applyAntibioticToReachableWounds(woundInfectionKill * concentration * dt, woundDeepOnly);
-        if (infectionGrowthMult > 0f && systemic)
+        if (infectionGrowthMult < 1f && systemic)
             data.applyInfectionGrowthModifier(infectionGrowthMult);
         if (bacteremiaKill > 0f && systemic)
-            data.setBacteremia(data.getBacteremia() - bacteremiaKill *  concentration * dt);
+            data.setBacteremia(data.getBacteremia() - bacteremiaKill * concentration * dt);
+        if (clottingBoost > 1f && systemic)
+            applyClottingBoost(concentration, data);
     }
 
-    private void applyPain(float concentration, float dt, PlayerHealthData data, @Nullable LimbData loc)
+    private void applyPain(float concentration, float dt, PlayerHealthData data, @Nullable LimbData location)
     {
-        float relief = therapeuticCurve(concentration, painMin, painMax) * painStrength;
+        float relief = therapeuticCurve(concentration, painUnderdose, painTherapeutic) * painStrength;
         if (relief <= 0f)
             return;
 
         if (painLocalOnly)
         {
-            if (loc == null)
+            if (location == null)
                 return;
 
-            float current = loc.getSensitivity();
-            loc.setSensitivity(lerp(current, Math.max(0f, current - relief), dt * painLerp));
+            float current = location.getSensitivity();
+            location.setSensitivity(lerp(current, Math.max(0f, current - relief), dt * painLerp));
         }
         else
         {
@@ -151,13 +169,22 @@ public class SubstanceEffects
         }
     }
 
-    private void applyRespDepression(float concentration, float dt, PlayerHealthData data)
+    // Writes a ceiling to actual respiratory rate.
+    // Therapeutic zone: ceiling lerps from 1.0 to therapeuticFloor (survivable slow breathing).
+    // Toxic zone: ceiling continues past the floor toward 0 (apnea). No lower bound.
+    // Effect is systemic: a substance in a local limb has no respiratory effect until it migrates.
+    private void applyRespiratorySuppression(float concentration, PlayerHealthData data)
     {
-        if (concentration <= respThreshold)
-            return;
+        // Therapeutic suppression. Lowers ceiling from 1.0 to therapeuticFloor.
+        float potency = therapeuticCurve(concentration, respUnderdose, respTherapeutic);
+        float ceiling = 1.0f - potency * (1.0f - respTherapeuticFloor);
 
-        float excess = concentration - respThreshold;
-        data.setOxygenSaturation(data.getOxygenSaturation() - (excess * excess * respCoefficient * dt));
+        // Toxic tail. No floor. Past the threshold, ceiling keeps falling toward 0.
+        float toxicExcess = Math.max(0f, concentration - respToxicThreshold);
+        ceiling -= toxicExcess * respToxicCoefficient;
+        ceiling = Math.max(0f, ceiling);
+
+        data.applyRespiratorySuppression(ceiling);
     }
 
     // UHHHH. Let me explain this one.
@@ -167,12 +194,12 @@ public class SubstanceEffects
     // so the 'unused' saline (or any bulk in general) vanishes overtime.
     // So, the increasePlasma/RBC methods take in the FRACTION of which this substance
     // will actually become plasma, then the rest gets voided.
-    private void applyBulkFluid(float eliminated, @Nullable LimbData loc, PlayerHealthData data)
+    private void applyBulkFluid(float eliminated, @Nullable LimbData location, PlayerHealthData data)
     {
         if (eliminated <= 0f)
             return;
 
-        LimbData target = (loc != null) ? loc : data.getLimb(LimbNode.UPPER_TORSO);
+        LimbData target = (location != null) ? location : data.getLimb(LimbNode.UPPER_TORSO);
         if (target == null)
             return;
 
@@ -182,32 +209,51 @@ public class SubstanceEffects
             target.setRedCellVolume(target.getRedCellVolume() + eliminated * redCellFraction);
     }
 
+    private void applyChronotropic(float concentration, PlayerHealthData data)
+    {
+        float therapeutic = therapeuticCurve(concentration, chronoUnderdose, chronoTherapeutic) * chronoTherapeuticDelta;
+        float toxicExcess = Math.max(0f, concentration - chronoToxicThreshold);
+        float toxic = toxicExcess * chronoToxicCoefficient;
+        data.addChronotropicModifier(therapeutic + toxic);
+    }
+
+    // Reversal: uses its own therapeutic curve so a proper dose produces full reversal potency.
     private void applyReversal(float concentration, float dt, PlayerHealthData data)
     {
-        if (concentration < 0.0001f)
+        float potency = therapeuticCurve(concentration, reversalUnderdose, reversalTherapeutic);
+        if (potency <= 0f)
             return;
+
+        // Lifts respiratory suppression by pushing a high ceiling.
+        // This races against whatever opioid is still present.
+        data.applyRespiratorySuppression(lerp(1.0f, 0.8f, 1.0f - potency)); // approaches 1.0 (no suppression).
 
         data.getLimbs().values().forEach(limb ->
         {
             float current = limb.getSensitivity();
-            if (current < 1.0f)
-                limb.setSensitivity(lerp(current, 1.0f, concentration * dt * reversalLerp));
+            if (current < 1.0f) limb.setSensitivity(lerp(current, 1.0f, potency * dt * reversalLerp));
         });
 
         if (reversalSpo2PerUnit > 0f)
-            data.setOxygenSaturation(Math.min(data.getOxygenSaturation() + concentration * reversalSpo2PerUnit * dt, ModConstants.SPO2_NORMAL));
+            data.setOxygenSaturation(Math.min(data.getOxygenSaturation() + potency * reversalSpo2PerUnit * dt, ModConstants.SPO2_NORMAL));
+    }
+
+    private void applyClottingBoost(float concentration, PlayerHealthData data)
+    {
+        float potency = therapeuticCurve(concentration, clotUnderdose, clotTherapeutic);
+        data.applyClottingModifier(1f + (clottingBoost - 1f) * potency);
     }
 
     // === HELPER METHODS ===
 
-    private static float therapeuticCurve(float concentration, float min, float max)
+    private static float therapeuticCurve(float concentration, float underdose, float therapeutic)
     {
-        if (concentration <= min)
+        if (concentration <= underdose)
             return 0f;
-        if (concentration >= max)
+        if (concentration >= therapeutic)
             return 1f;
 
-        return (concentration - min) / (max - min);
+        return (concentration - underdose) / (therapeutic - underdose);
     }
 
     private static float lerp(float a, float b, float t)

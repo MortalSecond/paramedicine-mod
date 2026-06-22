@@ -80,6 +80,18 @@ public class LungData
         return before - airML;
     }
 
+    // Hemos clear up on their own.
+    public void decayBlood(float mlPerSecond, float dt)
+    {
+        bloodML = Math.max(0f, bloodML - (mlPerSecond * dt));
+    }
+
+    // Pneumos clear up on their own.
+    public void decayAir(float mlPerSecond, float dt)
+    {
+        airML = Math.max(0f, airML - (mlPerSecond * dt));
+    }
+
     // Aspirated fluid clears on its own overtime.
     public void decayFluid(float mlPerSecond, float dt)
     {

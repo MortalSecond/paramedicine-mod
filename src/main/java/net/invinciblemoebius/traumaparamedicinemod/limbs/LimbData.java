@@ -100,7 +100,7 @@ public class LimbData
 
     // === TICK METHODS ===
 
-    public float computeNetBleedRate(LimbNode self, Map<LimbNode, LimbData> allLimbs, float coreTemp, float spo2, float nutritionLevel)
+    public float computeNetBleedRate(LimbNode self, Map<LimbNode, LimbData> allLimbs, float coreTemp, float spo2, float nutritionLevel, float systemicFactor)
     {
         // Edge case for when there's no wounds.
         if (wounds.isEmpty()) return 0f;
@@ -112,7 +112,7 @@ public class LimbData
         for (Wound wound: wounds)
         {
             totalBleed += wound.getBleedRateML();
-            totalClotting += wound.computeClottingRate(coreTemp, spo2, nutritionLevel);
+            totalClotting += wound.computeClottingRate(coreTemp, spo2, nutritionLevel, systemicFactor);
         }
 
         return Math.max(0f, totalBleed - totalClotting);

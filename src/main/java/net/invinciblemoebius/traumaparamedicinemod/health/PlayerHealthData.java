@@ -63,6 +63,8 @@ public class PlayerHealthData
     private float chronotropicModifier = 0f;
     private float vascularToneModifier = 0f;
     private float infectionGrowthModifier = 1f;
+    private float clottingBoostModifier = 1.0f;
+    private float respiratorySuppressionCeiling = 1.0f;
 
     // RESPIRATORY VALUES
     // Represents the "urge" to breathe, or how many breaths the body "wants."
@@ -175,9 +177,20 @@ public class PlayerHealthData
         }
         rateModifier = Math.max(0.5f, rateModifier);
 
+        // High BPM Response. Diastolic filling collapse.
+        // Past 220 BPM, actual filling efficiency fails linearly
+        // until only 15% efficiency at 280 BPM.
+        float fillingEfficiency = 1.0f;
+        if (heartRateBPM > 200f)
+            fillingEfficiency = Math.max(0.15f, 1.0f - ((heartRateBPM - 200f) / 80f) * 0.85f);
+
+        // Pain response. Up to 15% systolic at max pain..
+        float painPressor = 1.0f + (aggregatedPain * 0.15f);
+
         // Computation.
         float effectiveTone = Math.max(0.1f, Math.min(3.0f, vascularTone + vascularToneModifier));
-        float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency * rateModifier * bloodViscosity;
+        float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency
+                * rateModifier * bloodViscosity * painPressor * fillingEfficiency;
 
         // Diastolic widens in vasodilation but narrows during vasoconstriction.
         float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, effectiveTone)));
@@ -198,9 +211,10 @@ public class PlayerHealthData
 
         // Hypoxia response. Up to +20 breaths per minute under severe hypoxia.
         float hypoxiaResponse = 0f;
-        if (oxygenSaturation < ModConstants.SPO2_HYPOXIA)
+        float delivery = getOxygenDelivery();
+        if (delivery < ModConstants.SPO2_HYPOXIA)
         {
-            float deficit = (ModConstants.SPO2_HYPOXIA - oxygenSaturation) / (ModConstants.SPO2_HYPOXIA - ModConstants.SPO2_FLOOR);
+            float deficit = (ModConstants.SPO2_HYPOXIA - delivery) / (ModConstants.SPO2_HYPOXIA - ModConstants.SPO2_FLOOR);
             hypoxiaResponse = deficit * 20f;
         }
 
@@ -208,9 +222,12 @@ public class PlayerHealthData
         float bloodResponse = 0f;
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         if (bloodFraction < ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
-        {
-            bloodResponse = (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - bloodFraction) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA * 0.14f;
-        }
+            bloodResponse = (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - bloodFraction) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA * 10f;
+
+        // Sepsis/fever response. Up to +10 breaths per minute.
+        float sepsisResponse = septicShock * 8f;
+        boolean hasFever = coreTemperature > ModConstants.TEMP_FEVER;
+        float feverResponse = hasFever ? Math.min(6f, (coreTemperature - ModConstants.TEMP_FEVER) * 3f) : 0f;
 
         // Pain response. Up to +8 breaths per miunte.
         float painResponse = aggregatedPain * 8f;
@@ -220,7 +237,9 @@ public class PlayerHealthData
         if (stamina < 0.70f)
             exertionResponse = ((0.70f - stamina) / 0.70f) * 14f;
 
-        float newDrive = Math.min(35f, base + hypoxiaResponse + bloodResponse + painResponse + exertionResponse);
+        float newDrive = Math.min(40f, base + hypoxiaResponse + bloodResponse + painResponse
+                + exertionResponse + sepsisResponse + feverResponse);
+        newDrive = Math.max(0f, newDrive);
 
         if (newDrive != respiratoryDrive)
         {
@@ -270,20 +289,23 @@ public class PlayerHealthData
         // Forced zero conditions.
         boolean forcedZero = isUnderwater || airwayState == AirwayState.FULLY_OBSTRUCTED;
 
-        float maxRate = respiratoryDrive * Math.min(airwayCeiling, Math.min(lungCeiling, consciousnessCeiling));
+        float maxRate = respiratoryDrive * Math.min(
+                Math.min(airwayCeiling, lungCeiling),
+                Math.min(consciousnessCeiling, respiratorySuppressionCeiling));
 
         if (forcedZero)
-        {
             actualRespiratoryRate = 0f;
+        else
+            actualRespiratoryRate = maxRate;
 
+        if (actualRespiratoryRate < 4f)
+        {
             // Drain breath reserve.
             float drainRate = respiratoryDrive / ModConstants.RESPIRATORY_NORMAL;
             breathReserveSeconds = Math.max(0f, breathReserveSeconds - (drainRate * dt));
         }
         else
         {
-            actualRespiratoryRate = maxRate;
-
             // Replenish breath reserve when breathing normally. Five seconds of recovery at a normal rate.
             float replenishRate = (actualRespiratoryRate / ModConstants.RESPIRATORY_NORMAL) * 5f;
             breathReserveSeconds = Math.min(BREATH_RESERVE_MAX, breathReserveSeconds + (replenishRate * dt));
@@ -303,8 +325,7 @@ public class PlayerHealthData
             sum += limb.getEffectivePain();
         }
 
-        // Clamping it because, in theory, many small wounds together could go above 1.0.
-        this.aggregatedPain = Math.min(1.0f, sum + overexertionPain);
+        this.aggregatedPain = Math.min(2.0f, sum + overexertionPain);
     }
 
     // Computes the target consciousness from the current systemic state,
@@ -319,17 +340,21 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         float bloodCeiling;
         if (bloodFraction >= ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
-        {
             bloodCeiling = 1.0f;
-        }
         else if (bloodFraction <= ModConstants.BLOOD_SEVERE_HYPOVOLEMIA)
-        {
             bloodCeiling = 0.0f;
-        }
         else
-        {
             bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA);
-        }
+
+        // Blood pressure ceiling.
+        float map = diastolicBP + (systolicBP - diastolicBP) / 3f;
+        float bpCeiling;
+        if (map >= 70f)
+            bpCeiling = 1.0f;
+        else if (map <= 30f)
+            bpCeiling = 0.0f;
+        else
+            bpCeiling = (map - 30f) / 40f;
 
         // SpO2 ceiling.
         float delivery = getOxygenDelivery();
@@ -352,6 +377,16 @@ public class PlayerHealthData
             painCeiling = 1.0f - ((aggregatedPain - 0.70f) / 0.30f) * 0.40f;
         }
 
+        // Temperature ceiling.
+        float tempCeiling = 1.0f;
+        if (coreTemperature < ModConstants.TEMP_HYPOTHERMIA)
+            tempCeiling = Math.max(0.0f, (coreTemperature - 28.0f) / (ModConstants.TEMP_HYPOTHERMIA - 28.0f));
+        else if (coreTemperature > ModConstants.TEMP_HEAT_STROKE)
+            tempCeiling = Math.max(0.2f, 1.0f - ((coreTemperature - ModConstants.TEMP_HEAT_STROKE) / 3.0f));
+
+        // Sepsis ceiling.
+        float sepsisCeiling = 1.0f - (septicShock * 0.5f);
+
         // Brain damage ceiling.
         LimbData headNode = limbData.get(LimbNode.HEAD);
         float brainCeiling = (headNode != null) ? headNode.getTotalHealth() : 1.0f;
@@ -361,21 +396,16 @@ public class PlayerHealthData
 
         // Lowest ceiling wins.
         consciousnessTarget = Math.min(
-                Math.min(bloodCeiling, spo2Ceiling),
-                Math.min(painCeiling,
-                        Math.min(brainCeiling, shockCeiling)));
+                Math.min(Math.min(bloodCeiling, spo2Ceiling), Math.min(painCeiling, brainCeiling)),
+                Math.min(Math.min(shockCeiling, sepsisCeiling), Math.min(tempCeiling, bpCeiling)));
 
         // Apply inertia.
         float inertiaRate = 0.001f;
         float before = consciousness;
         if (consciousness < consciousnessTarget)
-        {
             consciousness = Math.min(consciousnessTarget, consciousness + inertiaRate);
-        }
         else if (consciousness > consciousnessTarget)
-        {
             consciousness = Math.max(consciousnessTarget, consciousness - inertiaRate);
-        }
 
         if (consciousness != before)
             markDirty();
@@ -394,9 +424,7 @@ public class PlayerHealthData
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
         float bloodResponse = 0f;
         if (bloodFraction < 1.0f)
-        {
             bloodResponse = (1.0f - Math.max(ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA, bloodFraction)) / 0.70f * 80f;
-        }
 
         // Pain-driven sympathetic response.
         // Scales to +30 BPM at maxiumum normal pain.
@@ -405,36 +433,60 @@ public class PlayerHealthData
         // Hypoxia compensation.
         // Scales to +40 BPM when critically hypoxic.
         float spo2Response = 0f;
-        if (oxygenSaturation < ModConstants.SPO2_HYPOXIA)
-        {
-            spo2Response = (ModConstants.SPO2_HYPOXIA - oxygenSaturation) / 0.19f * 40f;
-        }
+        float delivery = getOxygenDelivery();
+        if (delivery < ModConstants.SPO2_HYPOXIA)
+            spo2Response = (ModConstants.SPO2_HYPOXIA - delivery) / 0.19f * 40f;
 
         // Exertion from stamina depletion.
         // Up to +50 BPM at zero stamina.
         float staminaResponse = 0f;
         if (stamina < 0.80f)
-        {
             staminaResponse = ((0.80f - stamina) / 0.80f) * 50f;
-        }
+
+        // Sepsis tachycardia.
+        // Up to +35 BPM at full septic shock.
+        float sepsisResponse = septicShock * 35f;
 
         // Hypothermia suppression.
         // Scales down to -40 BPM when hypothermic.
         float tempSuppression = 0f;
         if (coreTemperature < ModConstants.TEMP_HYPOTHERMIA)
-        {
             tempSuppression = (ModConstants.TEMP_HYPOTHERMIA - coreTemperature) / 7.0f * 40f;
-        }
+
+        // Baroreflex, blood pressure response.
+        // High BP slows BPM, low BP increases BPM.
+        float bloodPressureResponse = 0f;
+        float normalSystolic = 120f;
+        bloodPressureResponse = -((systolicBP - normalSystolic) / normalSystolic) * 40f;
+        bloodPressureResponse = Math.max(-25f, Math.min(25f, bloodPressureResponse));
 
         // Computation.
-        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse - tempSuppression + chronotropicModifier;
-        float newBPM = Math.max(0f, Math.min(220f, computed));
+        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse
+                + sepsisResponse - tempSuppression + chronotropicModifier;
+        // This little edge case exists because baroreflex was making BPM go lower when
+        // given low doses of epi. Now, it's not totally wrong since IRL it can happen,
+        // but it's very counterintuitive.
+        if (chronotropicModifier <= 0f)
+            computed += bloodPressureResponse;
+
+        float newBPM = Math.max(0f, Math.min(300f, computed));
 
         if (newBPM != this.heartRateBPM)
         {
             this.heartRateBPM = newBPM;
             markDirty();
         }
+    }
+
+    // Systemic multiplier on every wound's clotting rate. Consolidates coagulopathy
+    // that's for the most part system-wide rather than per-wound.
+    public float computeSystemicClottingFactor()
+    {
+        // Hemodilution penalty. Viscosity below 1.0 means thin, watery blood.
+        // Thick blood gets, at most, a 20% bonus to clotting.
+        float dilutionFactor = Math.min(1.2f, bloodViscosity);
+
+        return clottingBoostModifier * dilutionFactor;
     }
 
     // === DIRECT SETTERS ===
@@ -496,17 +548,75 @@ public class PlayerHealthData
         }
     }
 
+    public void tickCoreTemperature(float dt)
+    {
+        float target = 36.8f;
+
+        // Fever from infection/sepsis.
+        // Up to +2.5°C.
+        float infectionLoad = Math.max(septicShock, bacteremia * 0.3f);
+        target += infectionLoad * 2.5f;
+
+        // Shock cools the core. It's that clammy, cold sweat.
+        // Up to -2°C.
+        float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
+        if (bloodFraction < ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
+            target -= ((ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - bloodFraction) / ModConstants.BLOOD_MODERATE_HYPOVOLEMIA) * 2.0f;
+
+        // Exertion warms the core slightly.
+        // Up to +0.5°C.
+        if (stamina < 0.5f)
+            target += (0.5f - stamina) * 1.0f;
+
+        // Slow drift towards target.
+        // Mind that temp changes are much slower compared to the other systemic values.
+        // About 0.02°C/sec or 1.2°C/min at full gap.
+        float driftRate = 0.02f * dt;
+        if (coreTemperature < target)
+            setCoreTemperature(Math.min(target, coreTemperature + driftRate));
+        else if (coreTemperature > target)
+            setCoreTemperature(Math.max(target, coreTemperature - driftRate));
+    }
+
     public void tickFibrillations()
     {
-        if (!fibrillationsForced) return;
-        if (fibrillations >= fibrillationsForcedTarget) return;
+        float dt = ModConstants.SECONDS_PER_TICK;
+
+        // High BPM stress. Extreme tachy degrades rhythm quality.
+        // Only above 200 BPM, to kinda emulate SVT becoming VT.
+        float stressAccrual = 0f;
+        if (heartRateBPM > 200f)
+            stressAccrual += ((heartRateBPM - 200f) / 20f) * 0.08f * dt;
+
+        // Severe hypoxia degradation.
+        float delivery = getOxygenDelivery();
+        if (delivery < ModConstants.SPO2_CRITICAL)
+            stressAccrual += ((ModConstants.SPO2_CRITICAL - delivery) / 0.25f) * 0.010f * dt;
+
+        // Hyperalkemia. This is from shock acidosis, bbbbbbbbuuuuut, since i don't directly
+        // emulate blood pH, i'm going to tie it to hypervolemia.
+        float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
+        if (bloodFraction < ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA)
+            stressAccrual += 0.06f * dt;
+
+        // Increase fibs according to stress level.
+        if (stressAccrual > 0f)
+            setFibrillations(fibrillations + stressAccrual);
 
         // Returns to forced level after 30secs post-defib.
-        float dt = ModConstants.SECONDS_PER_TICK;
-        float driftRate = 0.002f * dt;
-        fibrillations = Math.min(fibrillationsForcedTarget, fibrillations + driftRate);
+        if (fibrillationsForced && fibrillations < fibrillationsForcedTarget)
+        {
+            float driftRate = 0.2f * dt;
+            fibrillations = Math.min(fibrillationsForcedTarget, fibrillations + driftRate);
+            markDirty();
+        }
 
-        markDirty();
+        // Healthy heart recovers back to normal sinus overtime.
+        if (!fibrillationsForced && stressAccrual <= 0f && fibrillations > 0f)
+        {
+            fibrillations = Math.max(0f, fibrillations - 0.04f * dt);
+            markDirty();
+        }
     }
 
     public void defibrillate()
@@ -627,6 +737,11 @@ public class PlayerHealthData
                 setVascularTone(Math.min(1f, vascularTone + (0.0002f * dt)));
         }
 
+        // Generalist recovery. Fires up when the body is healthy and
+        // something other than sepsis moved vascular tone, like liver-shots or epi.
+        if (bacteremia <= 0f && vascularTone < 1.0f)
+            setVascularTone(Math.min(1f, vascularTone + (0.0005f * dt)));
+
         if (septicShock > 0f)
             markDirty();
     }
@@ -689,16 +804,28 @@ public class PlayerHealthData
         vascularToneModifier += dt;
     }
 
+    public void applyInfectionGrowthModifier(float modifier)
+    {
+        infectionGrowthModifier *= modifier;
+    }
+
+    public void applyClottingModifier(float modifier)
+    {
+        clottingBoostModifier *= modifier;
+    }
+
+    public void applyRespiratorySuppression(float ceiling)
+    {
+        respiratorySuppressionCeiling = Math.min(respiratorySuppressionCeiling, ceiling);
+    }
+
     public void resetTransientModifiers()
     {
         chronotropicModifier = 0f;
         vascularToneModifier = 0f;
         infectionGrowthModifier = 1f;
-    }
-
-    public void applyInfectionGrowthModifier(float modifier)
-    {
-        infectionGrowthModifier *= modifier;
+        clottingBoostModifier = 1.0f;
+        respiratorySuppressionCeiling = 1.0f;
     }
 
     public void applyAntibioticToReachableWounds(float amountPerWound, boolean deepOnly)
@@ -816,7 +943,7 @@ public class PlayerHealthData
 
     public float getOxygenDelivery()
     {
-        return oxygenSaturation * redCellFraction;
+        return oxygenSaturation * Math.min(1.0f, redCellFraction);
     }
 
     public float getHeartRateBPM()
@@ -897,6 +1024,11 @@ public class PlayerHealthData
     public float getInfectionGrowthModifier()
     {
         return infectionGrowthModifier;
+    }
+
+    public float getClottingModifier()
+    {
+        return clottingBoostModifier;
     }
 
     // Special accessors.

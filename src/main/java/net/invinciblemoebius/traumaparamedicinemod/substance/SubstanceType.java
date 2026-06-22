@@ -12,7 +12,7 @@ public enum SubstanceType
 
     MORPHINE(600f, new SubstanceEffects()
             .reducesPain(0.0002f, 0.0006f, 0.80f, 0.1f)
-            .respiratoryDepression(0.0006f, 0.003f)),
+            .suppressesRespiration(0.0004f, 0.0008f, 0.35f, 0.0008f, 290f)),
 
     KETAMINE(900f, new SubstanceEffects()
             .reducesPain(0.0001f, 0.0005f, 0.75f, 0.08f)),
@@ -34,11 +34,16 @@ public enum SubstanceType
     // === VASOPRESSORS ===
 
     EPINEPHRINE(60f, new SubstanceEffects()
-            .chronotropic(0.0001f, 0.0003f, 80f)
+            .chronotropic(0.0001f, 0.0003f, 80f, 0.0003f, 60000f)
             .vasoactive(1500f)),
 
     NALOXONE(300f, new SubstanceEffects()
-            .reversesOpioidEffects(0.3f, 0.002f)),
+            .reversesOpioidEffects(0.0001f, 0.0004f, 0.3f, 0.002f)),
+
+    // === ANTIFIBRINOLYTICS ===
+
+    TRANEXAMIC_ACID(2000f, new SubstanceEffects()
+            .boostsClotting(1.2f, 0.0005f, 0.0015f)),
 
     // === BLOOD PRODUCTS ===
 
@@ -58,11 +63,9 @@ public enum SubstanceType
             .increasesPlasma(0.30f)), // 3-for-1 rule. Only 30% becomes actual plasma.
 
     FOREIGN_FLUID(120f, new SubstanceEffects()
-            .respiratoryDepression(0.00001f, 5f)),
+            .suppressesRespiration(0.00001f, 0.0008f, 0.35f, 0.0008f, 290f)),
 
     // === STUBS ===
-
-    TRANEXAMIC_ACID(1800f, new SubstanceEffects()),
 
     FOREIGN_GAS(120f, new SubstanceEffects());
 

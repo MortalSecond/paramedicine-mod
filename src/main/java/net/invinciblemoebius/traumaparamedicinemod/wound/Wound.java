@@ -79,12 +79,12 @@ public class Wound
     {
         float base = switch (depth)
         {
-            case SUPERFICIAL -> 0.05f;
-            case DERMAL -> 0.15f;
-            case SUBDERMAL -> 0.40f;
-            case MUSCULAR -> 1.00f;
-            case ARTERIAL -> 5.00f;
-            case VISCERAL -> 0.60f;
+            case SUPERFICIAL -> 1.0f;
+            case DERMAL -> 3.0f;
+            case SUBDERMAL -> 8.0f;
+            case MUSCULAR -> 20.0f;
+            case ARTERIAL -> 80.0f;
+            case VISCERAL -> 12.0f;
         };
         float typeModifier = switch (type)
         {
@@ -121,11 +121,14 @@ public class Wound
     // === CLOTTING COMPUTATION ===
 
     // The rate at which a wound's bleeding rate is being reduced by clotting, in ml/s.
-    public float computeClottingRate(float coreTemp, float spo2, float nutritionLevel)
+    public float computeClottingRate(float coreTemp, float spo2, float nutritionLevel, float systemicFactor)
     {
-        if (isArterial) return 0f;
-        if (depth == WoundDepth.VISCERAL) return 0f;
-        if (stage != WoundStage.BLEEDING && stage != WoundStage.CLOTTING) return 0f;
+        if (isArterial)
+            return 0f;
+        if (depth == WoundDepth.VISCERAL)
+            return 0f;
+        if (stage != WoundStage.BLEEDING && stage != WoundStage.CLOTTING)
+            return 0f;
 
         boolean hasHemostatic = (dressingType == DressingType.HEMOSTATIC);
 
@@ -137,7 +140,7 @@ public class Wound
         float sizePenalty = 1.0f - (size * 0.55f);
         float dressingBonus = hasHemostatic ? 2.5f : 1.0f;
 
-        return base * tempFactor * spo2Factor * nutritionFactor * sizePenalty * dressingBonus;
+        return base * tempFactor * spo2Factor * nutritionFactor * sizePenalty * dressingBonus * systemicFactor;
     }
 
     // IRL clotting enzymes slow down below 35C°, hence why it's part of clotting calculation.
@@ -386,6 +389,7 @@ public class Wound
     public boolean isExit() { return isExit; }
     public float getWoundPositionU() { return woundPositionU; }
     public float getWoundPositionV() { return woundPositionV; }
+    public boolean isRightSide() { return woundPositionU > 1.0f; }
 
     public void setHasShrapnel(boolean v) { hasShrapnel = v; }
     public void setHasBullet(boolean v) { hasBullet = v; }

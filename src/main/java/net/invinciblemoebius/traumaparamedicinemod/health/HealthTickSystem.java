@@ -44,12 +44,13 @@ import java.util.Map;
 // 14. Recompute blood volume.
 // 15. Recompute blood composition/hematocrit and the resulting blood viscosity.
 // 16. Tick respiratory rate's effect on oxygenation.
-// 17. Recompute heart rate.
-// 18. Recompute blood pressure.
-// 19. Recompute consciousness.
-// 20. Tick fibrillations.
-// 21. Recompute total health on all limbs.
-// 22. Sync and dispatch the packet if marked dirty.
+// 17. Recompute core temperature.
+// 18. Recompute heart rate.
+// 19. Recompute blood pressure.
+// 20. Recompute consciousness.
+// 21. Tick fibrillations.
+// 22. Recompute total health on all limbs.
+// 23. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -118,6 +119,7 @@ public class HealthTickSystem
         data.recomputeRespiratoryDrive();
         data.recomputeActualRespiratoryRate(isUnderwater);
         data.tickRespiratorySpO2Effect();
+        data.tickCoreTemperature(dt);
         data.recomputeHeartRate();
         data.recomputeBloodPressure();
         data.recomputeConsciousness();
@@ -145,7 +147,8 @@ public class HealthTickSystem
                 float clottingRate = wound.computeClottingRate(
                         data.getCoreTemperature(),
                         data.getOxygenSaturation(),
-                        data.getNutritionLevel()
+                        data.getNutritionLevel(),
+                        data.computeSystemicClottingFactor()
                 );
 
                 boolean changed = wound.tickAdvance(clottingRate);
@@ -195,7 +198,8 @@ public class HealthTickSystem
                     node, limbs,
                     data.getCoreTemperature(),
                     data.getOxygenSaturation(),
-                    data.getNutritionLevel()
+                    data.getNutritionLevel(),
+                    data.computeSystemicClottingFactor()
             );
 
             if (netBleedPerSecond <= 0f) continue;
@@ -280,9 +284,9 @@ public class HealthTickSystem
             // Substances. Ride the perfusion.
             if (total > 0f && !limb.getLocalSubstances().isEmpty())
             {
-                float throughput = Math.min(total, limb.getVenousReturnRate() * dt);
-                float fraction = throughput / total;
-
+                // 0.25 stands for 25% of a node's substance moves proximal per second.
+                // E.g. clears a node in 4 seconds and reaches the torso in 12-ish seconds.
+                float fraction = Math.min(1f, 0.25f * dt);
                 // Substances reaching the torso enter the systemic pool,
                 // otherwise they move up one node.
                 List<CirculatingSubstance> destination = (proximalNode == LimbNode.UPPER_TORSO) ? data.getSubstancesInternal() : proximalLimb.getLocalSubstances();
@@ -357,11 +361,24 @@ public class HealthTickSystem
         for (Wound wound: torso.getWounds())
         {
             // Only visceral wounds bleed into the pleural cavity.
-            if (wound.getDepth() != WoundDepth.VISCERAL) continue;
+            if (wound.getDepth() != WoundDepth.VISCERAL)
+                continue;
 
             float mlThisTick = wound.getBleedRateML() * dt;
-            // TODO: Split rate between left and right lung based on wound side.
-            data.getLeftLung().addBlood(mlThisTick);
+            if (wound.isRightSide())
+                data.getRightLung().addBlood(mlThisTick);
+            else
+                data.getLeftLung().addBlood(mlThisTick);
+        }
+
+        // Sepsis exudate. It precedes actual sepsis in Paramedicine so it works more
+        // like a tell than just regular pneumonia. Bilateral.
+        float pulmonaryLoad = Math.max(data.getBacteremia() * 0.5f, data.getSepticShock());
+        if (pulmonaryLoad > 0.05f)
+        {
+            float fluidRate = pulmonaryLoad * 0.8f * dt;
+            data.getLeftLung().addFluid(fluidRate);
+            data.getRightLung().addFluid(fluidRate);
         }
 
         // Tension pneumothorax if the lung has significant air AND no open occlusive-dressed wound.
@@ -373,6 +390,13 @@ public class HealthTickSystem
             data.getLeftLung().setTensionPneumothorax(true);
         if (rightAirFraction > 0.20f)
             data.getRightLung().setTensionPneumothorax(true);
+
+        data.getLeftLung().decayBlood(0.05f, dt);
+        data.getRightLung().decayBlood(0.05f, dt);
+        data.getLeftLung().decayAir(0.03f, dt);
+        data.getRightLung().decayAir(0.03f, dt);
+        data.getLeftLung().decayFluid(0.03f, dt);
+        data.getRightLung().decayFluid(0.03f, dt);
     }
 
     // STEP 13: SUBSTANCES.
@@ -403,14 +427,14 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 17: LIMB HEALTH RECOMPUTE
+    // STEP 22: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 18: SYNC
+    // STEP 23: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag()) return;
