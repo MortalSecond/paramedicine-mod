@@ -3,6 +3,7 @@ package net.invinciblemoebius.traumaparamedicinemod.limbs;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
+import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -43,6 +44,9 @@ public class LimbData
     private float sensitivity = 1.0f;
     // SUMMARIES
     private float totalHealth = 1.0f;
+    private float lastNetBleedRateML = 0f;
+    private WoundType clientWorstWoundType = null;
+    private int clientWoundCount = 0;
     private boolean syncNeeded = true;
 
     // === CONSTRUCTOR ===
@@ -158,6 +162,23 @@ public class LimbData
         markDirty();
     }
 
+    public WoundType computeWorstWoundType()
+    {
+        WoundType worst = null;
+        float worstScore = -1f;
+        for (Wound wound: wounds)
+        {
+            float score = wound.getDepth().ordinal() + wound.getSize();
+            if (score > worstScore)
+            {
+                worstScore = score;
+                worst = wound.getType();
+            }
+        }
+
+        return worst;
+    }
+
     // === WOUND MANAGEMENT ===
 
     public void addWound(Wound wound)
@@ -203,33 +224,56 @@ public class LimbData
     public float getTotalHealth() {return totalHealth;}
     public List<Wound> getWounds() { return wounds; }
     public boolean hasActiveWounds() { return !wounds.isEmpty(); }
+    public float getLastNetBleedRateML()  { return lastNetBleedRateML; }
+    public WoundType getClientWorstWoundType() { return clientWorstWoundType; }
+    public int getClientWoundCount() { return clientWoundCount; }
     public List<CirculatingSubstance> getLocalSubstances() {return localSubstances;}
 
     public void setMuscleHealth(float v)
     {
         float c = clamp01(v);
-        if (muscleHealth != c){muscleHealth=c; markDirty();}
+        if (muscleHealth != c)
+        {
+            muscleHealth=c;
+            markDirty();
+        }
     }
 
     public void setBoneHealth(float v)
     {
         float c = clamp01(v);
-        if (boneHealth != c){boneHealth=c; markDirty();}
+        if (boneHealth != c)
+        {
+            boneHealth=c;
+            markDirty();
+        }
     }
 
     public void setBoneState(BoneState s)
     {
-        if (boneState != s){boneState=s; markDirty();}
+        if (boneState != s)
+        {
+            boneState=s;
+            markDirty();
+        }
     }
 
     public void setCirculatingProximally(boolean v)
     {
-        if (isCirculatingProximally != v){isCirculatingProximally=v; markDirty();}
+        if (isCirculatingProximally != v)
+        {
+            isCirculatingProximally=v;
+            markDirty();
+        }
     }
 
     public void setCirculatingDistally(boolean v)
     {
-        if (isCirculatingDistally != v){isCirculatingDistally=v; markDirty();}
+        if (isCirculatingDistally != v)
+        {
+            isCirculatingDistally=v;
+            markDirty();
+        }
     }
 
     public void setPlasmaVolume(float v)
@@ -273,7 +317,22 @@ public class LimbData
     public void setSensitivity(float v)
     {
         float c = Math.max(0f, Math.min(2.0f, v));
-        if (sensitivity != c){sensitivity=c; markDirty();}
+        if (sensitivity != c)
+        {
+            sensitivity=c;
+            markDirty();
+        }
+    }
+
+    public void setLastNetBleedRateML(float v)
+    {
+        float c = lastNetBleedRateML;
+    }
+
+    public void setClientWoundSummaryOnly(WoundType worst, int count)
+    {
+        this.clientWorstWoundType = worst;
+        this.clientWoundCount = count;
     }
 
     // === SYNC STUFF ===

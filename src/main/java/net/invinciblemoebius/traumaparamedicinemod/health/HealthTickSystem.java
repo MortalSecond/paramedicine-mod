@@ -202,7 +202,10 @@ public class HealthTickSystem
                     data.computeSystemicClottingFactor()
             );
 
-            if (netBleedPerSecond <= 0f) continue;
+            limb.setLastNetBleedRateML(netBleedPerSecond);
+
+            if (netBleedPerSecond <= 0f)
+                continue;
 
             float mlLostThisTick = netBleedPerSecond * dt;
             drainProximally(node, mlLostThisTick, limbs);

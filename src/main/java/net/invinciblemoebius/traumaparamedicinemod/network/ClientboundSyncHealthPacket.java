@@ -3,10 +3,15 @@ package net.invinciblemoebius.traumaparamedicinemod.network;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.function.Supplier;
 
 public class ClientboundSyncHealthPacket
@@ -38,6 +43,9 @@ public class ClientboundSyncHealthPacket
     private final boolean leftTension;
     private final boolean rightTension;
     private final float overexertionPain;
+    private Map<LimbNode, NodeSummary> nodeSummaries = new EnumMap<>(LimbNode.class);
+
+    public record NodeSummary(float muscleHealth, BoneState boneState, float netBleedML, WoundType worstWound, int woundCount){}
 
     // === CONSTRUCTOR ===
     private ClientboundSyncHealthPacket(float bloodVolume,
@@ -95,7 +103,7 @@ public class ClientboundSyncHealthPacket
     // === FACTORY ===
     public static ClientboundSyncHealthPacket fromData(PlayerHealthData data)
     {
-        return new ClientboundSyncHealthPacket(
+        ClientboundSyncHealthPacket p = new ClientboundSyncHealthPacket(
                 data.getBloodVolume(),
                 data.getHeartRateBPM(),
                 data.getSystolicBP(),
@@ -121,6 +129,20 @@ public class ClientboundSyncHealthPacket
                 data.getRightLung().hasTensionPneumothorax(),
                 data.getOverexertionPain()
         );
+
+        for (LimbNode node : LimbNode.values())
+        {
+            var limb = data.getLimb(node);
+            p.nodeSummaries.put(node, new NodeSummary(
+                    limb.getMuscleHealth(),
+                    limb.getBoneState(),
+                    limb.getLastNetBleedRateML(),
+                    limb.computeWorstWoundType(),
+                    limb.getWounds().size()
+            ));
+        }
+
+        return p;
     }
 
     // === NBT STUFF ===
@@ -151,11 +173,26 @@ public class ClientboundSyncHealthPacket
         buf.writeBoolean(p.leftTension);
         buf.writeBoolean(p.rightTension);
         buf.writeFloat(p.overexertionPain);
+
+        for (LimbNode node : LimbNode.values())
+        {
+            NodeSummary summary = p.nodeSummaries.get(node);
+            buf.writeFloat(summary.muscleHealth());
+            buf.writeEnum(summary.boneState());
+            buf.writeFloat(summary.netBleedML());
+
+            boolean hasWorst = summary.worstWound() != null;
+            buf.writeBoolean(hasWorst);
+            if (hasWorst)
+                buf.writeEnum(summary.worstWound());
+
+            buf.writeVarInt(summary.woundCount());
+        }
     }
 
     public static ClientboundSyncHealthPacket decode(FriendlyByteBuf buf)
     {
-        return new ClientboundSyncHealthPacket(
+        ClientboundSyncHealthPacket p = new ClientboundSyncHealthPacket(
                 buf.readFloat(),                        // bloodVolume
                 buf.readFloat(),                        // heartRateBPM
                 buf.readFloat(),                        // systolicBP
@@ -181,6 +218,19 @@ public class ClientboundSyncHealthPacket
                 buf.readBoolean(),                      // rightTension
                 buf.readFloat()                         // overexertionPain
         );
+
+        for (LimbNode node : LimbNode.values())
+        {
+            float muscle = buf.readFloat();
+            BoneState bone = buf.readEnum(BoneState.class);
+            float bleed = buf.readFloat();
+            WoundType worst = buf.readBoolean() ? buf.readEnum(WoundType.class) : null;
+            int count =  buf.readVarInt();
+
+            p.nodeSummaries.put(node, new NodeSummary(muscle, bone, bleed, worst, count));
+        }
+
+        return p;
     }
 
     // === HANDLER ===
@@ -230,5 +280,19 @@ public class ClientboundSyncHealthPacket
         // Lung compromise. Applied to LungData directly.
         data.getLeftLung().setCompromiseClientOnly(p.leftLungCompromise);
         data.getRightLung().setCompromiseClientOnly(p.rightLungCompromise);
+
+        // Per-node summary into the client limb copies.
+        for (LimbNode node : LimbNode.values())
+        {
+            NodeSummary summary = p.nodeSummaries.get(node);
+            if (summary == null)
+                continue;
+
+            var limb = data.getLimb(node);
+            limb.setMuscleHealth(summary.muscleHealth());
+            limb.setBoneState(summary.boneState());
+            limb.setLastNetBleedRateML(summary.netBleedML());
+            limb.setClientWoundSummaryOnly(summary.worstWound(), summary.woundCount());
+        }
     }
 }

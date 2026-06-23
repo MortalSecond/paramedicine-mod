@@ -1,6 +1,8 @@
 package net.invinciblemoebius.traumaparamedicinemod.ui;
 
 import net.invinciblemoebius.traumaparamedicinemod.client.ModKeybinds;
+import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -9,6 +11,7 @@ import net.minecraft.world.entity.player.Player;
 public class HealthScreen extends Screen
 {
     private final Player target;
+    private final AnatomicalMapComponent anatomyMap = new AnatomicalMapComponent();
 
     // LAYOUT
     private static final float FRAC_LEFT = 0.28f;
@@ -70,6 +73,21 @@ public class HealthScreen extends Screen
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button)
+    {
+        if (button == 0)
+        {
+            LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
+
+            // Null click deselects.
+            anatomyMap.setSelected(hit);
+            if (hit != null)
+                return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
     // === RENDERING METHODS ===
 
     @Override
@@ -104,6 +122,14 @@ public class HealthScreen extends Screen
         g.drawString(minecraft.font, "Symptoms / Conditions", PAD, PAD, C_LABEL, false);
         g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
         g.drawString(minecraft.font, "Overview", rightX + PAD, PAD, C_LABEL, false);
+
+        // Anatomy map fills the center panel between the header and the hotbar.
+        g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
+        int mapY = PAD + 12;
+        int mapX = centerX + PAD;
+        int mapW = centerW - PAD * 2;
+        int mapH = hotbarAreaY - mapY - PAD;
+        target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> anatomyMap.render(g, mapX, mapY, mapW, mapH, mouseX, mouseY, data));
 
         super.render(g, mouseX, mouseY, partialTicks);
     }
