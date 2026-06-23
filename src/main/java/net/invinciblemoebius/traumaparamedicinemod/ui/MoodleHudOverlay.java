@@ -105,57 +105,31 @@ public class MoodleHudOverlay
         {
             Condition condition = sorted.get(i);
             MoodleAnimState animState = animStates.get(condition);
-            MoodleDefinition def = MoodleDefinition.get(condition);
 
             int col = i % perRow;
             int row = i / perRow;
 
-            // Anchor.
+            // Anchor to the bottom left.
             int x = LEFT_MARGIN + col * (MOODLE_SIZE + MOODLE_PADDING) + (int) animState.xOffset;
             int y = screenHeight - BOTTOM_MARGIN - MOODLE_SIZE - row * (MOODLE_SIZE + MOODLE_PADDING);
 
-            int baseColor = MoodleDefinition.severityColor(condition.severity);
-            int drawY = y + (int) animState.shakeOffset;
-
-            // Fade out alpha masking. Or compositing. Whatever.
-            int alpha255 = (int) (animState.alpha * 255);
-            int colorWithAlpha = applyAlpha(baseColor, alpha255);
-
-            // Glow border for CRITICAL_GLOW
-            if (condition.severity == ConditionSeverity.CRITICAL_GLOW)
-            {
-                int glowAlpha = (int)(animState.glowAlpha() * alpha255);
-                int glowColor = applyAlpha(0xFFFF2244, glowAlpha);
-                graphics.fill(
-                        x - GLOW_BORDER, drawY - GLOW_BORDER,
-                        x + MOODLE_SIZE + GLOW_BORDER, drawY + MOODLE_SIZE + GLOW_BORDER,
-                        glowColor
-                );
-            }
-
-            // Circle background.
-            drawSquare(graphics, x, drawY, MOODLE_SIZE, colorWithAlpha);
-
-            // Icon character
-            String iconStr = String.valueOf(def.icon);
-            int textColor = applyAlpha(0xFFFFFFFF, alpha255);
-            int textX = x + MOODLE_SIZE / 2 - Minecraft.getInstance().font.width(iconStr) / 2;
-            int textY = drawY + MOODLE_SIZE / 2 - 4;
-            graphics.drawString(Minecraft.getInstance().font, iconStr, textX, textY, textColor, false);
+            MoodleRenderer.drawMoodle(graphics, x, y, MOODLE_SIZE, condition, animState);
         }
     }
 
     // === HELPER METHODS ===
 
-    // Draws a square.
-    private static void drawSquare(GuiGraphics graphics, int x, int y, int size, int color)
+    // Shared with the health-screen left panel so animation continuity carries across both.
+    public static MoodleAnimState getAnimState(Condition condition)
     {
-        graphics.fill(x, y, x + size, y + size, color);
+        return animStates.get(condition);
     }
 
-    // Replaces the alpha channel of an ARGB color with a 255 value.
-    private static int applyAlpha(int argb, int alpha255)
+    public static List<Condition> activeSortedConditions()
     {
-        return (argb & 0x00FFFFFF) | (alpha255 << 24);
+        return animStates.keySet().stream()
+                .filter(c -> !animStates.get(c).dying || animStates.get(c).alpha > 0f)
+                .sorted(Comparator.comparingInt((Condition c) -> c.severity.ordinal()).reversed())
+                .toList();
     }
 }

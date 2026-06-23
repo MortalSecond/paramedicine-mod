@@ -15,6 +15,7 @@ public class HealthScreen extends Screen
     private final Player target;
     private final AnatomicalMapComponent anatomyMap = new AnatomicalMapComponent();
     private final RightPanelComponent rightPanel = new RightPanelComponent();
+    private final LeftPanelComponent leftPanel = new LeftPanelComponent();
 
     // LAYOUT
     private static final float FRAC_LEFT = 0.28f;
@@ -70,17 +71,10 @@ public class HealthScreen extends Screen
         // Hotbar strip.
         int hotbarAreaH = computeHotbarAreaHeight(centerW);
         int hotbarAreaY = height - hotbarAreaH;
-
         // Divider line between the anatomy map and the hotbar.
-        g.fill(centerX + PAD, hotbarAreaY, centerX + centerW - PAD,
-                hotbarAreaY + BORDER, C_HOTBAR_DIVIDER);
-
+        g.fill(centerX + PAD, hotbarAreaY, centerX + centerW - PAD, hotbarAreaY + BORDER, C_HOTBAR_DIVIDER);
         // Hotbar items.
         renderHotbarSlots(g, centerX, centerW, hotbarAreaY, hotbarAreaH);
-
-        // PLACEHOLDER LABELS.
-        g.drawString(minecraft.font, "Symptoms / Conditions", PAD, PAD, C_LABEL, false);
-        g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
 
         // Anatomy map fills the center panel between the header and the hotbar.
         g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
@@ -88,7 +82,9 @@ public class HealthScreen extends Screen
         int mapX = centerX + PAD;
         int mapW = centerW - PAD * 2;
         int mapH = hotbarAreaY - mapY - PAD;
-        target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> anatomyMap.render(g, mapX, mapY, mapW, mapH, mouseX, mouseY, data));
+
+        // Left panel.
+        leftPanel.render(g, minecraft.font, PAD, PAD, leftW - PAD * 2, height - PAD * 2, mouseX, mouseY);
 
         // Right panel fills the... well... right panel. :sob:
         target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
@@ -98,6 +94,9 @@ public class HealthScreen extends Screen
         });
 
         super.render(g, mouseX, mouseY, partialTicks);
+
+        // Tooltip last so it overlays the panels.
+        leftPanel.renderTooltip(g, minecraft.font, mouseX, mouseY);
     }
 
     private void drawPanel(GuiGraphics g, int x, int y, int w, int h)
