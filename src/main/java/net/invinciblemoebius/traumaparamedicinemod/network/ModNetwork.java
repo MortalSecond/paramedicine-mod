@@ -25,5 +25,17 @@ public class ModNetwork
                 ClientboundSyncHealthPacket::decode,
                 ClientboundSyncHealthPacket::handle
         );
+        CHANNEL.registerMessage(id++,
+                ServerboundInspectPacket.class,
+                ServerboundInspectPacket::encode,
+                ServerboundInspectPacket::decode,
+                ServerboundInspectPacket::handle
+        );
+        CHANNEL.registerMessage(id++,
+                ClientboundSyncDetailPacket.class,
+                ClientboundSyncDetailPacket::encode,
+                ClientboundSyncDetailPacket::decode,
+                ClientboundSyncDetailPacket::handle
+        );
     }
 }

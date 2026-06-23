@@ -326,7 +326,17 @@ public class LimbData
 
     public void setLastNetBleedRateML(float v)
     {
-        float c = lastNetBleedRateML;
+        if (lastNetBleedRateML != v)
+        {
+            float c = lastNetBleedRateML;
+            markDirty();
+        }
+    }
+
+    public void setWoundsClientOnly(List<Wound> incoming)
+    {
+        wounds.clear();
+        wounds.addAll(incoming);
     }
 
     public void setClientWoundSummaryOnly(WoundType worst, int count)

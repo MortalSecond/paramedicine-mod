@@ -3,6 +3,8 @@ package net.invinciblemoebius.traumaparamedicinemod.ui;
 import net.invinciblemoebius.traumaparamedicinemod.client.ModKeybinds;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
+import net.invinciblemoebius.traumaparamedicinemod.network.ServerboundInspectPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -12,6 +14,7 @@ public class HealthScreen extends Screen
 {
     private final Player target;
     private final AnatomicalMapComponent anatomyMap = new AnatomicalMapComponent();
+    private final RightPanelComponent rightPanel = new RightPanelComponent();
 
     // LAYOUT
     private static final float FRAC_LEFT = 0.28f;
@@ -43,49 +46,6 @@ public class HealthScreen extends Screen
     {
         super(Component.literal("paramedicine.health_screen"));
         this.target = target;
-    }
-
-    // === INTERACTIONS ===
-
-    @Override
-    public boolean isPauseScreen()
-    {
-        return false;
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
-    {
-        // Escape closes normally.
-        if (keyCode == 256)
-        {
-            onClose();
-            return true;
-        }
-
-        // Keybind toggles closed.
-        if (ModKeybinds.OPEN_HEALTH_SCREEN.matches(keyCode, scanCode))
-        {
-            onClose();
-            return true;
-        }
-
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button)
-    {
-        if (button == 0)
-        {
-            LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
-
-            // Null click deselects.
-            anatomyMap.setSelected(hit);
-            if (hit != null)
-                return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     // === RENDERING METHODS ===
@@ -121,7 +81,6 @@ public class HealthScreen extends Screen
         // PLACEHOLDER LABELS.
         g.drawString(minecraft.font, "Symptoms / Conditions", PAD, PAD, C_LABEL, false);
         g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
-        g.drawString(minecraft.font, "Overview", rightX + PAD, PAD, C_LABEL, false);
 
         // Anatomy map fills the center panel between the header and the hotbar.
         g.drawString(minecraft.font, "Anatomy", centerX + PAD, PAD, C_LABEL, false);
@@ -130,6 +89,13 @@ public class HealthScreen extends Screen
         int mapW = centerW - PAD * 2;
         int mapH = hotbarAreaY - mapY - PAD;
         target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> anatomyMap.render(g, mapX, mapY, mapW, mapH, mouseX, mouseY, data));
+
+        // Right panel fills the... well... right panel. :sob:
+        target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+        {
+            anatomyMap.render(g, mapX, mapY, mapW, mapH, mouseX, mouseY, data);
+            rightPanel.render(g, minecraft.font, rightX + PAD, PAD, rightW - PAD * 2, height - PAD * 2, data, anatomyMap.getSelected());
+        });
 
         super.render(g, mouseX, mouseY, partialTicks);
     }
@@ -222,5 +188,74 @@ public class HealthScreen extends Screen
             g.renderItem(stack, x + SLOT_BORDER, y + SLOT_BORDER);
             g.renderItemDecorations(minecraft.font, stack, x + SLOT_BORDER, y + SLOT_BORDER);
         }
+    }
+
+    // === INTERACTIONS ===
+
+    @Override
+    public boolean isPauseScreen()
+    {
+        return false;
+    }
+
+    @Override
+    protected void init()
+    {
+        super.init();
+        ModNetwork.CHANNEL.sendToServer(new ServerboundInspectPacket(target.getId()));
+    }
+
+    @Override
+    public void removed()
+    {
+        ModNetwork.CHANNEL.sendToServer(new ServerboundInspectPacket(-1));
+        super.removed();
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers)
+    {
+        // Escape closes normally.
+        if (keyCode == 256)
+        {
+            onClose();
+            return true;
+        }
+
+        // Keybind toggles closed.
+        if (ModKeybinds.OPEN_HEALTH_SCREEN.matches(keyCode, scanCode))
+        {
+            onClose();
+            return true;
+        }
+
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button)
+    {
+        if (button == 0)
+        {
+            LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
+            LimbNode prev = anatomyMap.getSelected();
+
+            // Null deselects.
+            anatomyMap.setSelected(hit);
+            if (hit != prev)
+                rightPanel.resetScroll();
+            if (hit != null)
+                return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta)
+    {
+        if (rightPanel.mouseScrolled(mouseX, mouseY, delta))
+            return true;
+
+        return super.mouseScrolled(mouseX, mouseY, delta);
     }
 }

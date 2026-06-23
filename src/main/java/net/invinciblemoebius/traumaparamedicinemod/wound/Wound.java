@@ -377,6 +377,8 @@ public class Wound
     public float getInfectionLevel() { return infectionLevel; }
     public boolean hasDressing() { return hasDressing; }
     public DressingType getDressingType() { return dressingType; }
+    public float getDressingAgeTicks() { return dressingAgeTicks; }
+    public boolean isDressingOverdue() { return hasDressing && dressingAgeTicks >= dressingChangeIntervalTicks(); }
     public boolean isClosed() { return isClosed; }
     public boolean isPacked() { return isPacked; }
     public boolean hasBeenIrrigated() { return hasBeenIrrigated; }

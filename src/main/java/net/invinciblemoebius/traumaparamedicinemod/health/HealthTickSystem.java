@@ -440,13 +440,25 @@ public class HealthTickSystem
     // STEP 23: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
-        if (!data.consumeSyncFlag()) return;
+        if (!data.consumeSyncFlag())
+            return;
 
         ModNetwork.CHANNEL.sendTo(
                 ClientboundSyncHealthPacket.fromData(data),
                 player.connection.connection,
                 NetworkDirection.PLAY_TO_CLIENT
         );
+
+        // Heavy detail stream: only while this player is inspecting themselves (self-view).
+        // Theoretically, a medic will have a different view of a different player. More limited.
+        if (net.invinciblemoebius.traumaparamedicinemod.network.InspectionTracker.isViewingSelf(player.getUUID(), player.getId()))
+        {
+            ModNetwork.CHANNEL.sendTo(
+                    net.invinciblemoebius.traumaparamedicinemod.network.ClientboundSyncDetailPacket.fromData(data),
+                    player.connection.connection,
+                    NetworkDirection.PLAY_TO_CLIENT
+            );
+        }
     }
 
     // === VANILLA SUPPRESSION ===

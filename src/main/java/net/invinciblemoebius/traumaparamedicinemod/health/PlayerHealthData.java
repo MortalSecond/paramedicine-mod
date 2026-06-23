@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.minecraft.nbt.CompoundTag;
@@ -30,6 +31,7 @@ public class PlayerHealthData
 
     // SPECIAL VARIABLES
     private boolean justJumped = false;
+    public List<SubstanceType> clientActiveSubstances = new ArrayList<>();
 
     // LIMB NODES
     private final Map<LimbNode, LimbData> limbData = new EnumMap<>(LimbNode.class);
@@ -912,6 +914,7 @@ public class PlayerHealthData
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
     List<CirculatingSubstance> getSubstancesInternal() { return activeSubstances; }
     public List<CirculatingSubstance> getActiveSubstances() { return Collections.unmodifiableList(activeSubstances); }
+    public List<SubstanceType> getClientActiveSubstances() { return clientActiveSubstances;}
     public void setJustJumped() { justJumped = true; }
     public boolean consumeJumpFlag()
     {
@@ -1017,6 +1020,20 @@ public class PlayerHealthData
         }
     }
 
+    public List<SubstanceType> collectActiveSubstanceTypes()
+    {
+        LinkedHashSet<SubstanceType> types = new LinkedHashSet<>();
+
+        for (CirculatingSubstance substance : getSubstancesInternal())
+            types.add(substance.getType());
+
+        for (LimbData limb : getLimbsInternal().values())
+            for (CirculatingSubstance substance : limb.getLocalSubstances())
+                types.add(substance.getType());
+
+        return new ArrayList<>(types);
+    }
+
     // === CLIENT-ONLY SETTERS ===
     // These write received packet values directly into cached fields.
 
@@ -1032,6 +1049,11 @@ public class PlayerHealthData
     public void setPainShock(float v) { painShock = v; }
     public void setSepticShock(float v) { septicShock = v; }
     public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
+    public void setClientActiveSubstances(List<SubstanceType> types)
+    {
+        clientActiveSubstances.clear();
+        clientActiveSubstances.addAll(types);
+    }
 
     // === PACKET SYNC STUFF ===
 
