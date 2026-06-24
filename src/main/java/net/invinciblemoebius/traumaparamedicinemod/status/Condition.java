@@ -2,10 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.status;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.*;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 
@@ -38,7 +35,7 @@ public enum     Condition
         public boolean evaluate(PlayerHealthData data)
         {
             float pain = data.getAggregatedPain();
-            return pain >= 0.10f && pain < 0.30f;
+            return pain >= 0.03f && pain < 0.30f;
         }
     },
 
@@ -162,8 +159,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float heartRateBPM = data.getHeartRateBPM();
-                    float fibrillations = data.getFibrillations();
-                    return heartRateBPM > ModConstants.BPM_SEVERE_TACHYCARDIA && fibrillations < 0.50f;
+                    CardiacRhythm rhythm = data.getRhythm();
+                    return heartRateBPM > ModConstants.BPM_SEVERE_TACHYCARDIA && rhythm == CardiacRhythm.SINUS_TACHYCARDIA;
                 }
             },
 
@@ -194,8 +191,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    return fibrillations >= 0.15f && fibrillations < 0.50f;
+                    float instability = data.getElectricalInstability();
+                    return instability >= 0.15f && instability < 0.50f;
                 }
             },
 
@@ -204,8 +201,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    return fibrillations >= 0.50f && fibrillations < 0.75f;
+                    CardiacRhythm rhythm = data.getRhythm();
+                    return rhythm == CardiacRhythm.VENTRICULAR_TACHYCARDIA;
                 }
             },
 
@@ -214,8 +211,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    return fibrillations >= 0.50f;
+                    float instability = data.getElectricalInstability();
+                    return instability >= 0.50 && !data.isArrested();
                 }
             },
 
@@ -224,9 +221,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    float heartRateBPM = data.getHeartRateBPM();
-                    return fibrillations >= 0.75f && heartRateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    CardiacRhythm rhythm = data.getRhythm();
+                    return rhythm == CardiacRhythm.VENTRICULAR_FIBRILLATION;
                 }
             },
 
@@ -235,8 +231,28 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float fibrillations = data.getFibrillations();
-                    return fibrillations >= 0.60f && fibrillations < 0.75f;
+                    float instability = data.getElectricalInstability();
+                    return instability >= 0.70f && !data.isArrested();
+                }
+            },
+
+    MYOCARDIAL_EXHAUSTION(ConditionSeverity.CRITICAL, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float reserve = data.getHeartReserve();
+                    return reserve < ModConstants.RESERVE_WEAK && reserve > ModConstants.RESERVE_ASYSTOLE && !data.isArrested();
+                }
+            },
+
+    PULSELESS_ELECTRICAL_ACTIVITY(ConditionSeverity.CRITICAL_GLOW, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    CardiacRhythm rhythm = data.getRhythm();
+                    return rhythm == CardiacRhythm.PULSELESS_ELECTRICAL_ACTIVITY;
                 }
             },
 
@@ -245,8 +261,8 @@ public enum     Condition
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
-                    float heartRateBPM =  data.getHeartRateBPM();
-                    return  heartRateBPM <= ModConstants.BPM_CARDIAC_ARREST;
+                    CardiacRhythm rhythm = data.getRhythm();
+                    return rhythm == CardiacRhythm.ASYSTOLE;
                 }
             },
 
@@ -258,8 +274,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP < 110f && systolicBP >= 96f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP < 110f && systolicBP >= 96f && !cardiacArrest;
                 }
             },
 
@@ -269,8 +285,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP < 96f && systolicBP >= 83f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP < 96f && systolicBP >= 83f && !cardiacArrest;
                 }
             },
 
@@ -280,8 +296,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP < 83f && systolicBP >= 60f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP < 83f && systolicBP >= 60f && !cardiacArrest;
                 }
             },
 
@@ -291,8 +307,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP < 60f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP < 60f && !cardiacArrest;
                 }
             },
 
@@ -302,8 +318,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP > 130f && systolicBP <= 145f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP > 130f && systolicBP <= 145f && !cardiacArrest;
                 }
             },
 
@@ -313,8 +329,8 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float systolicBP = data.getSystolicBP();
-                    float heartrateBPM = data.getHeartRateBPM();
-                    return systolicBP > 145f && systolicBP <= 162f && heartrateBPM > ModConstants.BPM_CARDIAC_ARREST;
+                    boolean cardiacArrest = data.isArrested();
+                    return systolicBP > 145f && systolicBP <= 162f && !cardiacArrest;
                 }
             },
 
@@ -413,6 +429,59 @@ public enum     Condition
                 }
             },
 
+    // === CARDIOVASCULAR - BLOOD COMPOSITION ===
+
+    ANEMIA(ConditionSeverity.MILD, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float redCellsFraction = data.getRedCellFraction();
+                    return redCellsFraction < ModConstants.ANEMIA_MILD && redCellsFraction >= ModConstants.ANEMIA_MODERATE;
+                }
+            },
+
+    MODERATE_ANEMIA(ConditionSeverity.MODERATE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float redCellsFraction = data.getRedCellFraction();
+                    return redCellsFraction < ModConstants.ANEMIA_MODERATE && redCellsFraction >= ModConstants.ANEMIA_SEVERE;
+                }
+            },
+
+    SEVERE_ANEMIA(ConditionSeverity.SEVERE, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float redCellsFraction = data.getRedCellFraction();
+                    return redCellsFraction < ModConstants.ANEMIA_SEVERE;
+                }
+            },
+
+    HEMODILUTION(ConditionSeverity.MILD, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hematocrit = data.getHematocrit();
+                    float bloodVolume = data.getBloodVolume();
+                    return hematocrit < ModConstants.HEMATOCRIT_DILUTION && bloodVolume >= ModConstants.BLOOD_NORMAL * ModConstants.BLOOD_MODERATE_HYPOVOLEMIA;
+                }
+            },
+
+    HEMOCONCENTRATION(ConditionSeverity.MILD, ObservabilityLevel.DIAGNOSTIC)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hematocrit = data.getHematocrit();
+                    return hematocrit > ModConstants.HEMATOCRIT_CONCENTRATION;
+                }
+            },
+
     // === WOUNDS - HEMORRHAGE ===
 
     MINOR_BLEEDING(ConditionSeverity.NEUTRAL, ObservabilityLevel.PALPABLE)
@@ -421,7 +490,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate > 0;
+                    return bleedRate > 0 && bleedRate < 5f;
                 }
             },
 
@@ -431,7 +500,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate >= 5f;
+                    return bleedRate >= 5f && bleedRate < 15f;
                 }
             },
 
@@ -441,7 +510,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate >= 15f;
+                    return bleedRate >= 15f && bleedRate < 25f;
                 }
             },
 
@@ -461,7 +530,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeVisceralBleedRate(data);
-                    return bleedRate > 0f;
+                    return bleedRate > 0f && bleedRate < 3f;
                 }
             },
 
@@ -471,7 +540,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeVisceralBleedRate(data);
-                    return bleedRate >= 3f;
+                    return bleedRate >= 3f && bleedRate < 10f;
                 }
             },
 
@@ -589,7 +658,7 @@ public enum     Condition
                 {
                     float respirations = data.getActualRespiratoryRate();
                     float breathingUrge = data.getRespiratoryDrive();
-                    return respirations > breathingUrge;
+                    return respirations > breathingUrge * 2;
                 }
             },
 
@@ -827,7 +896,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float worstInfection = highestInfectionLevel(data);
-                    return worstInfection > 0f;
+                    return worstInfection >= 0.3f && worstInfection < 0.40f;
                 }
             },
 

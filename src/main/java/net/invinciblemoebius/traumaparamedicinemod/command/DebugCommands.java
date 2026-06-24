@@ -3,6 +3,11 @@ package net.invinciblemoebius.traumaparamedicinemod.command;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
@@ -19,12 +24,17 @@ import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.NetworkDirection;
+
+import java.util.Arrays;
+import java.util.Locale;
+import java.util.function.BiConsumer;
 
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class DebugCommands
@@ -43,7 +53,8 @@ public class DebugCommands
                         .then(cmdCauseHemothorax())
                         .then(cmdObstructAirway())
                         .then(cmdClearAirway())
-                        .then(cmdSetFibrillations())
+                        .then(cmdSetInstability())
+                        .then(cmdSetHeartReserve())
                         .then(cmdSetTemp())
                         .then(cmdSetSpO2())
                         .then(cmdTourniquet())
@@ -165,86 +176,24 @@ public class DebugCommands
     {
         return Commands.literal("causewound")
                 .requires(src -> src.hasPermission(2))
-                .then(Commands.argument("woundType", StringArgumentType.word())
-                        .suggests((ctx, builder) ->
-                        {
-                            for (WoundType t : WoundType.values())
-                                builder.suggest(t.name());
-                            return builder.buildFuture();
-                        })
-                        .then(Commands.argument("depth", StringArgumentType.word())
-                                .suggests((ctx, builder) ->
-                                {
-                                    for (WoundDepth d : WoundDepth.values())
-                                        builder.suggest(d.name());
-                                    return builder.buildFuture();
-                                })
-                                .then(Commands.argument("limb", StringArgumentType.word())
-                                        .suggests((ctx, builder) ->
-                                        {
-                                            for (LimbNode n : LimbNode.values())
-                                                builder.suggest(n.name());
-                                            return builder.buildFuture();
-                                        })
+                .then(enumArg("woundType", WoundType.class)
+                        .then(enumArg("depth", WoundDepth.class)
+                                .then(enumArg("limb", LimbNode.class)
                                         .then(Commands.argument("size", FloatArgumentType.floatArg(0.01f, 1f))
                                                 .executes(ctx ->
                                                 {
-                                                    String typeStr  = StringArgumentType.getString(ctx, "woundType");
-                                                    String depthStr = StringArgumentType.getString(ctx, "depth");
-                                                    String limbStr  = StringArgumentType.getString(ctx, "limb");
-                                                    float  size     = FloatArgumentType.getFloat(ctx, "size");
-
-                                                    WoundType  type;
-                                                    WoundDepth depth;
-                                                    LimbNode   node;
-
-                                                    try { type  = WoundType.valueOf(typeStr.toUpperCase()); }
-                                                    catch (IllegalArgumentException e)
+                                                    WoundType  type  = getEnum(ctx, "woundType", WoundType.class);
+                                                    WoundDepth depth = getEnum(ctx, "depth", WoundDepth.class);
+                                                    LimbNode   node  = getEnum(ctx, "limb", LimbNode.class);
+                                                    float      size  = FloatArgumentType.getFloat(ctx, "size");
+                                                    return withData(ctx, (player, data) ->
                                                     {
-                                                        ctx.getSource().sendFailure(
-                                                                Component.literal("Unknown wound type: " + typeStr));
-                                                        return 0;
-                                                    }
-
-                                                    try { depth = WoundDepth.valueOf(depthStr.toUpperCase()); }
-                                                    catch (IllegalArgumentException e)
-                                                    {
-                                                        ctx.getSource().sendFailure(
-                                                                Component.literal("Unknown depth: " + depthStr));
-                                                        return 0;
-                                                    }
-
-                                                    try { node = LimbNode.valueOf(limbStr.toUpperCase()); }
-                                                    catch (IllegalArgumentException e)
-                                                    {
-                                                        ctx.getSource().sendFailure(
-                                                                Component.literal("Unknown limb node: " + limbStr));
-                                                        return 0;
-                                                    }
-
-                                                    ServerPlayer player = requirePlayer(ctx.getSource());
-                                                    if (player == null) return 0;
-
-                                                    WoundType  finalType  = type;
-                                                    WoundDepth finalDepth = depth;
-                                                    LimbNode   finalNode  = node;
-
-                                                    player.getCapability(PlayerHealthCapability.PLAYER_HEALTH)
-                                                            .ifPresent(data ->
-                                                            {
-                                                                Wound wound = new Wound(finalType, finalDepth, size);
-                                                                data.getLimb(finalNode).addWound(wound);
-
-                                                                ctx.getSource().sendSuccess(
-                                                                        () -> Component.literal(String.format(
-                                                                                "[Debug] Applied %s %s wound (size %.2f) to %s. " +
-                                                                                        "Bleed rate: %.3f ml/s",
-                                                                                finalDepth, finalType, size, finalNode,
-                                                                                wound.getBleedRateML())),
-                                                                        false);
-                                                                syncToClient(player, data);
-                                                            });
-                                                    return 1;
+                                                        Wound w = new Wound(type, depth, size);
+                                                        data.getLimb(node).addWound(w);
+                                                        msg(ctx.getSource(), String.format(
+                                                                "[Debug] %s %s (%.2f) on %s — bleed %.3f ml/s",
+                                                                depth, type, size, node, w.getBleedRateML()));
+                                                    });
                                                 })))));
     }
 
@@ -395,45 +344,34 @@ public class DebugCommands
                 });
     }
 
-    // /paramedicine setfibrillations <0.0 - 1.0> [forced]
-    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetFibrillations()
+    // /paramedicine setinstability <0.0 - 1.0>
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetInstability()
     {
-        return Commands.literal("setfibrillations")
+        return Commands.literal("setinstability")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("value", FloatArgumentType.floatArg(0f, 1f))
-                        .executes(ctx ->
+                        .executes(ctx -> withData(ctx, (player, data) ->
                         {
-                            float value = FloatArgumentType.getFloat(ctx, "value");
-                            return applyFibrillations(ctx.getSource(), value, false);
-                        })
-                        .then(Commands.literal("forced")
-                                .executes(ctx ->
-                                {
-                                    float value = FloatArgumentType.getFloat(ctx, "value");
-                                    return applyFibrillations(ctx.getSource(), value, true);
-                                })));
+                            float v = FloatArgumentType.getFloat(ctx, "value");
+                            data.setElectricalInstability(v);
+                            msg(ctx.getSource(), String.format(
+                                    "[Debug] Electrical instability = %.2f  (rhythm: %s)", v, data.getRhythm()));
+                        })));
     }
 
-    private static int applyFibrillations(CommandSourceStack source,
-            float value, boolean forced)
+    // /paramedicine setheartreserve <0.0 - 1.0>
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetHeartReserve()
     {
-        ServerPlayer player = requirePlayer(source);
-        if (player == null) return 0;
-
-        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH)
-                .ifPresent(data ->
-                {
-                    data.setFibrillations(value);
-                    if (forced) data.setFibrillationsForced(true, value);
-
-                    source.sendSuccess(
-                            () -> Component.literal(String.format(
-                                    "[Debug] Fibrillations set to %.2f%s",
-                                    value, forced ? " (forced)" : "")),
-                            false);
-                    syncToClient(player, data);
-                });
-        return 1;
+        return Commands.literal("setheartreserve")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("value", FloatArgumentType.floatArg(0f, 1f))
+                        .executes(ctx -> withData(ctx, (player, data) ->
+                        {
+                            float v = FloatArgumentType.getFloat(ctx, "value");
+                            data.setHeartReserve(v);
+                            msg(ctx.getSource(), String.format(
+                                    "[Debug] Heart reserve = %.2f  (rhythm: %s)", v, data.getRhythm()));
+                        })));
     }
 
     // /paramedicine settemp <celsius>
@@ -495,12 +433,8 @@ public class DebugCommands
         return Commands.literal("tourniquet")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("limb", StringArgumentType.word())
-                        .suggests((ctx, builder) ->
-                        {
-                            for (LimbNode n : LimbNode.values())
-                                if (n.canApplyTourniquet) builder.suggest(n.name());
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
+                                Arrays.stream(LimbNode.values()).map(Enum::name), b))
                         .then(Commands.argument("state", StringArgumentType.word())
                                 .suggests((ctx, builder) ->
                                 {
@@ -556,12 +490,8 @@ public class DebugCommands
         return Commands.literal("limbstatus")
                 .requires(src -> src.hasPermission(0))
                 .then(Commands.argument("limb", StringArgumentType.word())
-                        .suggests((ctx, builder) ->
-                        {
-                            for (LimbNode n : LimbNode.values())
-                                builder.suggest(n.name());
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
+                                Arrays.stream(LimbNode.values()).map(Enum::name), b))
                         .executes(ctx ->
                         {
                             String limbStr = StringArgumentType.getString(ctx, "limb");
@@ -657,12 +587,8 @@ public class DebugCommands
         return Commands.literal("infectwounds")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("limb", StringArgumentType.word())
-                        .suggests((ctx, builder) ->
-                        {
-                            for (LimbNode n : LimbNode.values())
-                                builder.suggest(n.name());
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, b) -> SharedSuggestionProvider.suggest(
+                                Arrays.stream(LimbNode.values()).map(Enum::name), b))
                         .then(Commands.argument("level", FloatArgumentType.floatArg(0f, 1f))
                                 .executes(ctx ->
                                 {
@@ -706,10 +632,20 @@ public class DebugCommands
         return Commands.literal("give")
                 .requires(src -> src.hasPermission(2))
                 .then(Commands.argument("type", StringArgumentType.word())
-                        .suggests((ctx, b) -> { for (SubstanceType t : SubstanceType.values()) b.suggest(t.name()); return b.buildFuture(); })
+                        .suggests((ctx, b) ->
+                        {
+                            for (SubstanceType t : SubstanceType.values())
+                                b.suggest(t.name());
+                            return b.buildFuture();
+                        })
                         .then(Commands.argument("ml", FloatArgumentType.floatArg(0.0001f, 5000f))
                                 .then(Commands.argument("limb", StringArgumentType.word())
-                                        .suggests((ctx, b) -> { for (LimbNode n : LimbNode.values()) b.suggest(n.name()); return b.buildFuture(); })
+                                        .suggests((ctx, b) ->
+                                        {
+                                            for (LimbNode n : LimbNode.values())
+                                                b.suggest(n.name());
+                                            return b.buildFuture();
+                                        })
                                         .executes(ctx ->
                                         {
                                             String typeStr = StringArgumentType.getString(ctx, "type");
@@ -739,6 +675,54 @@ public class DebugCommands
     }
 
     // === HELPERS ===
+
+    // Filtered enum suggestions. THIS is what makes autocomplete narrow.
+    private static <E extends Enum<E>> SuggestionProvider<CommandSourceStack> enumSuggest(Class<E> cls)
+    {
+        return (ctx, b) -> SharedSuggestionProvider.suggest(Arrays.stream(cls.getEnumConstants()).map(Enum::name), b);
+    }
+
+    // An enum argument (word and filtered suggestions) in one call.
+    private static <E extends Enum<E>> RequiredArgumentBuilder<CommandSourceStack, String> enumArg(String name, Class<E> cls)
+    {
+        return Commands.argument(name, StringArgumentType.word()).suggests(enumSuggest(cls));
+    }
+
+    // Parse it back, throwing a clean Brigadier error (no try/catch/sendFailure/return 0).
+    private static <E extends Enum<E>> E getEnum(CommandContext<CommandSourceStack> ctx, String name, Class<E> cls) throws CommandSyntaxException
+    {
+        String raw = StringArgumentType.getString(ctx, name);
+        try
+        {
+            return Enum.valueOf(cls, raw.toUpperCase(Locale.ROOT));
+        }
+        catch (IllegalArgumentException e)
+        {
+            throw new SimpleCommandExceptionType(Component.literal("Unknown " + cls.getSimpleName() + ": " + raw)).create();
+        }
+    }
+
+    // Wrap the player + capability + sync boilerplate. Sync happens automatically.
+    private static int withData(CommandContext<CommandSourceStack> ctx, BiConsumer<ServerPlayer, PlayerHealthData> action)
+    {
+        ServerPlayer player = requirePlayer(ctx.getSource());
+        if (player == null)
+            return 0;
+
+        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+        {
+            action.accept(player, data);
+            syncToClient(player, data);
+        });
+
+        return 1;
+    }
+
+    private static void msg(CommandSourceStack src, String s)
+    {
+        src.sendSuccess(() -> Component.literal(s), false);
+    }
+
     private static ServerPlayer requirePlayer(CommandSourceStack source)
     {
         if (!(source.getEntity() instanceof ServerPlayer player))

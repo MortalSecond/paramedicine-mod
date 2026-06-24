@@ -136,7 +136,7 @@ public final class WoundingBehavior
         if (roll < 0.005 * critMult)
         {
             new WoundingInstruction(BLUNT, VISCERAL, 0f)
-                    .givesFibrillations(0.50f, false)
+                    .givesFibrillations(0.50f)
                     .applyMutationsOnly(ctx.data);
         }
 
@@ -240,7 +240,7 @@ public final class WoundingBehavior
             if (RNG.nextFloat() < 0.30f)
             {
                 new WoundingInstruction(LACERATION, ARTERIAL, 0f)
-                        .givesFibrillations(0.50f, false)
+                        .givesFibrillations(0.50f)
                         .applyMutationsOnly(ctx.data);
             }
 

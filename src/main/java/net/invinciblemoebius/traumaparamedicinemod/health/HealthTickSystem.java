@@ -123,7 +123,7 @@ public class HealthTickSystem
         data.recomputeHeartRate();
         data.recomputeBloodPressure();
         data.recomputeConsciousness();
-        data.tickFibrillations();
+        data.tickCardiacRhythm(dt);
         recomputeAllLimbHealth(data, limbs);
         syncIfDirty(player, data);
 

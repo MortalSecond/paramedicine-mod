@@ -21,8 +21,10 @@ public class ClientboundSyncHealthPacket
     private final float heartRateBPM;
     private final float systolicBP;
     private final float diastolicBP;
-    private final float fibrillations;
-    private final boolean fibrillationsForced;
+    private final float electricalInstability;
+    private final float heartReserve;
+    private final float hematocrit;
+    private final float redCellFraction;
     private final float oxygenSaturation;
     private final float actualRespiratoryRate;
     private final float breathReserveSeconds;
@@ -52,8 +54,10 @@ public class ClientboundSyncHealthPacket
             float heartRateBPM,
             float systolicBP,
             float diastolicBP,
-            float fibrillations,
-            boolean fibrillationsForced,
+            float electricalInstability,
+            float heartReserve,
+            float hematocrit,
+            float redCellFraction,
             float oxygenSaturation,
             float actualRespiratoryRate,
             float breathReserveSeconds,
@@ -78,8 +82,10 @@ public class ClientboundSyncHealthPacket
         this.heartRateBPM = heartRateBPM;
         this.systolicBP = systolicBP;
         this.diastolicBP = diastolicBP;
-        this.fibrillations = fibrillations;
-        this.fibrillationsForced = fibrillationsForced;
+        this.electricalInstability = electricalInstability;
+        this.heartReserve = heartReserve;
+        this.hematocrit = hematocrit;
+        this.redCellFraction = redCellFraction;
         this.oxygenSaturation = oxygenSaturation;
         this.actualRespiratoryRate = actualRespiratoryRate;
         this.breathReserveSeconds = breathReserveSeconds;
@@ -108,8 +114,10 @@ public class ClientboundSyncHealthPacket
                 data.getHeartRateBPM(),
                 data.getSystolicBP(),
                 data.getDiastolicBP(),
-                data.getFibrillations(),
-                data.isFibrillationsForced(),
+                data.getElectricalInstability(),
+                data.getHeartReserve(),
+                data.getHematocrit(),
+                data.getRedCellFraction(),
                 data.getOxygenSaturation(),
                 data.getActualRespiratoryRate(),
                 data.getBreathReserveSeconds(),
@@ -153,8 +161,10 @@ public class ClientboundSyncHealthPacket
         buf.writeFloat(p.heartRateBPM);
         buf.writeFloat(p.systolicBP);
         buf.writeFloat(p.diastolicBP);
-        buf.writeFloat(p.fibrillations);
-        buf.writeBoolean(p.fibrillationsForced);
+        buf.writeFloat(p.electricalInstability);
+        buf.writeFloat(p.heartReserve);
+        buf.writeFloat(p.hematocrit);
+        buf.writeFloat(p.redCellFraction);
         buf.writeFloat(p.oxygenSaturation);
         buf.writeFloat(p.actualRespiratoryRate);
         buf.writeFloat(p.breathReserveSeconds);
@@ -197,8 +207,10 @@ public class ClientboundSyncHealthPacket
                 buf.readFloat(),                        // heartRateBPM
                 buf.readFloat(),                        // systolicBP
                 buf.readFloat(),                        // diastolicBP
-                buf.readFloat(),                        // fibrillations
-                buf.readBoolean(),                      // fibrillationsForced
+                buf.readFloat(),                        // electricalInstability
+                buf.readFloat(),                        // heartReserve
+                buf.readFloat(),                        // hematocrit
+                buf.readFloat(),                        // redCellFraction
                 buf.readFloat(),                        // oxygenSaturation
                 buf.readFloat(),                        // actualRespiratoryRate
                 buf.readFloat(),                        // breathReserveSeconds
@@ -258,8 +270,10 @@ public class ClientboundSyncHealthPacket
         data.setHeartRateBPMClientOnly(p.heartRateBPM);
         data.setSystolicBPClientOnly(p.systolicBP);
         data.setDiastolicBPClientOnly(p.diastolicBP);
-        data.setFibrillations(p.fibrillations);
-        data.setFibrillationsForced(p.fibrillationsForced, 0f); // Target not needed client-side.
+        data.setElectricalInstability(p.electricalInstability);
+        data.setHeartReserveClientOnly(p.heartReserve);
+        data.setHematocritClientOnly(p.hematocrit);
+        data.setRedCellFractionClientOnly(p.redCellFraction);
         data.setOxygenSaturation(p.oxygenSaturation);
         data.setActualRespiratoryRateClientOnly(p.actualRespiratoryRate);
         data.setBreathReserveSecondsClientOnly(p.breathReserveSeconds);

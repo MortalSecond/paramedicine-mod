@@ -1,9 +1,6 @@
 package net.invinciblemoebius.traumaparamedicinemod.health;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
-import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.*;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
@@ -55,10 +52,8 @@ public class PlayerHealthData
     // Over 1.0, vasoconstriction. Blood loss compensation, cold, epinephrine, so and so.
     private float vascularTone = 1.0f;
     // Rhythm quality. 0.0 is perfect sinus, while 1.0 is vfib.
-    private float fibrillations = 0.0f;
-    // Whether an underlying cause is maintaining fibs
-    private boolean fibrillationsForced = false;
-    private float fibrillationsForcedTarget = 0.0f;
+    private float electricalInstability = 0.0f;
+    private float heartReserve = 1.0f;
 
     // TRANSIENT MODIFIERS
     // These reset every tick before substances run.
@@ -67,6 +62,7 @@ public class PlayerHealthData
     private float infectionGrowthModifier = 1f;
     private float clottingBoostModifier = 1.0f;
     private float respiratorySuppressionCeiling = 1.0f;
+    private float cprCompressionSupport = 0f;
 
     // RESPIRATORY VALUES
     // Represents the "urge" to breathe, or how many breaths the body "wants."
@@ -162,7 +158,7 @@ public class PlayerHealthData
         // Base dystolic from volume. Roughly linear; 100% volume = 120, while 30% volume = 40.
         float volumeBasedSystolic = 40f + (bloodFraction * 80f);
         // Cardiac efficiency from rhythm quality. Perfect rhythm = 1.0, full V-Fib = 0.05.
-        float cardiacEfficiency = 1.0f - (fibrillations * 0.95f);
+        float cardiacEfficiency = computeContractility();
         // Heart rate contribution to systolic. Tachy raises systolic, but REALLY severe tachy reduces it.
         float rateModifier;
         if (heartRateBPM <= ModConstants.BPM_NORMAL_MAX)
@@ -179,20 +175,13 @@ public class PlayerHealthData
         }
         rateModifier = Math.max(0.5f, rateModifier);
 
-        // High BPM Response. Diastolic filling collapse.
-        // Past 220 BPM, actual filling efficiency fails linearly
-        // until only 15% efficiency at 280 BPM.
-        float fillingEfficiency = 1.0f;
-        if (heartRateBPM > 200f)
-            fillingEfficiency = Math.max(0.15f, 1.0f - ((heartRateBPM - 200f) / 80f) * 0.85f);
-
         // Pain response. Up to 15% systolic at max pain..
         float painPressor = 1.0f + (aggregatedPain * 0.15f);
 
         // Computation.
         float effectiveTone = Math.max(0.1f, Math.min(3.0f, vascularTone + vascularToneModifier));
         float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency
-                * rateModifier * bloodViscosity * painPressor * fillingEfficiency;
+                * rateModifier * bloodViscosity * painPressor * computeVentricularFilling();
 
         // Diastolic widens in vasodilation but narrows during vasoconstriction.
         float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, effectiveTone)));
@@ -349,7 +338,7 @@ public class PlayerHealthData
             bloodCeiling = (bloodFraction - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA) / (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_SEVERE_HYPOVOLEMIA);
 
         // Blood pressure ceiling.
-        float map = diastolicBP + (systolicBP - diastolicBP) / 3f;
+        float map = getMAP();
         float bpCeiling;
         if (map >= 70f)
             bpCeiling = 1.0f;
@@ -465,11 +454,19 @@ public class PlayerHealthData
         // Computation.
         float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse
                 + sepsisResponse - tempSuppression + chronotropicModifier;
+
         // This little edge case exists because baroreflex was making BPM go lower when
         // given low doses of epi. Now, it's not totally wrong since IRL it can happen,
         // but it's very counterintuitive.
         if (chronotropicModifier <= 0f)
             computed += bloodPressureResponse;
+
+        // Failing myocardium can't sustain rate. As reserve empties, heart rate fails.
+        if (heartReserve < ModConstants.RESERVE_WEAK)
+        {
+            float fill = heartReserve / ModConstants.RESERVE_WEAK;
+            computed *= (0.4f + 0.6f * fill);
+        }
 
         float newBPM = Math.max(0f, Math.min(300f, computed));
 
@@ -580,51 +577,121 @@ public class PlayerHealthData
             setCoreTemperature(Math.max(target, coreTemperature - driftRate));
     }
 
-    public void tickFibrillations()
+    public void tickCardiacRhythm(float dt)
     {
-        float dt = ModConstants.SECONDS_PER_TICK;
+        float irritation = 0f;
 
-        // High BPM stress. Extreme tachy degrades rhythm quality.
-        // Only above 200 BPM, to kinda emulate SVT becoming VT.
-        float stressAccrual = 0f;
+        // Extreme tachycardia.
         if (heartRateBPM > 200f)
-            stressAccrual += ((heartRateBPM - 200f) / 20f) * 0.08f * dt;
+            irritation += ((heartRateBPM - 200f) / 20f) * 0.08f * dt;
 
-        // Severe hypoxia degradation.
+        // Hypoxic heart.
         float delivery = getOxygenDelivery();
         if (delivery < ModConstants.SPO2_CRITICAL)
-            stressAccrual += ((ModConstants.SPO2_CRITICAL - delivery) / 0.25f) * 0.010f * dt;
+            irritation += ((ModConstants.SPO2_CRITICAL - delivery) / 0.25f) * 0.010f * dt;
 
-        // Hyperalkemia. This is from shock acidosis, bbbbbbbbuuuuut, since i don't directly
-        // emulate blood pH, i'm going to tie it to hypervolemia.
-        float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
-        if (bloodFraction < ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA)
-            stressAccrual += 0.06f * dt;
+        // Heart ischemia. The heart starves when its own perfusion can't meet demand.
+        float map = getMAP();
+        if (map < ModConstants.RHYTHM_CORONARY_ISCHEMIA_MAP)
+            irritation += ((ModConstants.RHYTHM_CORONARY_ISCHEMIA_MAP - map) / ModConstants.RHYTHM_CORONARY_ISCHEMIA_MAP) * 0.04f * dt;
 
-        // Increase fibs according to stress level.
-        if (stressAccrual > 0f)
-            setFibrillations(fibrillations + stressAccrual);
+        if (irritation > 0f)
+            setElectricalInstability(electricalInstability + irritation);
+        else if (electricalInstability > 0f && heartReserve > ModConstants.RESERVE_WEAK
+                && map > ModConstants.RHYTHM_CORONARY_ISCHEMIA_MAP)
+            setElectricalInstability(electricalInstability - 0.04f * dt); // well-perfused heart returns to sinus
 
-        // Returns to forced level after 30secs post-defib.
-        if (fibrillationsForced && fibrillations < fibrillationsForcedTarget)
+        // Heart reserve.
+        float coronary = computeCoronaryPerfusion();
+        boolean pumping = getEffectiveOutput() >= ModConstants.RHYTHM_OUTPUT_PERFUSION_FLOOR && electricalInstability < ModConstants.RHYTHM_INSTABILITY_VF;
+
+        if (coronary < ModConstants.RESERVE_PERFUSION_NEED || !pumping)
         {
-            float driftRate = 0.2f * dt;
-            fibrillations = Math.min(fibrillationsForcedTarget, fibrillations + driftRate);
+            float drain = (ModConstants.RESERVE_PERFUSION_NEED - Math.min(coronary, ModConstants.RESERVE_PERFUSION_NEED)) * ModConstants.RESERVE_DRAIN_RATE * dt;
+
+            // VF/PEA empties it regardless
+            if (!pumping)
+                drain = Math.max(drain, ModConstants.RESERVE_ARREST_DRAIN * dt);
+
+            heartReserve = Math.max(0f, heartReserve - drain);
             markDirty();
         }
-
-        // Healthy heart recovers back to normal sinus overtime.
-        if (!fibrillationsForced && stressAccrual <= 0f && fibrillations > 0f)
+        else
         {
-            fibrillations = Math.max(0f, fibrillations - 0.04f * dt);
+            heartReserve = Math.min(1.0f, heartReserve + ModConstants.RESERVE_RECOVERY * dt);
             markDirty();
         }
     }
 
     public void defibrillate()
     {
-        fibrillations = 0.0f;
+        electricalInstability = 0.0f;
         markDirty();
+    }
+
+    public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
+
+    public float computeVentricularFilling()
+    {
+        float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
+        float preload;
+
+        if (bloodFraction >= ModConstants.BLOOD_MODERATE_HYPOVOLEMIA)
+            preload = 1.0f;
+        else
+            preload = Math.max(0f, (bloodFraction - ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA) / (ModConstants.BLOOD_MODERATE_HYPOVOLEMIA - ModConstants.BLOOD_CRITICAL_HYPOVOLEMIA));
+
+
+        // Very high rates don't leave time to fill.
+        float rateFilling = 1.0f;
+        if (heartRateBPM > 180f)
+            rateFilling = Math.max(0.1f, 1.0f - ((heartRateBPM - 180f) / 100f));
+
+        return Math.max(0f, preload * rateFilling);
+    }
+
+    public float computeContractility()
+    {
+        float electrical = 1.0f - electricalInstability;
+        float reserve = Math.min(1.0f, heartReserve / ModConstants.RESERVE_WEAK);
+
+        return Math.max(0f, electrical * reserve);
+    }
+
+    public float getEffectiveOutput()
+    {
+        float strokeVolume = computeVentricularFilling() * computeContractility();
+        float rateFactor = heartRateBPM / ModConstants.RHYTHM_BPM_RESTING;
+
+        return strokeVolume * rateFactor;
+    }
+
+    public float computeCoronaryPerfusion()
+    {
+        float pressureFactor = Math.min(1.0f, diastolicBP / ModConstants.RHYTHM_CORONARY_PERFUSION_DIASTOLIC);
+        float o2 = Math.min(1.0f, getOxygenDelivery() / ModConstants.SPO2_NORMAL);
+
+        return Math.max(cprCompressionSupport, pressureFactor * o2);
+    }
+
+    public CardiacRhythm getRhythm()
+    {
+        if (heartReserve <= ModConstants.RESERVE_ASYSTOLE)
+            return CardiacRhythm.ASYSTOLE;
+        if (electricalInstability >= ModConstants.RHYTHM_INSTABILITY_VF)
+            return CardiacRhythm.VENTRICULAR_FIBRILLATION;
+        if (electricalInstability >= ModConstants.RHYTHM_INSTABILITY_VT)
+            return CardiacRhythm.VENTRICULAR_TACHYCARDIA;
+
+        // Organized electrical activity:
+        if (getEffectiveOutput() < ModConstants.RHYTHM_OUTPUT_PERFUSION_FLOOR)
+            return CardiacRhythm.PULSELESS_ELECTRICAL_ACTIVITY;
+        if (heartRateBPM < ModConstants.BPM_BRADYCARDIA)
+            return CardiacRhythm.SINUS_BRADYCARDIA;
+        if (heartRateBPM > ModConstants.BPM_NORMAL_MAX)
+            return CardiacRhythm.SINUS_TACHYCARDIA;
+
+        return CardiacRhythm.SINUS;
     }
 
     public void tickPainShock(float dt)
@@ -828,6 +895,7 @@ public class PlayerHealthData
         infectionGrowthModifier = 1f;
         clottingBoostModifier = 1.0f;
         respiratorySuppressionCeiling = 1.0f;
+        cprCompressionSupport = 0f;
     }
 
     public void applyAntibioticToReachableWounds(float amountPerWound, boolean deepOnly)
@@ -853,29 +921,6 @@ public class PlayerHealthData
         }
     }
 
-    // === LIMB METHODS ===
-
-    public Map<LimbNode, LimbData> getLimbs()
-    {
-        return Collections.unmodifiableMap(limbData);
-    }
-
-    public LimbData getLimb(LimbNode node)
-    {
-        return limbData.get(node);
-    }
-
-    public float getTotalLungCompromise()
-    {
-        return leftLung.getCompromise() + rightLung.getCompromise();
-    }
-
-    public void addSubstance(CirculatingSubstance substance)
-    {
-        activeSubstances.add(substance);
-        markDirty();
-    }
-
     // === ACCESSORS ===
 
     public float getBloodVolume() { return bloodVolume; }
@@ -884,8 +929,8 @@ public class PlayerHealthData
     public float getSystolicBP() { return systolicBP; }
     public float getDiastolicBP() { return diastolicBP; }
     public float getVascularTone() { return vascularTone; }
-    public float getFibrillations() { return fibrillations; }
-    public boolean isFibrillationsForced() { return fibrillationsForced; }
+    public float getElectricalInstability() { return electricalInstability; }
+    public float getHeartReserve() { return heartReserve; }
     public float getRespiratoryDrive() { return respiratoryDrive; }
     public float getActualRespiratoryRate() { return actualRespiratoryRate; }
     public float getBreathReserveSeconds() { return breathReserveSeconds; }
@@ -895,6 +940,9 @@ public class PlayerHealthData
     public float getHeartRateBPM() { return heartRateBPM; }
     public LungData getLeftLung() { return leftLung; }
     public LungData getRightLung() { return rightLung; }
+    public Map<LimbNode, LimbData> getLimbs() { return Collections.unmodifiableMap(limbData); }
+    public LimbData getLimb(LimbNode node) { return limbData.get(node); }
+    public float getTotalLungCompromise() { return leftLung.getCompromise() + rightLung.getCompromise(); }
     public float getCoreTemperature() { return coreTemperature; }
     public float getConsciousness() { return consciousness; }
     public float getImmunity() { return immunity; }
@@ -909,6 +957,9 @@ public class PlayerHealthData
     public float getOverexertionPain() { return overexertionPain; }
     public float getInfectionGrowthModifier() { return infectionGrowthModifier; }
     public float getClottingModifier() { return clottingBoostModifier; }
+    public boolean hasPulse() { return getRhythm().perfusing; }
+    public boolean isShockable() { return getRhythm().shockable; }
+    public boolean isArrested() { return !getRhythm().perfusing; }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
@@ -933,21 +984,24 @@ public class PlayerHealthData
         }
     }
 
-    public void setFibrillations(float v)
+    public void setElectricalInstability(float v)
     {
         float c = Math.max(0f, Math.min(1f, v));
-        if (fibrillations != c)
+        if (electricalInstability != c)
         {
-            fibrillations = c;
+            electricalInstability = c;
             markDirty();
         }
     }
 
-    public void setFibrillationsForced(boolean forced, float target)
+    public void setHeartReserve(float v)
     {
-        fibrillationsForced = forced;
-        fibrillationsForcedTarget = Math.max(0f, Math.min(1f, target));
-        markDirty();
+        float c = Math.max(0f, Math.min(1f, v));
+        if (heartReserve != c)
+        {
+            heartReserve = c;
+            markDirty();
+        }
     }
 
     public void setAirwayState(AirwayState state)
@@ -1020,18 +1074,15 @@ public class PlayerHealthData
         }
     }
 
-    public List<SubstanceType> collectActiveSubstanceTypes()
+    public void addSubstance(CirculatingSubstance substance)
     {
-        LinkedHashSet<SubstanceType> types = new LinkedHashSet<>();
+        activeSubstances.add(substance);
+        markDirty();
+    }
 
-        for (CirculatingSubstance substance : getSubstancesInternal())
-            types.add(substance.getType());
-
-        for (LimbData limb : getLimbsInternal().values())
-            for (CirculatingSubstance substance : limb.getLocalSubstances())
-                types.add(substance.getType());
-
-        return new ArrayList<>(types);
+    public void addCprSupport(float v)
+    {
+        cprCompressionSupport = Math.max(cprCompressionSupport, v);
     }
 
     // === CLIENT-ONLY SETTERS ===
@@ -1039,6 +1090,9 @@ public class PlayerHealthData
 
     public void setBloodVolumeClientOnly(float v) { bloodVolume = v; }
     public void setHeartRateBPMClientOnly(float v) { heartRateBPM = v; }
+    public void setHeartReserveClientOnly(float v) { heartReserve = v; }
+    public void setHematocritClientOnly(float v) { systemicHematocrit = v; }
+    public void setRedCellFractionClientOnly(float v) { redCellFraction = v; }
     public void setSystolicBPClientOnly(float v) { systolicBP = v; }
     public void setDiastolicBPClientOnly(float v) { diastolicBP = v; }
     public void setActualRespiratoryRateClientOnly(float v) { actualRespiratoryRate = v; }
@@ -1053,6 +1107,19 @@ public class PlayerHealthData
     {
         clientActiveSubstances.clear();
         clientActiveSubstances.addAll(types);
+    }
+    public List<SubstanceType> collectActiveSubstanceTypes()
+    {
+        LinkedHashSet<SubstanceType> types = new LinkedHashSet<>();
+
+        for (CirculatingSubstance substance : getSubstancesInternal())
+            types.add(substance.getType());
+
+        for (LimbData limb : getLimbsInternal().values())
+            for (CirculatingSubstance substance : limb.getLocalSubstances())
+                types.add(substance.getType());
+
+        return new ArrayList<>(types);
     }
 
     // === PACKET SYNC STUFF ===
@@ -1091,9 +1158,8 @@ public class PlayerHealthData
         bloodViscosity = 1.0f;
         systemicHematocrit = ModConstants.COMP_RESTING_HEMATOCRIT;
         redCellFraction = 1.0f;
-        fibrillations = 0.0f;
-        fibrillationsForced = false;
-        fibrillationsForcedTarget = 0.0f;
+        electricalInstability = 0.0f;
+        heartReserve = 1.0f;
         respiratoryDrive = 16f;
         actualRespiratoryRate = 16f;
         breathReserveSeconds = BREATH_RESERVE_MAX;
@@ -1138,8 +1204,9 @@ public class PlayerHealthData
                                 Blood Volume = %.0fml
                                 Blood Pressure = %d/%d
                                 Blood Viscosity = %.0f
+                                Heart Rhythm = %s
                                 Heart Rate = %.0f BPM
-                                Fibrillations = %.2f%s
+                                Heart Instability = %.0f
                             RESPIRATORY:
                                   SpO2 = %.0f%%
                                   Respiratory Rate = %.0f/%.0f breaths per minute
@@ -1163,8 +1230,9 @@ public class PlayerHealthData
                 bloodVolume,
                 (int) systolicBP, (int) diastolicBP,
                 bloodViscosity,
+                getRhythm(),
                 heartRateBPM,
-                fibrillations, fibrillationsForced ? "(forced)" : "",
+                electricalInstability * 100f,
                 oxygenSaturation * 100f,
                 actualRespiratoryRate, respiratoryDrive,
                 breathReserveSeconds,
@@ -1190,9 +1258,8 @@ public class PlayerHealthData
         tag.putFloat("SystolicBP", systolicBP);
         tag.putFloat("DiastolicBP", diastolicBP);
         tag.putFloat("VascularTone", vascularTone);
-        tag.putFloat("Fibrillations", fibrillations);
-        tag.putBoolean("FibrillationsForced", fibrillationsForced);
-        tag.putFloat("FibrillationsForcedTarget", fibrillationsForcedTarget);
+        tag.putFloat("ElectricalInstability", electricalInstability);
+        tag.putFloat("Heart Reserve", heartReserve);
         tag.putFloat("RespiratoryDrive", respiratoryDrive);
         tag.putFloat("ActualRespiratoryRate", actualRespiratoryRate);
         tag.putFloat("BreathReserveSeconds", breathReserveSeconds);
@@ -1244,9 +1311,8 @@ public class PlayerHealthData
         systolicBP = tag.getFloat("SystolicBP");
         diastolicBP = tag.getFloat("DiastolicBP");
         vascularTone = tag.getFloat("VascularTone");
-        fibrillations = tag.getFloat("Fibrillations");
-        fibrillationsForced = tag.getBoolean("FibrillationsForced");
-        fibrillationsForcedTarget = tag.getFloat("FibrillationsForcedTarget");
+        electricalInstability = tag.getFloat("ElectricalInstability");
+        heartReserve = tag.getFloat("HeartReserve");
         respiratoryDrive = tag.getFloat("RespiratoryDrive");
         actualRespiratoryRate = tag.getFloat("ActualRespiratoryRate");
         breathReserveSeconds = tag.getFloat("BreathReserveSeconds");
@@ -1325,9 +1391,8 @@ public class PlayerHealthData
         this.diastolicBP = other.diastolicBP;
         this.vascularTone = other.vascularTone;
         this.bloodViscosity = other.bloodViscosity;
-        this.fibrillations = other.fibrillations;
-        this.fibrillationsForced = other.fibrillationsForced;
-        this.fibrillationsForcedTarget = other.fibrillationsForcedTarget;
+        this.electricalInstability = other.electricalInstability;
+        this.heartReserve = other.heartReserve;
         this.respiratoryDrive = other.respiratoryDrive;
         this.actualRespiratoryRate = other.actualRespiratoryRate;
         this.breathReserveSeconds = other.breathReserveSeconds;

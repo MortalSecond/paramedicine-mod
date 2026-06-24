@@ -151,7 +151,7 @@ public class RightPanelComponent
 
             if (cont != null)
                 cy = line(g, font, x, cy, "- " + cont, C_RED, 1);
-            if (wound.getInfectionLevel() > 0.05f)
+            if (wound.getInfectionLevel() >= 0.30f)
                 cy = line(g, font, x, cy, "- Infected", C_RED, 1);
             cy += 5;
         }

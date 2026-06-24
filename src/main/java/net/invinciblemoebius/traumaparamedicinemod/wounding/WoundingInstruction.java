@@ -113,10 +113,9 @@ public class WoundingInstruction
         return this;
     }
 
-    public WoundingInstruction givesFibrillations(float amount, boolean forced)
+    public WoundingInstruction givesFibrillations(float amount)
     {
         this.fibrillationAmount = Math.max(0f, Math.min(1f, amount));
-        this.fibrillationsForced = forced;
         return this;
     }
 
@@ -250,17 +249,12 @@ public class WoundingInstruction
             data.spikeAggregatedPain(painSpike);
         }
 
-        if (fibrillationAmount > 0f && fibrillationAmount > data.getFibrillations())
+        if (fibrillationAmount > 0f && fibrillationAmount > data.getElectricalInstability())
         {
-            data.setFibrillations(fibrillationAmount);
+            data.setElectricalInstability(fibrillationAmount);
         }
 
-        if (fibrillationsForced)
-        {
-            data.setFibrillationsForced(true, fibrillationAmount);
-        }
-
-        if (vascularToneDelta > 0f)
+        if (vascularToneDelta != 0f)
         {
             data.setVascularTone(data.getVascularTone() + vascularToneDelta);
         }

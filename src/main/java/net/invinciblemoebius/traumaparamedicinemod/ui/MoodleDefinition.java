@@ -51,6 +51,8 @@ public class MoodleDefinition
             case PALPITATIONS ->  new MoodleDefinition("Palpitations", "You're uncomfortably aware of your own heartbeat. It feels as though your heart were somehow moving frantically inside you. Something isn't right.", '~');
             case VENTRICULAR_FIBRILLATIONS ->  new MoodleDefinition("Ventricular Fibrillations", "Your heart is quivering, not pumping. This inability to eject blood elsewhere is depriving your body of oxygen. Defibrillation might restore the normal rhythm, but asystole is more likely to follow.", '!');
             case SENSE_OF_IMPENDING_DOOM ->  new MoodleDefinition("Sense Of Impending Doom", "Your chest feels strange and the world feels tiny. Something is terribly wrong.", '!');
+            case MYOCARDIAL_EXHAUSTION -> new MoodleDefinition("Failing Heart", "Your heart muscle is running out of the energy it needs to keep beating. Without restored perfusion, it will stop.", '<');
+            case PULSELESS_ELECTRICAL_ACTIVITY -> new MoodleDefinition("Pulseless Electrical Activity", "Your heart's wiring is still firing, but there's nothing left to pump. A monitor would look almost normal while you have no pulse at all. Can't be fixed by defibrillating.", '!');
             case CARDIAC_ARREST ->  new MoodleDefinition("CARDIAC ARREST", "Your heart has completely stopped moving. Even with immediate medical attention, your prognosis looks grim.", '‼');
 
             // CARDIOVASCULAR - BLOOD PRESSURE
@@ -71,6 +73,13 @@ public class MoodleDefinition
             case MILD_HYPERVOLEMIA ->  new MoodleDefinition("Too Much Blood", "There is more blood coursing through your bloodstream than your body can comfortably handle. You feel bloated and your heart is working harder than it should.", '↑');
             case HYPERVOLEMIA ->  new MoodleDefinition("Hypervolemia", "Excess fluid is straining your cardiovascular system. Blood pressure is elevated and your heart is working double duty. Literally.", '↑');
             case CRITICAL_HYPERVOLEMIA ->  new MoodleDefinition("Blood-Swollen", "As it turns out, too much blood is also bad for you. The heart is overwhelmed, and, untreated, pulmonary edema is likely. How did we get here?", '▲');
+
+            // CARDIOVASCULAR - BLOOD COMPOSITION
+            case ANEMIA -> new MoodleDefinition("Anemia", "Not enough red cells to carry oxygen. You tire fast and your margin for any further blood loss is thin.", 'a');
+            case MODERATE_ANEMIA -> new MoodleDefinition("Moderate Anemia", "Your blood's oxygen-carrying capacity is seriously reduced. Plasma filled the tank, but only red cells carry oxygen.", 'a');
+            case SEVERE_ANEMIA -> new MoodleDefinition("Severe Anemia", "Critically few red cells. Your tissues are starving for oxygen no matter how well you breathe. You need blood, red blood.", 'a');
+            case HEMODILUTION -> new MoodleDefinition("Hemodilution", "Your blood has been thinned out with fluid, so it doesn't clot as well. Bleeding will be harder to stop.", 'd');
+            case HEMOCONCENTRATION -> new MoodleDefinition("Hemoconcentration", "Your blood is thick and sticky from fluid loss, raising the risk of dangerous clots.", 'c');
 
             // WOUNDS - HEMORRHAGE
             case MINOR_BLEEDING ->  new MoodleDefinition("Dripping Blood", "There is a small drip of blood coming out of you. Could be handled by your body's own clotting response, but consider preparing a bandage.", '↓');

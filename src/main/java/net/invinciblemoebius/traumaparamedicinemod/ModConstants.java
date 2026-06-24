@@ -22,6 +22,11 @@ public final class ModConstants
     public static final float COMP_PERFUSION_RATE_FACTOR = 0.04f; // Arterial resupply per node.
     public static final float COMP_VENOUS_RETURN_FACTOR  = 0.04f; // Venous return per node.
     public static final float COMP_RESTING_REDCELL_MASS = BLOOD_NORMAL * COMP_RESTING_HEMATOCRIT; // 2250ml baseline carrier mass.
+    public static final float ANEMIA_MILD = 0.80f;
+    public static final float ANEMIA_MODERATE = 0.60f;
+    public static final float ANEMIA_SEVERE = 0.40f;
+    public static final float HEMATOCRIT_DILUTION = 0.35f; // Below: thin, watery blood
+    public static final float HEMATOCRIT_CONCENTRATION = 0.55f; // Above: thick, sticky blood
 
     // HEART RATE (BPM)
     public static final float BPM_NORMAL_MIN = 60f;
@@ -31,11 +36,21 @@ public final class ModConstants
     public static final float BPM_BRADYCARDIA = 60f;
     public static final float BPM_CARDIAC_ARREST = 0f;
 
-    // FIBRILLATIONS
-    public static final float FIBS_NORMAL = 0.2f; // Up to here, normal variation.
-    public static final float FIBS_AFIB = 0.5f; // Up to here, atrial fibrillations.
-    public static final float FIBS_VTACHY = 0.7f; // Up to here, ventricular tachychardia.
-    public static final float FIBS_VFIB = 0.8f; // Above this, ventricular fibrillations.
+    // CARDIAC RHYTHM
+    public static final float RHYTHM_INSTABILITY_VT = 0.7f;
+    public static final float RHYTHM_INSTABILITY_VF = 0.8f;
+    public static final float RHYTHM_OUTPUT_PERFUSION_FLOOR = 0.25f;
+    public static final float RHYTHM_BPM_RESTING = 72f;
+    public static final float RHYTHM_CORONARY_ISCHEMIA_MAP = 50f; // MAP below which the myocardium starves
+    public static final float RHYTHM_CORONARY_PERFUSION_DIASTOLIC = 60f; // Diastolic for full coronary fill
+
+    // HEART RESERVE
+    public static final float RESERVE_ASYSTOLE = 0.02f; // Below this: Flatline.
+    public static final float RESERVE_WEAK = 0.40f; // Below this: contractility starts failing
+    public static final float RESERVE_PERFUSION_NEED = 0.50f; // Below this drains reserve
+    public static final float RESERVE_DRAIN_RATE = 0.02f; // Per sec, scales with under-perfusion
+    public static final float RESERVE_ARREST_DRAIN = 0.004f; // Per sec in a non-perfusing rhythm (4min to flat)
+    public static final float RESERVE_RECOVERY = 0.01f; // Per sec when perfused and pumping
 
     // RESPIRATION
     public static final float RESPIRATORY_NORMAL = 16f; // Up to here, typical breaths per minute.
