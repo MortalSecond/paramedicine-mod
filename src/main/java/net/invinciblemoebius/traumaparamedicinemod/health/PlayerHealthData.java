@@ -470,6 +470,10 @@ public class PlayerHealthData
 
         float newBPM = Math.max(0f, Math.min(300f, computed));
 
+        // Asystole = no electrical activity
+        if (heartReserve <= ModConstants.RESERVE_ASYSTOLE)
+            newBPM = 0f;
+
         if (newBPM != this.heartRateBPM)
         {
             this.heartRateBPM = newBPM;

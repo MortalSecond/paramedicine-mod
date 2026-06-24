@@ -1,0 +1,5 @@
+- Fix blood volume not dropping past 3180ml.
+- Fix ASYSTOLE not forcing heart rate to 0 BPM.
+- Gotta fix up the clotting. It should scale inversely relative to the size of wounds; smaller size wounds, better clotting.
+- Adding pericardial tamponade as well as tension pneumo as potential sources of PEA would be cool.
+- Making arterial bleeding go back and forth from 80ml to 1ml to 80ml to the rhythm of the pulse would be a cool way to emulate arterial bleeding. Not super important considering it makes fundamentally no difference in treatment as well as probably making the moodles freak out between CATASTROPHIC BLEEDING and Dripping Blood, but it'd be so cool.
