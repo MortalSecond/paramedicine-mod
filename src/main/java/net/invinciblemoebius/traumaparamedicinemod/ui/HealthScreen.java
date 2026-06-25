@@ -1,10 +1,12 @@
 package net.invinciblemoebius.traumaparamedicinemod.ui;
 
+import net.invinciblemoebius.traumaparamedicinemod.client.ClientCastState;
 import net.invinciblemoebius.traumaparamedicinemod.client.ClientDiagnosticState;
 import net.invinciblemoebius.traumaparamedicinemod.client.ModKeybinds;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.InteractionOption;
+import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeAction;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeInteractionOptions;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
@@ -114,8 +116,27 @@ public class HealthScreen extends Screen
         diagnostics.render(g, minecraft.font, centerX + PAD, PAD + 12);
         renderFeedbackText(g);
 
+        // Draws the cast around the cursor.
+        if (ClientCastState.isActive())
+            drawCastTimer(g, mouseX, mouseY, ClientCastState.progress());
+
         // Context menu absolutely last. It's the topmost interactive layer.
         contextMenu.render(g, minecraft.font, mouseX, mouseY, width, height);
+    }
+
+    // This is the little circle around the cursor, AKA the 'cast.'
+    private void drawCastTimer(GuiGraphics g, int cx, int cy, float progress)
+    {
+        int radius = 12;
+        int steps = 60;
+        int filled = (int) (progress * steps);
+        for (int i = 0; i < filled; i++)
+        {
+            double ang = -Math.PI / 2 + (i / (double) steps) * Math.PI * 2; // start at top, clockwise
+            int px = cx + (int) Math.round(Math.cos(ang) * radius);
+            int py = cy + (int) Math.round(Math.sin(ang) * radius);
+            g.fill(px - 1, py - 1, px + 1, py + 1, 0xFFFFFFFF);
+        }
     }
 
     private void drawPanel(GuiGraphics g, int x, int y, int w, int h)
@@ -215,8 +236,7 @@ public class HealthScreen extends Screen
 
         for (InteractionOption opt : NodeInteractionOptions.forNode(node, data))
         {
-            menu.add(new ContextMenuComponent.MenuOption(opt.label(),
-                    () -> ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(opt.node(), opt.action()))));
+            menu.add(new ContextMenuComponent.MenuOption(opt.label(), () -> startInteraction(opt.node(), opt.action())));
         }
 
         return menu;
@@ -273,6 +293,28 @@ public class HealthScreen extends Screen
         super.removed();
     }
 
+    private void startInteraction(LimbNode node, NodeAction action)
+    {
+        PlayerHealthData self = target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).resolve().orElse(null);
+        long duration = NodeInteractionOptions.castDurationMs(action, self);
+
+        if (duration <= 0L)
+            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(node, action)); // instant
+        else
+            ClientCastState.start(node, action, duration);
+    }
+
+    @Override
+    public void tick()
+    {
+        super.tick();
+        if (ClientCastState.isComplete())
+        {
+            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(ClientCastState.node(), ClientCastState.action()));
+            ClientCastState.cancel();
+        }
+    }
+
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers)
     {
@@ -284,6 +326,13 @@ public class HealthScreen extends Screen
             if (contextMenu.isOpen())
             {
                 contextMenu.close();
+                return true;
+            }
+
+            // Pressing escape during an active cast animation cancels the action.
+            if (ClientCastState.isActive())
+            {
+                ClientCastState.cancel();
                 return true;
             }
 
@@ -304,6 +353,13 @@ public class HealthScreen extends Screen
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
+        // A click anywhere cancels an in-progress cast (unless the menu's handling it).
+        if (ClientCastState.isActive() && !contextMenu.isOpen())
+        {
+            ClientCastState.cancel();
+            return true;
+        }
+
         // Open menu eats clicks first (select a row, or close on outside-click).
         if (contextMenu.isOpen() && contextMenu.mouseClicked(mouseX, mouseY))
             return true;

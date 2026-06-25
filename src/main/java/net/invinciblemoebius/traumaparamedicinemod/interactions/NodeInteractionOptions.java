@@ -52,4 +52,34 @@ public class NodeInteractionOptions
 
         return options;
     }
+
+    // Base cast seconds per action; 0 = instant (fires immediately, no timer).
+    public static float baseCastSeconds(NodeAction action)
+    {
+        return switch (action)
+        {
+            case CHECK_PULSE -> 2f;
+            case HEAR_PULSE -> 3f;
+            case CHECK_BREATHING -> 2f;
+
+            default -> 0f;
+        };
+    }
+
+    public static long castDurationMs(NodeAction action, PlayerHealthData self)
+    {
+        float base = baseCastSeconds(action);
+        if (base <= 0f || self == null)
+            return 0L;
+
+        float arms = 0.5f * (handCapability(self, LimbNode.LEFT_FOREARM, LimbNode.LEFT_HAND) + handCapability(self, LimbNode.RIGHT_FOREARM, LimbNode.RIGHT_HAND));
+        float dexterity = arms * self.getConsciousness();
+
+        return (long) (base * 1000f / Math.max(0.2f, dexterity));
+    }
+
+    private static float handCapability(PlayerHealthData d, LimbNode forearm, LimbNode hand)
+    {
+        return 0.5f * (d.getLimb(forearm).getMuscleHealth() + d.getLimb(hand).getMuscleHealth());
+    }
 }
