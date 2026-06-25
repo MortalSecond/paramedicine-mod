@@ -1263,7 +1263,7 @@ public class PlayerHealthData
         tag.putFloat("DiastolicBP", diastolicBP);
         tag.putFloat("VascularTone", vascularTone);
         tag.putFloat("ElectricalInstability", electricalInstability);
-        tag.putFloat("Heart Reserve", heartReserve);
+        tag.putFloat("HeartReserve", heartReserve);
         tag.putFloat("RespiratoryDrive", respiratoryDrive);
         tag.putFloat("ActualRespiratoryRate", actualRespiratoryRate);
         tag.putFloat("BreathReserveSeconds", breathReserveSeconds);
