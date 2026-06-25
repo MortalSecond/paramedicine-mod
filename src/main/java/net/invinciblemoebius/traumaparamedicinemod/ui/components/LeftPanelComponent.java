@@ -1,6 +1,10 @@
-package net.invinciblemoebius.traumaparamedicinemod.ui;
+package net.invinciblemoebius.traumaparamedicinemod.ui.components;
 
 import net.invinciblemoebius.traumaparamedicinemod.status.Condition;
+import net.invinciblemoebius.traumaparamedicinemod.ui.MoodleAnimState;
+import net.invinciblemoebius.traumaparamedicinemod.ui.MoodleDefinition;
+import net.invinciblemoebius.traumaparamedicinemod.ui.MoodleHudOverlay;
+import net.invinciblemoebius.traumaparamedicinemod.ui.MoodleRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

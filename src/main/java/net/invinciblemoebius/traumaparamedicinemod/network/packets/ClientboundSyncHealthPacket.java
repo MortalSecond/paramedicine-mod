@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.network;
+package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;

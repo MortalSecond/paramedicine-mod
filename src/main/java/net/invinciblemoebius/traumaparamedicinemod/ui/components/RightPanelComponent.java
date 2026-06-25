@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.ui;
+package net.invinciblemoebius.traumaparamedicinemod.ui.components;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
@@ -6,7 +6,6 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.DressingType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
-import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 

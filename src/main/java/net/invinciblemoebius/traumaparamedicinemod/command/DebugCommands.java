@@ -15,7 +15,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
-import net.invinciblemoebius.traumaparamedicinemod.network.ClientboundSyncHealthPacket;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;

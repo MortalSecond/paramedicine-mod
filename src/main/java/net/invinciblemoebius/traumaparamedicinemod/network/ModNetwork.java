@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.network;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
@@ -36,6 +37,24 @@ public class ModNetwork
                 ClientboundSyncDetailPacket::encode,
                 ClientboundSyncDetailPacket::decode,
                 ClientboundSyncDetailPacket::handle
+        );
+        CHANNEL.registerMessage(id++,
+                ServerboundNodeActionPacket.class,
+                ServerboundNodeActionPacket::encode,
+                ServerboundNodeActionPacket::decode,
+                ServerboundNodeActionPacket::handle
+        );
+        CHANNEL.registerMessage(id++,
+                ClientboundInteractionFeedbackPacket.class,
+                ClientboundInteractionFeedbackPacket::encode,
+                ClientboundInteractionFeedbackPacket::decode,
+                ClientboundInteractionFeedbackPacket::handle
+        );
+        CHANNEL.registerMessage(id++,
+                ClientboundPulseReadingPacket.class,
+                ClientboundPulseReadingPacket::encode,
+                ClientboundPulseReadingPacket::decode,
+                ClientboundPulseReadingPacket::handle
         );
     }
 }

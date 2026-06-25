@@ -1,7 +1,8 @@
-package net.invinciblemoebius.traumaparamedicinemod.network;
+package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.network.InspectionTracker;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;

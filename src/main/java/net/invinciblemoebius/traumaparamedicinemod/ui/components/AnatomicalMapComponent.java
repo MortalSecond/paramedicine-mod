@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.ui;
+package net.invinciblemoebius.traumaparamedicinemod.ui.components;
 
 import com.mojang.math.Axis;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;

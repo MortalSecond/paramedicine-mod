@@ -11,8 +11,9 @@ import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
-import net.invinciblemoebius.traumaparamedicinemod.network.ClientboundSyncHealthPacket;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncDetailPacket;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
@@ -454,7 +455,7 @@ public class HealthTickSystem
         if (net.invinciblemoebius.traumaparamedicinemod.network.InspectionTracker.isViewingSelf(player.getUUID(), player.getId()))
         {
             ModNetwork.CHANNEL.sendTo(
-                    net.invinciblemoebius.traumaparamedicinemod.network.ClientboundSyncDetailPacket.fromData(data),
+                    ClientboundSyncDetailPacket.fromData(data),
                     player.connection.connection,
                     NetworkDirection.PLAY_TO_CLIENT
             );

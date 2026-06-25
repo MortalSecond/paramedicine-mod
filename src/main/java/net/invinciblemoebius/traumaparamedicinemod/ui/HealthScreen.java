@@ -1,14 +1,24 @@
 package net.invinciblemoebius.traumaparamedicinemod.ui;
 
+import net.invinciblemoebius.traumaparamedicinemod.client.ClientDiagnosticState;
 import net.invinciblemoebius.traumaparamedicinemod.client.ModKeybinds;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
+import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.interactions.InteractionOption;
+import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeInteractionOptions;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
-import net.invinciblemoebius.traumaparamedicinemod.network.ServerboundInspectPacket;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundInspectPacket;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundNodeActionPacket;
+import net.invinciblemoebius.traumaparamedicinemod.ui.components.*;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class HealthScreen extends Screen
 {
@@ -16,6 +26,8 @@ public class HealthScreen extends Screen
     private final AnatomicalMapComponent anatomyMap = new AnatomicalMapComponent();
     private final RightPanelComponent rightPanel = new RightPanelComponent();
     private final LeftPanelComponent leftPanel = new LeftPanelComponent();
+    private final ContextMenuComponent contextMenu = new ContextMenuComponent();
+    private final DiagnosticsComponent diagnostics = new DiagnosticsComponent();
 
     // LAYOUT
     private static final float FRAC_LEFT = 0.28f;
@@ -97,6 +109,13 @@ public class HealthScreen extends Screen
 
         // Tooltip last so it overlays the panels.
         leftPanel.renderTooltip(g, minecraft.font, mouseX, mouseY);
+
+        // Diagnostic gauges, top-left of the center panel under the "Anatomy" label.
+        diagnostics.render(g, minecraft.font, centerX + PAD, PAD + 12);
+        renderFeedbackText(g);
+
+        // Context menu absolutely last. It's the topmost interactive layer.
+        contextMenu.render(g, minecraft.font, mouseX, mouseY, width, height);
     }
 
     private void drawPanel(GuiGraphics g, int x, int y, int w, int h)
@@ -189,6 +208,49 @@ public class HealthScreen extends Screen
         }
     }
 
+    private List<ContextMenuComponent.MenuOption> buildNodeOptions(LimbNode node)
+    {
+        PlayerHealthData data = target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).resolve().orElse(null);
+        List<ContextMenuComponent.MenuOption> menu = new ArrayList<>();
+
+        for (InteractionOption opt : NodeInteractionOptions.forNode(node, data))
+        {
+            menu.add(new ContextMenuComponent.MenuOption(opt.label(),
+                    () -> ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(opt.node(), opt.action()))));
+        }
+
+        return menu;
+    }
+
+    private void renderFeedbackText(GuiGraphics g)
+    {
+        String full = ClientDiagnosticState.getFeedbackText();
+        if (full == null || full.isEmpty())
+            return;
+
+        long age = System.currentTimeMillis() - ClientDiagnosticState.getFeedbackAt();
+        int msPerChar = 30;
+        int streamMs = full.length() * msPerChar;
+        int chars = (int) (age / msPerChar);
+        String shown = chars >= full.length() ? full : full.substring(0, chars);
+
+        // Hold 5s after the text finishes, then fade over 1s.
+        long afterDone = age - streamMs;
+        float alpha = afterDone > 5000 ? Math.max(0f, 1f - (afterDone - 5000) / 1000f) : 1f;
+        if (alpha <= 0f)
+            return;
+
+        float scale = 1.6f;
+        int tw = minecraft.font.width(shown);
+        int a = (int) (alpha * 255);
+
+        g.pose().pushPose();
+        g.pose().translate(width / 2f, PAD + 2, 0);
+        g.pose().scale(scale, scale, 1f);
+        g.drawString(minecraft.font, shown, -tw / 2, 0, (a << 24) | 0x00A8A8B0, true);
+        g.pose().popPose();
+    }
+
     // === INTERACTIONS ===
 
     @Override
@@ -217,6 +279,14 @@ public class HealthScreen extends Screen
         // Escape closes normally.
         if (keyCode == 256)
         {
+            // HOWEVER. If the context menu is open, then it'll close
+            // the context menu first. Just QoL.
+            if (contextMenu.isOpen())
+            {
+                contextMenu.close();
+                return true;
+            }
+
             onClose();
             return true;
         }
@@ -234,13 +304,33 @@ public class HealthScreen extends Screen
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button)
     {
+        // Open menu eats clicks first (select a row, or close on outside-click).
+        if (contextMenu.isOpen() && contextMenu.mouseClicked(mouseX, mouseY))
+            return true;
+
+        // Right-click on a node opens its context menu.
+        if (button == 1)
+        {
+            LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
+            if (hit != null)
+            {
+                List<ContextMenuComponent.MenuOption> opts = buildNodeOptions(hit);
+                if (!opts.isEmpty())
+                    contextMenu.open((int) mouseX, (int) mouseY, opts);
+
+                anatomyMap.setSelected(hit);
+                rightPanel.resetScroll();
+                return true;
+            }
+        }
+
+        // Left-click selects a node.
         if (button == 0)
         {
             LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
             LimbNode prev = anatomyMap.getSelected();
-
-            // Null deselects.
             anatomyMap.setSelected(hit);
+
             if (hit != prev)
                 rightPanel.resetScroll();
             if (hit != null)
