@@ -328,7 +328,7 @@ public class LimbData
     {
         if (lastNetBleedRateML != v)
         {
-            float c = lastNetBleedRateML;
+            lastNetBleedRateML = v;
             markDirty();
         }
     }
