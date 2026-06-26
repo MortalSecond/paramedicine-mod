@@ -128,4 +128,8 @@ public final class ModConstants
     public static final float WOUND_U_POSTERIOR = 1.0f;
     public static final float WOUND_U_LEFT_LATERAL = 1.5f;
     public static final float WOUND_U_MAX = 2.0f;
+
+    // CONTAINERS
+    public static final float SYRINGE_CAPACITY_ML = 5f; // Precise dosing tool.
+    public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
 }

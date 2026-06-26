@@ -2,6 +2,8 @@ package net.invinciblemoebius.traumaparamedicinemod;
 
 import com.mojang.logging.LogUtils;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.item.ModCreativeTabs;
+import net.invinciblemoebius.traumaparamedicinemod.item.ModItems;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
@@ -27,6 +29,9 @@ public class ParamedicineMod
 
         // === PARAMEDICINE ===
 
+        // Attach the deferred registers.
+        ModItems.register(modEventBus);
+        ModCreativeTabs.register(modEventBus);
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
         modEventBus.addListener(this::onRegisterCapabilities);
