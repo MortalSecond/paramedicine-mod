@@ -132,4 +132,5 @@ public final class ModConstants
     // CONTAINERS
     public static final float SYRINGE_CAPACITY_ML = 5f; // Precise dosing tool.
     public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
+    public static final float IV_ONSET_SECONDS = 1f;
 }

@@ -10,6 +10,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
@@ -18,6 +19,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
@@ -27,6 +29,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -63,6 +67,7 @@ public class DebugCommands
                         .then(cmdSetBacteremia())
                         .then(cmdInfectWounds())
                         .then(cmdGiveSubstance())
+                        .then(cmdFill())
         );
     }
 
@@ -631,47 +636,68 @@ public class DebugCommands
     {
         return Commands.literal("give")
                 .requires(src -> src.hasPermission(2))
-                .then(Commands.argument("type", StringArgumentType.word())
-                        .suggests((ctx, b) ->
-                        {
-                            for (SubstanceType t : SubstanceType.values())
-                                b.suggest(t.name());
-                            return b.buildFuture();
-                        })
+                .then(enumArg("type", SubstanceType.class)
                         .then(Commands.argument("ml", FloatArgumentType.floatArg(0.0001f, 5000f))
-                                .then(Commands.argument("limb", StringArgumentType.word())
-                                        .suggests((ctx, b) ->
-                                        {
-                                            for (LimbNode n : LimbNode.values())
-                                                b.suggest(n.name());
-                                            return b.buildFuture();
-                                        })
+                                .then(enumArg("limb", LimbNode.class)
                                         .executes(ctx ->
                                         {
-                                            String typeStr = StringArgumentType.getString(ctx, "type");
+                                            SubstanceType type = getEnum(ctx, "type", SubstanceType.class);
+                                            LimbNode node = getEnum(ctx, "limb", LimbNode.class);
                                             float ml = FloatArgumentType.getFloat(ctx, "ml");
-                                            String limbStr = StringArgumentType.getString(ctx, "limb");
-
-                                            SubstanceType type;
-                                            LimbNode node;
-                                            try { type = SubstanceType.valueOf(typeStr.toUpperCase()); }
-                                            catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown substance: " + typeStr)); return 0; }
-                                            try { node = LimbNode.valueOf(limbStr.toUpperCase()); }
-                                            catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown limb: " + limbStr)); return 0; }
-
-                                            ServerPlayer player = requirePlayer(ctx.getSource());
-                                            if (player == null) return 0;
-
-                                            SubstanceType ft = type; LimbNode fn = node;
-                                            player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                                            return withData(ctx, (player, data) ->
                                             {
-                                                data.getLimb(fn).addLocalSubstance(new CirculatingSubstance(ft, ml, 5f));
-                                                ctx.getSource().sendSuccess(() -> Component.literal(String.format(
-                                                        "[Debug] Gave %.2fml %s to %s (local).", ml, ft, fn)), false);
-                                                syncToClient(player, data);
+                                                data.getLimb(node).addLocalSubstance(new CirculatingSubstance(type, ml, 5f));
+                                                msg(ctx.getSource(), String.format(
+                                                        "[Debug] Gave %.2fml %s to %s (local).", ml, type, node));
                                             });
-                                            return 1;
                                         }))));
+    }
+
+    // /paramedicine fill <substance> <ml>
+    // Tops up the held fluid container up with a substance, capped at the container's capacity.
+    // Works on a single container peeled off the held stack it doesn't produce a stack of identical filled ones.
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdFill()
+    {
+        return Commands.literal("fill")
+                .requires(src -> src.hasPermission(2))
+                .then(enumArg("substance", SubstanceType.class)
+                        .then(Commands.argument("ml", FloatArgumentType.floatArg(0.01f, 5000f))
+                                .executes(ctx ->
+                                {
+                                    SubstanceType type = getEnum(ctx, "substance", SubstanceType.class);
+                                    float ml = FloatArgumentType.getFloat(ctx, "ml");
+
+                                    ServerPlayer player = requirePlayer(ctx.getSource());
+                                    if (player == null) return 0;
+
+                                    ItemStack held = player.getMainHandItem();
+                                    if (!(held.getItem() instanceof FluidContainerItem container))
+                                    {
+                                        ctx.getSource().sendFailure(Component.literal(
+                                                "Hold a fluid container (syringe, glass) in your main hand."));
+                                        return 0;
+                                    }
+
+                                    // Operate on one unit so stacked empties don't all become filled.
+                                    ItemStack single = held.copy();
+                                    single.setCount(1);
+
+                                    FluidMixture mix = FluidContainerItem.getMixture(single);
+                                    float accepted = mix.add(type, ml, container.getCapacityML());
+                                    FluidContainerItem.setMixture(single, mix);
+
+                                    // Put the filled one back, return the remainder to the hand.
+                                    held.shrink(1);
+                                    if (held.isEmpty())
+                                        player.setItemInHand(InteractionHand.MAIN_HAND, single);
+                                    else if (!player.getInventory().add(single))
+                                        player.drop(single, false);
+
+                                    float finalAccepted = accepted;
+                                    msg(ctx.getSource(), String.format(
+                                            "[Debug] Added %.2fml %s. Now: %s", finalAccepted, type, mix.describe()));
+                                    return 1;
+                                })));
     }
 
     // === HELPERS ===

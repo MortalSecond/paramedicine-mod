@@ -56,5 +56,11 @@ public class ModNetwork
                 ClientboundPulseReadingPacket::decode,
                 ClientboundPulseReadingPacket::handle
         );
+        CHANNEL.registerMessage(id++,
+                ServerboundApplyItemToNodePacket.class,
+                ServerboundApplyItemToNodePacket::encode,
+                ServerboundApplyItemToNodePacket::decode,
+                ServerboundApplyItemToNodePacket::handle
+        );
     }
 }

@@ -10,6 +10,7 @@ import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeAction;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeInteractionOptions;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
+import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundApplyItemToNodePacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundInspectPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundNodeActionPacket;
 import net.invinciblemoebius.traumaparamedicinemod.ui.components.*;
@@ -18,6 +19,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +57,12 @@ public class HealthScreen extends Screen
     private static final int C_HOTBAR_DIVIDER = 0xFF222222;
     // Label color.
     private static final int C_LABEL = 0xFF555555;
+
+    // Drag state: which hotbar slot the cursor picked up, or -1.
+    private int draggingFromSlot = -1;
+    // Per-slot screen rects, populated each frame by drawSlot() so input can hit-test them.
+    private final int[] slotXs = new int[9];
+    private final int[] slotYs = new int[9];
 
     // === CONSTRUCTOR ===
     public HealthScreen(Player target)
@@ -119,6 +127,14 @@ public class HealthScreen extends Screen
         // Draws the cast around the cursor.
         if (ClientCastState.isActive())
             drawCastTimer(g, mouseX, mouseY, ClientCastState.progress());
+
+        // Dragged item ghosts under the cursor.
+        if (draggingFromSlot >= 0)
+        {
+            ItemStack dragStack = target.getInventory().getItem(draggingFromSlot);
+            if (!dragStack.isEmpty())
+                g.renderItem(dragStack, mouseX - 8, mouseY - 8);
+        }
 
         // Context menu absolutely last. It's the topmost interactive layer.
         contextMenu.render(g, minecraft.font, mouseX, mouseY, width, height);
@@ -207,6 +223,10 @@ public class HealthScreen extends Screen
 
     private void drawSlot(GuiGraphics g, int x, int y, int slotIndex, int selectedSlot)
     {
+        // Record the position.
+        slotXs[slotIndex] = x;
+        slotYs[slotIndex] = y;
+
         // Selection highlight.
         if (slotIndex == selectedSlot)
             g.fill(x - 1, y - 1, x + SLOT_STRIDE + 1, y + SLOT_STRIDE + 1, C_SLOT_SELECTED);
@@ -227,6 +247,18 @@ public class HealthScreen extends Screen
             g.renderItem(stack, x + SLOT_BORDER, y + SLOT_BORDER);
             g.renderItemDecorations(minecraft.font, stack, x + SLOT_BORDER, y + SLOT_BORDER);
         }
+    }
+
+    // Which hotbar slot, if any, the cursor is over.
+    private int slotAt(double mx, double my)
+    {
+        for (int i = 0; i < 9; i++)
+        {
+            if (mx >= slotXs[i] && mx < slotXs[i] + SLOT_STRIDE
+                    && my >= slotYs[i] && my < slotYs[i] + SLOT_STRIDE)
+                return i;
+        }
+        return -1;
     }
 
     private List<ContextMenuComponent.MenuOption> buildNodeOptions(LimbNode node)
@@ -380,6 +412,17 @@ public class HealthScreen extends Screen
             }
         }
 
+        // Begin dragging an item out of the hotbar strip.
+        if (button == 0)
+        {
+            int slot = slotAt(mouseX, mouseY);
+            if (slot >= 0 && !target.getInventory().getItem(slot).isEmpty())
+            {
+                draggingFromSlot = slot;
+                return true;
+            }
+        }
+
         // Left-click selects a node.
         if (button == 0)
         {
@@ -393,6 +436,23 @@ public class HealthScreen extends Screen
                 return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button)
+    {
+        if (button == 0 && draggingFromSlot >= 0)
+        {
+            int slot = draggingFromSlot;
+            draggingFromSlot = -1;
+
+            LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
+            if (hit != null)
+                ModNetwork.CHANNEL.sendToServer(new ServerboundApplyItemToNodePacket(slot, hit));
+
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
