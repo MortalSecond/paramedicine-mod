@@ -15,6 +15,9 @@ public final class ModConstants
     public static final float BLOOD_SEVERE_HYPOVOLEMIA = 0.40f; // 60% Blood loss, Class 3 hemorrhage.
     public static final float BLOOD_CRITICAL_HYPOVOLEMIA = 0.30f; // 70% Blood loss, Class 4 hemorrhage.
     public static final float BLOOD_MIN = 0f; // Total exsanguination.
+    public static final float NORMAL_MAP = 93f; // 120/80 mean arterial pressure
+    public static final float ARTERIAL_CLOT_CAP = 0.15f; // Max clot maturity while an arterial wound still flows
+    public static final float ARTERIAL_FLOW_CEILING = 4f; // ml/s. Above this an arterial wound can't seal
 
     // BLOOD COMPOSITION
     public static final float COMP_RESTING_HEMATOCRIT = 0.45f; // Red-cell fraction of resting whole blood.

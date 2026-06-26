@@ -12,6 +12,7 @@ public enum SubstanceType
 
     MORPHINE(600f, new SubstanceEffects()
             .reducesPain(0.0002f, 0.0006f, 0.80f, 0.1f)
+            .vasoactive(-500f)
             .suppressesRespiration(0.0004f, 0.0008f, 0.35f, 0.0008f, 290f)),
 
     KETAMINE(900f, new SubstanceEffects()

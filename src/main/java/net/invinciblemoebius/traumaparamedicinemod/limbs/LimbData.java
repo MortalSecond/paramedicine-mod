@@ -2,6 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.limbs;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.wound.BleedContext;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
 import net.minecraft.nbt.CompoundTag;
@@ -104,22 +105,19 @@ public class LimbData
 
     // === TICK METHODS ===
 
-    public float computeNetBleedRate(LimbNode self, Map<LimbNode, LimbData> allLimbs, float coreTemp, float spo2, float nutritionLevel, float systemicFactor)
+    public float computeNetBleedRate(LimbNode self, Map<LimbNode, LimbData> allLimbs, BleedContext ctx)
     {
         // Edge case for when there's no wounds.
-        if (wounds.isEmpty()) return 0f;
-        if (!hasProximalCirculation(self, allLimbs)) return 0f;
+        if (wounds.isEmpty())
+            return 0f;
+        if (!hasProximalCirculation(self, allLimbs))
+            return 0f;
 
-        float totalBleed = 0f;
-        float totalClotting = 0f;
-
+        float total = 0f;
         for (Wound wound: wounds)
-        {
-            totalBleed += wound.getBleedRateML();
-            totalClotting += wound.computeClottingRate(coreTemp, spo2, nutritionLevel, systemicFactor);
-        }
+            total += wound.computeBleedRate(ctx);
 
-        return Math.max(0f, totalBleed - totalClotting);
+        return total;
     }
 
     public void recomputeRawPain()
@@ -177,6 +175,17 @@ public class LimbData
         }
 
         return worst;
+    }
+
+    // Display value: EMA of the instantaneous (pulsatile) rate so moodles/drops don't
+    // freak out between CATASTROPHIC BLEEDING and Dripping Blood.
+    public void updateBleedDisplay(float instant)
+    {
+        float smoothed = lastNetBleedRateML + (instant - lastNetBleedRateML) * 0.1f;
+        if (Math.abs(smoothed - lastNetBleedRateML) > 0.001f)
+            markDirty();
+
+        lastNetBleedRateML = smoothed;
     }
 
     // === WOUND MANAGEMENT ===
@@ -328,7 +337,7 @@ public class LimbData
     {
         if (lastNetBleedRateML != v)
         {
-            lastNetBleedRateML = v;
+            lastNetBleedRateML = Math.max(0f, v);
             markDirty();
         }
     }

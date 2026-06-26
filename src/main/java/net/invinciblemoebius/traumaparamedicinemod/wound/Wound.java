@@ -14,6 +14,8 @@ public class Wound
     private float bleedRateML;
     private WoundStage stage = WoundStage.BLEEDING;
     private float stageProgress = 0f;
+    // 0 = open, 1 = sealed.
+    private float clotIntegrity = 0f;
     private long ageTicks = 0L;
     private float contamination;
     private float infectionLevel;
@@ -65,26 +67,16 @@ public class Wound
 
     // === BLEED RATE COMPUTATION ===
 
-    // Base Rates (ml/s at size 1.0):
-    //  SUPERFICIAL:    0.05    (~1 ml/s)
-    //  DERMAL:         0.15    (~3 ml/s)
-    //  SUBDERMAL:      0.40    (~8 ml/s)
-    //  MUSCULAR:       1.00    (~20 ml/s)
-    //  ARTERIAL:       5.00    (~100 ml/s)
-    //  VISCERAL:       0.60    (~12 ml/s)
-    // BLUNT wounds at non-arterial depths have 30% of the base rates,
-    // basically because they're bruising rather than hemorrhaging.
-    // BURNS have 20% of the base rate, since it destroys tissue outright.
     private float computeInitialBleedRate()
     {
         float base = switch (depth)
         {
             case SUPERFICIAL -> 1.0f;
-            case DERMAL -> 3.0f;
-            case SUBDERMAL -> 8.0f;
-            case MUSCULAR -> 20.0f;
-            case ARTERIAL -> 80.0f;
-            case VISCERAL -> 12.0f;
+            case DERMAL -> 2.5f;
+            case SUBDERMAL -> 5.0f;
+            case MUSCULAR -> 10.0f;
+            case ARTERIAL -> 18.0f;
+            case VISCERAL -> 10.0f;
         };
         float typeModifier = switch (type)
         {
@@ -114,33 +106,84 @@ public class Wound
             case AVULSION -> 0.20f;
             case LACERATION -> 0.10f;
             case BLUNT -> 0.05f;
-            case BURN -> 0.00f; // Starts sterile because heat kills off the pre-existing bacteria.
+            case BURN -> 0.00f;
         };
+    }
+
+    // Bleed rate (ml/s) under current circulatory conditions.
+    public float computeBleedRate(BleedContext ctx)
+    {
+        if (isClosed)
+            return 0f;
+
+        return bleedRateML * pressureFactor(ctx) * (1f - clotIntegrity) * spasmFactor();
+    }
+
+    private float pressureFactor(BleedContext ctx)
+    {
+        // Pulsatile. Bleeds during systolic, slows during diastolic, stops at arrest.
+        if (isArterial)
+        {
+            float envelope = arterialSpurtEnvelope(ctx.cardiacPhase());
+            float instantP = ctx.hasPulse() ? ctx.diastolic() + (ctx.systolic() - ctx.diastolic()) * envelope : 0f;
+
+            return Math.max(0f, instantP / ModConstants.NORMAL_MAP);
+        }
+
+        // Venous/Capillary. Continuous, driven by perfusion pressure.
+        return Math.max(0f, ctx.map() / ModConstants.NORMAL_MAP);
+    }
+
+    // Peaks at systole (phase 0), slows during diastole. It uses ^2 to read as a spurt, not a sine.
+    private static float arterialSpurtEnvelope(float phase)
+    {
+        float c = (float) ((1.0 + Math.cos(2.0 * Math.PI * phase)) * 0.5);
+        return c * c;
+    }
+
+    // Vascular spasm. The vein (or artery) clamps in the first 30 seconds, strongest for small vessels.
+    // This is the "slows then resumes" behavior, and the early breather
+    // that lets small wounds clot before flow returns.
+    private float spasmFactor()
+    {
+        float strength = switch (depth)
+        {
+            case SUPERFICIAL, DERMAL -> 0.60f;
+            case SUBDERMAL -> 0.40f;
+            case MUSCULAR -> 0.25f;
+            case VISCERAL -> 0.20f;
+            case ARTERIAL -> 0.10f;
+        };
+        float ageSeconds = ageTicks / 20f;
+
+        return 1f - strength * (float) Math.exp(-ageSeconds / 30.0);
     }
 
     // === CLOTTING COMPUTATION ===
 
-    // The rate at which a wound's bleeding rate is being reduced by clotting, in ml/s.
-    public float computeClottingRate(float coreTemp, float spo2, float nutritionLevel, float systemicFactor)
+    public void tickClotting(BleedContext ctx, float dt)
     {
-        if (isArterial)
-            return 0f;
-        if (depth == WoundDepth.VISCERAL)
-            return 0f;
-        if (stage != WoundStage.BLEEDING && stage != WoundStage.CLOTTING)
-            return 0f;
+        // Edge case in case the wound is either already closed or visceral (can't clot).
+        if (isClosed || clotIntegrity >= 1f || depth == WoundDepth.VISCERAL)
+            return;
 
-        boolean hasHemostatic = (dressingType == DressingType.HEMOSTATIC);
+        // An arterial wound can't seal while it's still flowing hard.
+        float cap = (isArterial && computeBleedRate(ctx) > ModConstants.ARTERIAL_FLOW_CEILING) ? ModConstants.ARTERIAL_CLOT_CAP : 1f;
+        if (clotIntegrity >= cap)
+            return;
 
-        // Base clotting on a 1.0 size wound in a perfectly healthy patient.
-        float base = 0.08f;
-        float tempFactor = computeTempFactor(coreTemp);
-        float spo2Factor = computeOxygenationFactor(spo2);
-        float nutritionFactor = 0.6f + (nutritionLevel * 0.4f);
+        clotIntegrity = Math.min(cap, clotIntegrity + clotGrowthRate(ctx) * dt);
+    }
+
+    private float clotGrowthRate(BleedContext ctx)
+    {
+        // Roughly 50secs to seal a small clean wound in a healthy patient
+        float base = 0.02f;
+        float nutrition = 0.6f + (ctx.nutrition() * 0.4f);
         float sizePenalty = 1.0f - (size * 0.55f);
-        float dressingBonus = hasHemostatic ? 2.5f : 1.0f;
+        float dressingBonus = (dressingType == DressingType.HEMOSTATIC) ? 2.5f : 1.0f;
 
-        return base * tempFactor * spo2Factor * nutritionFactor * sizePenalty * dressingBonus * systemicFactor;
+        return base * computeTempFactor(ctx.coreTemp()) * computeOxygenationFactor(ctx.spo2()) * nutrition * sizePenalty * dressingBonus * ctx.systemicClottingFactor();
     }
 
     // IRL clotting enzymes slow down below 35C°, hence why it's part of clotting calculation.
@@ -191,7 +234,7 @@ public class Wound
 
     // === TICK ADVANCEMENT ===
 
-    public boolean tickAdvance(float netClottingRate)
+    public boolean tickAdvance()
     {
         boolean changed = false;
         ageTicks++;
@@ -212,7 +255,7 @@ public class Wound
         }
 
         // Stage advancement.
-        changed |= tickStageProgress(netClottingRate);
+        changed |= tickStageProgress();
 
         return changed;
     }
@@ -230,7 +273,7 @@ public class Wound
         };
     }
 
-    private boolean tickStageProgress(float netClottingRate)
+    private boolean tickStageProgress()
     {
         boolean changed = false;
 
@@ -239,11 +282,9 @@ public class Wound
             case BLEEDING ->
             {
                 // Clotting rate moves the wound towards CLOTTING stage.
-                if (netClottingRate > 0f && bleedRateML > 0f)
+                if (clotIntegrity >= 0.95f)
                 {
-                    float progressRate = (netClottingRate / bleedRateML) * 0.002f;
-                    stageProgress = Math.min(1f, stageProgress + progressRate);
-                    if (stageProgress > 1f) {advanceTo(WoundStage.CLOTTING);}
+                    advanceTo(WoundStage.CLOTTING);
                     changed = true;
                 }
             }
@@ -352,6 +393,7 @@ public class Wound
         stage = WoundStage.BLEEDING;
         stageProgress = 0f;
         bleedRateML = computeInitialBleedRate() * 0.60f;
+        clotIntegrity = 0f;
     }
 
     public void removeForeignBody()
@@ -417,6 +459,7 @@ public class Wound
         tag.putFloat ("BleedRateML", bleedRateML);
         tag.putString("Stage", stage.name());
         tag.putFloat ("StageProgress", stageProgress);
+        tag.putFloat("ClotIntegrity", clotIntegrity);
         tag.putLong  ("AgeTicks", ageTicks);
         tag.putFloat ("Contamination", contamination);
         tag.putFloat ("InfectionLevel", infectionLevel);
@@ -447,6 +490,7 @@ public class Wound
         bleedRateML = tag.getFloat("BleedRateML");
         stage = WoundStage.valueOf(tag.getString("Stage"));
         stageProgress = tag.getFloat("StageProgress");
+        clotIntegrity = tag.getFloat("ClotIntegrity");
         ageTicks = tag.getLong("AgeTicks");
         contamination = tag.getFloat("Contamination");
         infectionLevel = tag.getFloat("InfectionLevel");

@@ -490,7 +490,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate > 0 && bleedRate < 5f;
+                    return bleedRate > 0 && bleedRate < 3f;
                 }
             },
 
@@ -500,7 +500,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate >= 5f && bleedRate < 15f;
+                    return bleedRate >= 3f && bleedRate < 8f;
                 }
             },
 
@@ -510,7 +510,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate >= 15f && bleedRate < 25f;
+                    return bleedRate >= 8f && bleedRate < 15f;
                 }
             },
 
@@ -520,7 +520,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate >= 25f;
+                    return bleedRate >= 15f;
                 }
             },
 

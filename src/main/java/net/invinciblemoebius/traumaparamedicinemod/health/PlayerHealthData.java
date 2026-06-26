@@ -54,6 +54,8 @@ public class PlayerHealthData
     // Rhythm quality. 0.0 is perfect sinus, while 1.0 is vfib.
     private float electricalInstability = 0.0f;
     private float heartReserve = 1.0f;
+    // Just a float that consolidates heart rate timing for arterial spurts.
+    private float cardiacPhase = 0f;
 
     // TRANSIENT MODIFIERS
     // These reset every tick before substances run.
@@ -147,10 +149,6 @@ public class PlayerHealthData
         bloodViscosity = Math.max(0.3f, Math.min(2.0f, v));
     }
 
-    // Really complicated BP math that i REALLY encourage understanding bit-by-bit.
-    // I'm not very satisfied with it, but my research didn't turn up any concrete formula.
-    // At least, not one that fit Paramedicine's variables. If there's an IRL medic that
-    // could help get a simpler calculation for BP, i'd appreciate the help.
     public void recomputeBloodPressure()
     {
         float bloodFraction = bloodVolume / ModConstants.BLOOD_NORMAL;
@@ -178,15 +176,22 @@ public class PlayerHealthData
         // Pain response. Up to 15% systolic at max pain..
         float painPressor = 1.0f + (aggregatedPain * 0.15f);
 
+        // Compensatory vasoconstriction.
+        // Rises with volume loss, maxes near Class III/IV. Past thatm it can't compensate and
+        // pressure finally falls (decompensation).
+        float compensation = 1.0f + Math.min(0.45f, Math.max(0f, 1.0f - bloodFraction) * 1.3f);
+        float effectiveTone = Math.max(0.1f, Math.min(3.0f, (vascularTone * compensation) + vascularToneModifier));
+
         // Computation.
-        float effectiveTone = Math.max(0.1f, Math.min(3.0f, vascularTone + vascularToneModifier));
         float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency
                 * rateModifier * bloodViscosity * painPressor * computeVentricularFilling();
+        newSystolicBP = Math.max(0f, Math.min(300f, newSystolicBP));
 
-        // Diastolic widens in vasodilation but narrows during vasoconstriction.
-        float pulsePressureRatio = 0.5f + (0.2f * (1.0f / Math.max(0.1f, effectiveTone)));
-        // Diastolic is proportional to systolic at roughly 0.6 ratio.
-        float newDiastolicBP = systolicBP * Math.min(0.85f, pulsePressureRatio);
+        // Diastolic tracks systolic, but vasoconstriction RAISES it (narrowing pulse pressure),
+        // while vasodilation (sepsis/morphine) lowers it (widening).
+        float pulsePressureRatio = Math.max(0.40f, Math.min(0.85f, 0.667f + 0.22f * (effectiveTone - 1.0f)));
+        float newDiastolicBP = newSystolicBP * pulsePressureRatio;
+        newDiastolicBP = Math.max(0f, Math.min(Math.min(180f, newSystolicBP - 10f), newDiastolicBP));
 
         if (newSystolicBP != systolicBP || newDiastolicBP != diastolicBP)
         {
@@ -389,6 +394,8 @@ public class PlayerHealthData
         consciousnessTarget = Math.min(
                 Math.min(Math.min(bloodCeiling, spo2Ceiling), Math.min(painCeiling, brainCeiling)),
                 Math.min(Math.min(shockCeiling, sepsisCeiling), Math.min(tempCeiling, bpCeiling)));
+        // Clamp it, so the actual consciousness value doesn't become negative zero.
+        consciousnessTarget = Math.max(0f, Math.min(1f, consciousnessTarget));
 
         // Apply inertia.
         float inertiaRate = 0.001f;
@@ -397,6 +404,7 @@ public class PlayerHealthData
             consciousness = Math.min(consciousnessTarget, consciousness + inertiaRate);
         else if (consciousness > consciousnessTarget)
             consciousness = Math.max(consciousnessTarget, consciousness - inertiaRate);
+        consciousness = Math.max(0f, Math.min(1f, consciousness));
 
         if (consciousness != before)
             markDirty();
@@ -451,15 +459,17 @@ public class PlayerHealthData
         bloodPressureResponse = -((systolicBP - normalSystolic) / normalSystolic) * 40f;
         bloodPressureResponse = Math.max(-25f, Math.min(25f, bloodPressureResponse));
 
-        // Computation.
-        float computed = base + bloodResponse + painResponse + spo2Response + staminaResponse
-                + sepsisResponse - tempSuppression + chronotropicModifier;
-
+        // These are the compensatory respones only, it gets clamped AT MOST 180, so VFIB doesn't reach early.
+        float compensatory = bloodResponse + painResponse + spo2Response + staminaResponse + sepsisResponse - tempSuppression;
         // This little edge case exists because baroreflex was making BPM go lower when
         // given low doses of epi. Now, it's not totally wrong since IRL it can happen,
         // but it's very counterintuitive.
         if (chronotropicModifier <= 0f)
-            computed += bloodPressureResponse;
+            compensatory += bloodPressureResponse;
+
+        // Clamp. Only medications are able to go past 180 BPM.
+        float compensated = Math.min(180f, base + compensatory);
+        float computed = compensated + chronotropicModifier;
 
         // Failing myocardium can't sustain rate. As reserve empties, heart rate fails.
         if (heartReserve < ModConstants.RESERVE_WEAK)
@@ -490,23 +500,6 @@ public class PlayerHealthData
         float dilutionFactor = Math.min(1.2f, bloodViscosity);
 
         return clottingBoostModifier * dilutionFactor;
-    }
-
-    // === DIRECT SETTERS ===
-
-    // Applies pain DIRECTLY, circumventing the per-wound accumulation of recomputeAggregatedPain().
-    public void spikeAggregatedPain(float amount)
-    {
-        aggregatedPain = Math.min(1.0f, aggregatedPain + amount);
-        markDirty();
-    }
-
-    // Overwrites consciousness directly, circumventing the inertia system. This one's instantaneous.
-    public void setConsciousnessDirectly(float value)
-    {
-        consciousness = Math.max(0f, Math.min(1f, value));
-        consciousnessTarget = consciousness;
-        markDirty();
     }
 
     // === TICK METHODS ===
@@ -633,7 +626,12 @@ public class PlayerHealthData
         markDirty();
     }
 
-    public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
+    public void tickCardiacPhase(float dt)
+    {
+        cardiacPhase = (cardiacPhase + (heartRateBPM / 60f) * dt) % 1f;
+        if (cardiacPhase < 0f)
+            cardiacPhase += 1f;
+    }
 
     public float computeVentricularFilling()
     {
@@ -925,6 +923,23 @@ public class PlayerHealthData
         }
     }
 
+    // === DIRECT SETTERS ===
+
+    // Applies pain DIRECTLY, circumventing the per-wound accumulation of recomputeAggregatedPain().
+    public void spikeAggregatedPain(float amount)
+    {
+        aggregatedPain = Math.min(1.0f, aggregatedPain + amount);
+        markDirty();
+    }
+
+    // Overwrites consciousness directly, circumventing the inertia system. This one's instantaneous.
+    public void setConsciousnessDirectly(float value)
+    {
+        consciousness = Math.max(0f, Math.min(1f, value));
+        consciousnessTarget = consciousness;
+        markDirty();
+    }
+
     // === ACCESSORS ===
 
     public float getBloodVolume() { return bloodVolume; }
@@ -935,6 +950,7 @@ public class PlayerHealthData
     public float getVascularTone() { return vascularTone; }
     public float getElectricalInstability() { return electricalInstability; }
     public float getHeartReserve() { return heartReserve; }
+    public float getCardiacPhase()  { return cardiacPhase; }
     public float getRespiratoryDrive() { return respiratoryDrive; }
     public float getActualRespiratoryRate() { return actualRespiratoryRate; }
     public float getBreathReserveSeconds() { return breathReserveSeconds; }
@@ -964,6 +980,7 @@ public class PlayerHealthData
     public boolean hasPulse() { return getRhythm().perfusing; }
     public boolean isShockable() { return getRhythm().shockable; }
     public boolean isArrested() { return !getRhythm().perfusing; }
+    public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }

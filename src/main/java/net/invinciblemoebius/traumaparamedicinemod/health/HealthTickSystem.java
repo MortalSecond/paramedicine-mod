@@ -15,6 +15,7 @@ import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSy
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncDetailPacket;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.wound.BleedContext;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.minecraft.server.level.ServerPlayer;
@@ -29,32 +30,35 @@ import java.util.List;
 import java.util.Map;
 
 // STEP ORDER:
-// 1. Tick wounds. Advance lifecycle, infection, dressing age, etc.
-// 2. Apply hemorrhage. Drain blood volume from wound bleed rates.
-// 3. Perfusion pass. Moves whole blood distally-to-proximally.
-// 4. Advect substances and surplus blood products distal-to-proximal.
-// 5. Hemothorax sync. Updates lung content from viscera-level chest wounds.
-// 6. Recompute aggregated pain.
-// 7. Tick pain shock and septic shock.
-// 8. Tick immune system and sepsis progression.
-// 9. Tick stamina and energy.
-// 10. Recompute respiratory drive.
-// 11. Recompute actual respiratory rate.
-// 12. Reset transient modifiers.
-// 13. Tick substances. Applies medical effects, decays concentrations.
-// 14. Recompute blood volume.
-// 15. Recompute blood composition/hematocrit and the resulting blood viscosity.
-// 16. Tick respiratory rate's effect on oxygenation.
-// 17. Recompute core temperature.
-// 18. Recompute heart rate.
-// 19. Recompute blood pressure.
-// 20. Recompute consciousness.
-// 21. Tick fibrillations.
-// 22. Recompute total health on all limbs.
-// 23. Sync and dispatch the packet if marked dirty.
+// 1. Tick the cardiac phase and build the bleed context for wounds.
+// 2. Tick wounds. Advance lifecycle, infection, dressing age, etc.
+// 3. Apply hemorrhage. Drain blood volume from wound bleed rates.
+// 4. Perfusion pass. Moves whole blood distally-to-proximally.
+// 5. Advect substances and surplus blood products distal-to-proximal.
+// 6. Hemothorax sync. Updates lung content from viscera-level chest wounds.
+// 7. Recompute aggregated pain.
+// 8. Tick pain shock and septic shock.
+// 9. Tick immune system and sepsis progression.
+// 10. Tick stamina and energy.
+// 11. Recompute respiratory drive.
+// 12. Recompute actual respiratory rate.
+// 13. Reset transient modifiers.
+// 14. Tick substances. Applies medical effects, decays concentrations.
+// 15. Recompute blood volume.
+// 16. Recompute blood composition/hematocrit and the resulting blood viscosity.
+// 17. Tick respiratory rate's effect on oxygenation.
+// 18. Recompute core temperature.
+// 19. Recompute heart rate.
+// 20. Recompute blood pressure.
+// 21. Recompute consciousness.
+// 22. Tick fibrillations.
+// 23. Recompute total health on all limbs.
+// 24. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
+    public static BleedContext bleedCtx;
+
     // === TRAVERSAL ORDER ===
     // DISTAL TO PROXIMAL. This is because i wanted to simulate homeostasis cascades and
     // hardcoding nodes proximal-to-distal like other mods seemed very unfun.
@@ -85,12 +89,16 @@ public class HealthTickSystem
     public static void onPlayerTick(TickEvent.PlayerTickEvent event)
     {
         // Serverside only, end of tick only, real players only.
-        if (event.phase != TickEvent.Phase.END) return;
-        if (event.player.level().isClientSide()) return;
-        if (!(event.player instanceof ServerPlayer sp)) return;
+        if (event.phase != TickEvent.Phase.END)
+            return;
+        if (event.player.level().isClientSide())
+            return;
+        if (!(event.player instanceof ServerPlayer sp))
+            return;
 
         // Creative and spectator players aren't simulated.
-        if (sp.isCreative() || sp.isSpectator()) return;
+        if (sp.isCreative() || sp.isSpectator())
+            return;
 
         sp.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> tickPlayer(sp, data));
     }
@@ -102,6 +110,10 @@ public class HealthTickSystem
         Map<LimbNode, LimbData> limbs = data.getLimbsInternal();
         boolean isUnderwater = player.isEyeInFluid(FluidTags.WATER);
 
+        data.tickCardiacPhase(dt);
+        bleedCtx = new BleedContext(data.getMAP(), data.getSystolicBP(), data.getDiastolicBP(),
+                data.getCardiacPhase(), data.hasPulse(), data.getCoreTemperature(), data.getOxygenSaturation(),
+                data.getNutritionLevel(), data.computeSystemicClottingFactor());
         tickAllWounds(data, limbs, dt);
         applyHemorrhage(data, limbs, dt);
         runPerfusionPass(limbs, dt);
@@ -133,7 +145,7 @@ public class HealthTickSystem
             suppressVanillaDrowning(player);
     }
 
-    // STEP 1: WOUND TICKING.
+    // STEP 2: WOUND TICKING.
     private static void tickAllWounds(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
     {
         float immunity = data.getImmunity();
@@ -145,15 +157,8 @@ public class HealthTickSystem
 
             for (Wound wound: wounds)
             {
-                float clottingRate = wound.computeClottingRate(
-                        data.getCoreTemperature(),
-                        data.getOxygenSaturation(),
-                        data.getNutritionLevel(),
-                        data.computeSystemicClottingFactor()
-                );
-
-                boolean changed = wound.tickAdvance(clottingRate);
-                if (changed)
+                wound.tickClotting(bleedCtx, dt);
+                if (wound.tickAdvance())
                     syncDirty = true;
             }
 
@@ -187,7 +192,7 @@ public class HealthTickSystem
             drainProximally(node.proximalNode, remains, limbs);
     }
 
-    // STEP 2: HEMORRHAGE.
+    // STEP 3: HEMORRHAGE.
     private static void applyHemorrhage(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
@@ -195,25 +200,46 @@ public class HealthTickSystem
             LimbNode node = entry.getKey();
             LimbData limb = entry.getValue();
 
-            float netBleedPerSecond = limb.computeNetBleedRate(
-                    node, limbs,
-                    data.getCoreTemperature(),
-                    data.getOxygenSaturation(),
-                    data.getNutritionLevel(),
-                    data.computeSystemicClottingFactor()
-            );
-
-            limb.setLastNetBleedRateML(netBleedPerSecond);
-
-            if (netBleedPerSecond <= 0f)
+            float instant = limb.computeNetBleedRate(node, limbs, bleedCtx);
+            limb.updateBleedDisplay(instant);
+            if (instant <= 0f)
                 continue;
-
-            float mlLostThisTick = netBleedPerSecond * dt;
-            drainProximally(node, mlLostThisTick, limbs);
+            drainBlood(node, instant * dt, limbs);
         }
     }
 
-    // STEP 3: PERFUSION.
+    // Drains blood for a bleed. Local pool first. Once dry, the rest comes straight from
+    // central volume. Perfusion re-balances the limb next pass. A tourniqueted
+    // limb (no proximal circulation) can't reach central, so its bleed is capped
+    // at the local pool, which is exactly why tourniquets work.
+    private static void drainBlood(LimbNode node, float mlToDrain, Map<LimbNode, LimbData> limbs)
+    {
+        if (mlToDrain <= 0f)
+            return;
+
+        LimbData limb = limbs.get(node);
+        if (limb == null)
+            return;
+
+        float available = limb.getActualBloodVolume();
+        if (available >= mlToDrain)
+        {
+            limb.setActualBloodVolume(available - mlToDrain);
+            return;
+        }
+
+        limb.setActualBloodVolume(0f);
+        float remains = mlToDrain - available;
+
+        if (limb.hasProximalCirculation(node, limbs))
+        {
+            LimbData torso = limbs.get(LimbNode.UPPER_TORSO);
+            if (torso != null)
+                torso.setActualBloodVolume(Math.max(0f, torso.getActualBloodVolume() - remains));
+        }
+    }
+
+    // STEP 4: PERFUSION.
     // Each node that has a deficit below its resting volume requests blood from its neighbor,
     // up to the node's perfusion rate. The proximal node's volume is reduced by that same amount,
     // propagating deficit toward the trunk.
@@ -251,7 +277,7 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 4: VENOUS RETURN.
+    // STEP 5: VENOUS RETURN.
     // Surplus above resting drains distal to proximal, carrying dissolved substances.
     // Compartmentalized nodes keep their substances and fluid.
     private static void advectFluids(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
@@ -354,7 +380,7 @@ public class HealthTickSystem
         to.setRedCellVolume(to.getRedCellVolume() + cellsMoved);
     }
 
-    // STEP 5: HEMOTHORAX SYNC.
+    // STEP 6: HEMOTHORAX SYNC.
     // Each VISCERAL wound on UPPER_TORSO contributes its bleed rate to one lung.
     private static void syncHemothorax(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
@@ -403,7 +429,7 @@ public class HealthTickSystem
         data.getRightLung().decayFluid(0.03f, dt);
     }
 
-    // STEP 13: SUBSTANCES.
+    // STEP 14: SUBSTANCES.
     private static void tickAllSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
@@ -431,14 +457,14 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 22: LIMB HEALTH RECOMPUTE
+    // STEP 23: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 23: SYNC
+    // STEP 24: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag())
