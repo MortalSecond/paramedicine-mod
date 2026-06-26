@@ -10,12 +10,12 @@ public enum SubstanceType
 {
     // === ANALGESICS ===
 
-    MORPHINE(600f, new SubstanceEffects()
+    MORPHINE(600f, 0.25f, new SubstanceEffects()
             .reducesPain(0.0002f, 0.0006f, 0.80f, 0.1f)
             .vasoactive(-500f)
             .suppressesRespiration(0.0004f, 0.0008f, 0.35f, 0.0008f, 290f)),
 
-    KETAMINE(900f, new SubstanceEffects()
+    KETAMINE(900f, 0.20f, new SubstanceEffects()
             .reducesPain(0.0001f, 0.0005f, 0.75f, 0.08f)),
 
     LIDOCAINE(300f, new SubstanceEffects()
@@ -24,11 +24,11 @@ public enum SubstanceType
 
     // === ANTIBIOTICS ===
 
-    AMOXICILLIN_CLAVULANATE(14400f, new SubstanceEffects()
+    AMOXICILLIN_CLAVULANATE(14400f, 0.60f, new SubstanceEffects()
             .reducesWoundInfection(0.04f, false)
             .bacteriostatic(0.5f)),
 
-    METRONIDAZOLE(7200f, new SubstanceEffects()
+    METRONIDAZOLE(7200f, 0.90f, new SubstanceEffects()
             .reducesBacteremia(0.08f)
             .reducesWoundInfection(0.10f, true)),
 
@@ -63,19 +63,46 @@ public enum SubstanceType
     SALINE(420, new SubstanceEffects()
             .increasesPlasma(0.30f)), // 3-for-1 rule. Only 30% becomes actual plasma.
 
+    // Saliva, apple juice, empty potions, and just about any fluid that isn't meant to be in the body.
     FOREIGN_FLUID(120f, new SubstanceEffects()
             .suppressesRespiration(0.00001f, 0.0008f, 0.35f, 0.0008f, 290f)),
 
+    // === INERT / BINDERS ===
+
+    CLAY(120f, 0f, 0.004f, new SubstanceEffects()),
+
     // === STUBS ===
 
+    // Air for embolism, or water vapor, or smoke, or really anything that isn't clean air or oxygen.
     FOREIGN_GAS(120f, new SubstanceEffects());
 
+    // === CONSTRUCTORS ===
+
     public final float halfLifeSeconds;
+    // Fraction of a dose that survives the gut and first pass and enters the blood. 0 = parenteral only.
+    public final float oralBioavailability;
+    // Nausea per ml/s while it's in the stomach. 0 = not an irritant.
+    public final float gutIrritation;
     private final SubstanceEffects effects;
 
+    // By default, nothing survives swallowing and gives no nausea. Only if the substance specifies
+    // a fraction will it change from zero fraction survival or zero irritation.
     SubstanceType(float halfLifeSeconds, SubstanceEffects effects)
     {
+        this(halfLifeSeconds, 0f, 0f, effects);
+    }
+
+    // Orally absorbed, non-irritant.
+    SubstanceType(float halfLifeSeconds, float oralBioavailability, SubstanceEffects effects)
+    {
+        this(halfLifeSeconds, oralBioavailability, 0f, effects);
+    }
+
+    SubstanceType(float halfLifeSeconds, float oralBioavailability, float gutIrritation, SubstanceEffects effects)
+    {
         this.halfLifeSeconds = halfLifeSeconds;
+        this.oralBioavailability = oralBioavailability;
+        this.gutIrritation = gutIrritation;
         this.effects = effects;
     }
 

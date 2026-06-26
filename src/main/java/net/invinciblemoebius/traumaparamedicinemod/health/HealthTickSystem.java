@@ -43,17 +43,18 @@ import java.util.Map;
 // 11. Recompute respiratory drive.
 // 12. Recompute actual respiratory rate.
 // 13. Reset transient modifiers.
-// 14. Tick substances. Applies medical effects, decays concentrations.
-// 15. Recompute blood volume.
-// 16. Recompute blood composition/hematocrit and the resulting blood viscosity.
-// 17. Tick respiratory rate's effect on oxygenation.
-// 18. Recompute core temperature.
-// 19. Recompute heart rate.
-// 20. Recompute blood pressure.
-// 21. Recompute consciousness.
-// 22. Tick fibrillations.
-// 23. Recompute total health on all limbs.
-// 24. Sync and dispatch the packet if marked dirty.
+// 14. Tick gastric absorption. Empties the stomach buffer. The bioavailable fraction crosses to blood.
+// 15. Tick substances. Applies medical effects, decays concentrations.
+// 16. Recompute blood volume.
+// 17. Recompute blood composition/hematocrit and the resulting blood viscosity.
+// 18. Tick respiratory rate's effect on oxygenation.
+// 19. Recompute core temperature.
+// 20. Recompute heart rate.
+// 21. Recompute blood pressure.
+// 22. Recompute consciousness.
+// 23. Tick fibrillations.
+// 24. Recompute total health on all limbs.
+// 25. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -126,7 +127,10 @@ public class HealthTickSystem
         data.tickStamina(player.isSprinting(), data.consumeJumpFlag(), dt);
         data.tickEnergy(dt);
         data.resetTransientModifiers();
+        data.tickGastricAbsorption(dt);
         tickAllSubstances(data, limbs);
+        data.tickNausea(dt);
+        tickVomit(player, data);
         data.recomputeBloodVolume();
         data.recomputeHematocritAndViscosity();
         data.recomputeRespiratoryDrive();
@@ -429,7 +433,7 @@ public class HealthTickSystem
         data.getRightLung().decayFluid(0.03f, dt);
     }
 
-    // STEP 14: SUBSTANCES.
+    // STEP 15: SUBSTANCES.
     private static void tickAllSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
@@ -457,14 +461,30 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 23: LIMB HEALTH RECOMPUTE
+    // STEP 17: VOMIT.
+    // Rolls for a vomiting episode when nausea is high enough.
+    private static void tickVomit(ServerPlayer player, PlayerHealthData data)
+    {
+        if (data.getNausea() < ModConstants.NAUSEA_VOMIT_THRESHOLD)
+            return;
+
+        float severity = (data.getNausea() - ModConstants.NAUSEA_VOMIT_THRESHOLD) / (1f - ModConstants.NAUSEA_VOMIT_THRESHOLD);
+        float chance = severity * ModConstants.NAUSEA_VOMIT_CHANCE_PER_SECOND * ModConstants.SECONDS_PER_TICK;
+
+        if (player.getRandom().nextFloat() >= chance)
+            return;
+
+        float volume = data.triggerVomit();
+    }
+
+    // STEP 24: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 24: SYNC
+    // STEP 25: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag())

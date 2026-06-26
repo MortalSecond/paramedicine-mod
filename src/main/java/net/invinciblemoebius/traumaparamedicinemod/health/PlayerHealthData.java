@@ -2,6 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.health;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.*;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
+import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
@@ -65,6 +66,7 @@ public class PlayerHealthData
     private float clottingBoostModifier = 1.0f;
     private float respiratorySuppressionCeiling = 1.0f;
     private float cprCompressionSupport = 0f;
+    private float nauseaPressureModifier = 0f;
 
     // RESPIRATORY VALUES
     // Represents the "urge" to breathe, or how many breaths the body "wants."
@@ -95,6 +97,12 @@ public class PlayerHealthData
     private float painShock = 0f;
     // NOT to be confused with regular infection. This is systemic infection.
     private float septicShock = 0f;
+
+    // GASTROINTESTINAL
+    // The stomach buffer. Swallowed mixtures land here and absorb slowly. Drainable
+    // by absorption, and later by vomiting or activated charcoal.
+    private final FluidMixture gastricContents = new FluidMixture();
+    private float nausea = 0f;
 
     // When any field changes, this indicates if the packet should be sent.
     // P.S. This idea was shamelessly stolen from Casualties: Cubed.
@@ -863,6 +871,112 @@ public class PlayerHealthData
         }
     }
 
+    // Swallow a mixture into the stomach.
+    // Excess past capacity is rejected.
+    public void ingestOrally(FluidMixture incoming)
+    {
+        if (incoming == null || incoming.isEmpty())
+            return;
+
+        gastricContents.merge(incoming, ModConstants.GASTRIC_CAPACITY_ML);
+        markDirty();
+    }
+
+    // Gastric emptying and absorption. A fixed fraction of stomach volume leaves per tick.
+    // Of what leaves, only the substance's oral bioavailability actually crosses into blood.
+    // The rest (un-absorbed drug and its inert filler) is voided. The gradual emptying IS the
+    // absorption curve, so what crosses needs no onset delay.
+    public void tickGastricAbsorption(float dt)
+    {
+        if (gastricContents.isEmpty())
+            return;
+
+        float emptied = gastricContents.totalVolume() * ModConstants.GASTRIC_EMPTYING_PER_SECOND * dt;
+        FluidMixture slug = gastricContents.drain(emptied);
+
+        for (Map.Entry<SubstanceType, Float> entry : slug.getComponents().entrySet())
+        {
+            float crossed = entry.getValue() * entry.getKey().oralBioavailability;
+            depositSystemicSubstance(entry.getKey(), crossed, 0f);
+        }
+
+        markDirty();
+    }
+
+    // Adds a substance straight to the systemic pool, merging into an existing entry of the
+    // same type so the active-substance list stays one-record-per-type (no accumulation of
+    // tiny duplicates). Age is blended by amount.
+    public void depositSystemicSubstance(SubstanceType type, float ml, float onsetSeconds)
+    {
+        if (ml <= CirculatingSubstance.NEGLIGIBLE_THRESHOLD)
+            return;
+
+        for (CirculatingSubstance existing : activeSubstances)
+        {
+            if (existing.getType() == type)
+            {
+                float total = existing.getAmountML() + ml;
+                float blendedAge = (existing.getAmountML() * existing.getAgeSeconds()) / total; // new portion is age 0
+                existing.setAmountML(total);
+                existing.setAgeSeconds(blendedAge);
+                markDirty();
+                return;
+            }
+        }
+
+        activeSubstances.add(new CirculatingSubstance(type, ml, onsetSeconds));
+        markDirty();
+    }
+
+    public void tickNausea(float dt)
+    {
+        // Systemic sources (substances, internal bleeding, etc.)
+        float pressure = nauseaPressureModifier;
+
+        // Gut irritants physically present in the stomach (clay binders, junk).
+        for (Map.Entry<SubstanceType, Float> entry : gastricContents.getComponents().entrySet())
+            pressure += entry.getValue() * entry.getKey().gutIrritation;
+
+        // Overfilling the stomach past comfort.
+        float fullness = gastricContents.totalVolume() / ModConstants.GASTRIC_CAPACITY_ML;
+        if (fullness > ModConstants.NAUSEA_FULLNESS_FRACTION)
+            pressure += (fullness - ModConstants.NAUSEA_FULLNESS_FRACTION) * ModConstants.NAUSEA_OVERFILL_RATE;
+
+        float before = nausea;
+        if (pressure > 0f)
+            nausea = Math.min(1f, nausea + pressure * dt);
+        else
+            nausea = Math.max(0f, nausea - ModConstants.NAUSEA_DECAY_PER_SECOND * dt);
+
+        if (nausea != before)
+            markDirty();
+    }
+
+    // If the airway is unprotected (low consciousness), a portion is
+    // aspirated into the lungs instead of leaving cleanly.
+    // Returns the expelled volume.
+    public float triggerVomit()
+    {
+        float volume = gastricContents.totalVolume() * ModConstants.VOMIT_DRAIN_FRACTION;
+
+        // Dry heaving still relieves nausea; it just moves no volume.
+        if (volume <= 0f && nausea <= 0f)
+            return 0f;
+
+        gastricContents.drain(volume);
+        nausea = Math.max(0f, nausea - ModConstants.NAUSEA_VOMIT_RELIEF);
+
+        if (consciousness < ModConstants.CONSCIOUSNESS_VOICE && volume > 0f)
+        {
+            float aspirated = volume * ModConstants.VOMIT_ASPIRATION_FRACTION;
+            leftLung.addFluid(aspirated * 0.5f);
+            rightLung.addFluid(aspirated * 0.5f);
+        }
+
+        markDirty();
+        return volume;
+    }
+
     // === TRANSIENT METHODS ===
 
     public void addChronotropicModifier(float dt)
@@ -890,6 +1004,11 @@ public class PlayerHealthData
         respiratorySuppressionCeiling = Math.min(respiratorySuppressionCeiling, ceiling);
     }
 
+    public void addNauseaPressure(float ratePerSecond)
+    {
+        nauseaPressureModifier += ratePerSecond;
+    }
+
     public void resetTransientModifiers()
     {
         chronotropicModifier = 0f;
@@ -898,6 +1017,7 @@ public class PlayerHealthData
         clottingBoostModifier = 1.0f;
         respiratorySuppressionCeiling = 1.0f;
         cprCompressionSupport = 0f;
+        nauseaPressureModifier = 0f;
     }
 
     public void applyAntibioticToReachableWounds(float amountPerWound, boolean deepOnly)
@@ -981,6 +1101,8 @@ public class PlayerHealthData
     public boolean isShockable() { return getRhythm().shockable; }
     public boolean isArrested() { return !getRhythm().perfusing; }
     public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
+    public FluidMixture getGastricContents() { return gastricContents; }
+    public float getNausea() { return nausea; }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
@@ -1124,6 +1246,7 @@ public class PlayerHealthData
     public void setPainShock(float v) { painShock = v; }
     public void setSepticShock(float v) { septicShock = v; }
     public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
+    public void setNauseaClientOnly(float v) { nausea = v; }
     public void setClientActiveSubstances(List<SubstanceType> types)
     {
         clientActiveSubstances.clear();
@@ -1197,6 +1320,7 @@ public class PlayerHealthData
         painShock = 0;
         septicShock = 0;
         overexertionPain = 0;
+        nausea = 0f;
 
         // Reinitialize limbs to their defaults.
         for (LimbNode node : LimbNode.values())
@@ -1208,6 +1332,7 @@ public class PlayerHealthData
 
         // Remove substances.
         activeSubstances.clear();
+        gastricContents.clear();
 
         recomputeBloodVolume();
         recomputeAgreggatedPain();
@@ -1220,7 +1345,7 @@ public class PlayerHealthData
     {
         return String.format(
                 """
-                        PlayerHealth{
+                        PlayerHealth:
                             CARDIOVASCULAR
                                 Blood Volume = %.0fml
                                 Blood Pressure = %d/%d
@@ -1239,6 +1364,7 @@ public class PlayerHealthData
                             SYSTEMIC:
                                   Temperature = %.1f°C
                                   Consciousness = %.0f%%
+                                  Nausea = %.1f
                                   Immunity = %.0f%%
                                   Immune Reserves = %.0f
                                   Bacteremia = %.0f%%
@@ -1246,8 +1372,7 @@ public class PlayerHealthData
                                   Pain = %.0f%%
                                   Overexertion Pain = %.0f%%
                                   Shock = %.0f%%
-                                  Sepsis = %.0f%%
-                        }""",
+                                  Sepsis = %.0f%%""",
                 bloodVolume,
                 (int) systolicBP, (int) diastolicBP,
                 bloodViscosity,
@@ -1261,6 +1386,7 @@ public class PlayerHealthData
                 leftLung, rightLung,
                 coreTemperature,
                 consciousness * 100f,
+                nausea,
                 immunity * 100f,
                 immuneReserve * 100f,
                 bacteremia * 100f,
@@ -1297,6 +1423,7 @@ public class PlayerHealthData
         tag.putFloat("OverexertionPain", overexertionPain);
         tag.putFloat("ImmuneReserve", immuneReserve);
         tag.putFloat("Bacteremia", bacteremia);
+        tag.putFloat("Nausea", nausea);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1325,6 +1452,11 @@ public class PlayerHealthData
             substanceList.add(st);
         }
         tag.put("Substances", substanceList);
+
+        // Gastric buffer.
+        CompoundTag gastricTag = new CompoundTag();
+        gastricContents.writeToNBT(gastricTag);
+        tag.put("GastricContents", gastricTag);
     }
 
     public void loadFromNBT(CompoundTag tag)
@@ -1350,6 +1482,7 @@ public class PlayerHealthData
         painShock = tag.getFloat("PainShock");
         septicShock = tag.getFloat("SepticShock");
         overexertionPain = tag.getFloat("OverexertionPain");
+        nausea = tag.getFloat("Nausea");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
@@ -1365,14 +1498,12 @@ public class PlayerHealthData
                 }
             }
         }
+
+        // Lungs.
         if (tag.contains("LeftLung"))
-        {
             leftLung.loadFromNBT(tag.getCompound("LeftLung"));
-        }
         if (tag.contains("RightLung"))
-        {
             rightLung.loadFromNBT(tag.getCompound("RightLung"));
-        }
 
         // Substances.
         activeSubstances.clear();
@@ -1386,6 +1517,11 @@ public class PlayerHealthData
                 activeSubstances.add(s);
             }
         }
+
+        // Gastric buffer.
+        gastricContents.clear();
+        if (tag.contains("GastricContents"))
+            gastricContents.merge(FluidMixture.readFromNBT(tag.getCompound("GastricContents")), ModConstants.GASTRIC_CAPACITY_ML);
 
         // Recompute derived values from loaded state.
         recomputeBloodVolume();
@@ -1418,15 +1554,17 @@ public class PlayerHealthData
         this.actualRespiratoryRate = other.actualRespiratoryRate;
         this.breathReserveSeconds = other.breathReserveSeconds;
         this.airwayState = other.airwayState;
+        this.nausea = other.nausea;
 
+        // Limbs.
         for (LimbNode node : LimbNode.values())
-        {
             this.limbData.get(node).copyFrom(other.limbData.get(node));
-        }
 
+        // Lungs.
         this.leftLung.copyFrom(other.leftLung);
         this.rightLung.copyFrom(other.rightLung);
 
+        // Substances.
         this.activeSubstances.clear();
         for (CirculatingSubstance s : other.activeSubstances)
         {
@@ -1436,6 +1574,10 @@ public class PlayerHealthData
             copy.loadFromNBT(t);
             this.activeSubstances.add(copy);
         }
+
+        // Gastric buffer.
+        this.gastricContents.clear();
+        this.gastricContents.merge(other.gastricContents, ModConstants.GASTRIC_CAPACITY_ML);
 
         recomputeBloodVolume();
         recomputeAgreggatedPain();

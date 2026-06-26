@@ -61,6 +61,18 @@ public final class ModConstants
     public static final float RESPIRATORY_HIGH = 25f; // Up to here, high but normal respiratory rate.
     public static final float RESPIRATORY_HYPERVENTILATION = 35f; // Above this, respiratory crisis.
 
+    // GASTROINTESTINAL
+    public static final float GASTRIC_CAPACITY_ML = 2000f; // A full stomach. Caps how much can be swallowed before the rest is rejected.
+    public static final float GASTRIC_EMPTYING_PER_SECOND = 0.015f; // Fraction of stomach volume that leaves per second. The gradual drain IS the oral absorption curve.
+    public static final float NAUSEA_FULLNESS_FRACTION = 0.75f; // Stomach fill fraction above which overfilling starts to nauseate.
+    public static final float NAUSEA_OVERFILL_RATE = 0.20f; // Nausea/sec per unit of over-fullness.
+    public static final float NAUSEA_DECAY_PER_SECOND = 0.02f; // Nausea relief per second when no source is present.
+    public static final float NAUSEA_VOMIT_THRESHOLD = 0.60f; // Below this nausea, no vomiting rolls.
+    public static final float NAUSEA_VOMIT_CHANCE_PER_SECOND = 0.25f; // Peak per-second vomit probability at full nausea.
+    public static final float NAUSEA_VOMIT_RELIEF = 0.55f; // Nausea removed by one vomiting episode.
+    public static final float VOMIT_DRAIN_FRACTION = 0.80f; // Fraction of stomach contents expelled per episode.
+    public static final float VOMIT_ASPIRATION_FRACTION = 0.25f; // Fraction of vomit aspirated into the lungs when the airway is unprotected.
+
     // STAMINA
     public static final float STAMINA_SPRINT_DRAIN = 0.001f; // Per second while sprinting.
     public static final float STAMINA_JUMP_DRAIN = 0.015f; // Per second per jump.

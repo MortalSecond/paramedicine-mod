@@ -26,6 +26,7 @@ public class SubstanceEffects
     private float bacteremiaKill = 0f;
     private float clottingBoost = 1f;
     private float clotUnderdose, clotTherapeutic;
+    private float nauseaRate = 0f;
 
     // === CONFIGURATION METHODS ===
 
@@ -117,6 +118,12 @@ public class SubstanceEffects
         return this;
     }
 
+    public SubstanceEffects causesNausea(float perSecAtFullConc)
+    {
+        nauseaRate = perSecAtFullConc;
+        return this;
+    }
+
     // === APPLICATION METHODS ===
 
     public void apply(float concentration, float eliminatedThisTick, float dt, PlayerHealthData data, @Nullable LimbData locationLimb)
@@ -143,6 +150,8 @@ public class SubstanceEffects
             data.setBacteremia(data.getBacteremia() - bacteremiaKill * concentration * dt);
         if (clottingBoost > 1f && systemic)
             applyClottingBoost(concentration, data);
+        if (nauseaRate > 0f && systemic)
+            data.addNauseaPressure(nauseaRate * concentration);
     }
 
     private void applyPain(float concentration, float dt, PlayerHealthData data, @Nullable LimbData location)
