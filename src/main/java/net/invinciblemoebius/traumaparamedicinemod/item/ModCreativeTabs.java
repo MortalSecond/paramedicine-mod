@@ -24,6 +24,7 @@ public class ModCreativeTabs
                     {
                         pOutput.accept(ModItems.SYRINGE.get());
                         pOutput.accept(ModItems.GLASS.get());
+                        pOutput.accept(ModItems.STEWPOT.get());
                     })
                     .build());
 

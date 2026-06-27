@@ -1,0 +1,29 @@
+package net.invinciblemoebius.traumaparamedicinemod.block;
+
+import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+
+public final class ModBlocks
+{
+    private ModBlocks() {}
+
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, ParamedicineMod.MOD_ID);
+
+    public static final RegistryObject<Block> STEWPOT =
+            BLOCKS.register("stewpot", () -> new StewpotBlock(
+                    BlockBehaviour.Properties.of()
+                            .strength(2.0f)
+                            .sound(SoundType.METAL)
+                            .noOcclusion()));
+
+    public static void register(IEventBus modEventBus)
+    {
+        BLOCKS.register(modEventBus);
+    }
+}

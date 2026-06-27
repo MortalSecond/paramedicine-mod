@@ -56,18 +56,34 @@ public enum SubstanceType
 
     // 3-for-1 rule. Only 30% becomes plasma, the rest third-spaces.
     SALINE(SubstanceClass.CRYSTALLOID, 0.30f, 0f),
+
+    // Regular old water. This is the default water, not too dirty, not too clean.
+    // I'm thinking they should probably cause a direct pain spike, but also give some amount of hydration.
+    // Probably increase bactermia slightly?
+    WATER(1000f, new SubstanceEffects()),
+    BOILED_WATER(1000f, new SubstanceEffects()),
+    // Purified water, BUT MIND: Purified to drink does NOT mean sterile for IVs.
+    PURIFIED_WATER(1000f, new SubstanceEffects()),
+    // Ringer's solution. Actual proper sterile IV water.
+    REHYDRATION_FLUID(1000f, new SubstanceEffects()),
+
+    // Mud, slime, and any solid thing that's definitely not meant to be inside the body.
+    // Default "nonsense" fluid. Should probably cause direct bactermia and intense pain.
+    JUNK(200f, new SubstanceEffects()),
+
     // Saliva, apple juice, empty potions, and just about any fluid that isn't meant to be in the body.
     FOREIGN_FLUID(120f, new SubstanceEffects()
-            .suppressesRespiration(0.00001f, 0.0008f, 0.35f, 0.0008f, 290f)),
+            .suppressesRespiration(0.00001f, 0.0008f,
+                    0.35f, 0.0008f, 290f)),
+
+    // Air for embolism, or water vapor, or smoke, or really anything that isn't clean air or oxygen.
+    // Should probably cause a very direct pain spike, or whichever problem embolism causes when injected directly.
+    FOREIGN_GAS(SubstanceClass.DRUG, 120f, 0f,
+            0f, 0f, 0f, new SubstanceEffects()),
 
     // === INERT / BINDERS ===
 
-    CLAY(120f, 0f, 0.004f, new SubstanceEffects()),
-
-    // === STUBS ===
-
-    // Air for embolism, or water vapor, or smoke, or really anything that isn't clean air or oxygen.
-    FOREIGN_GAS(SubstanceClass.DRUG, 120f, 0f, 0f, 0f, 0f, new SubstanceEffects());
+    CLAY(120f, 0f, 0.004f, new SubstanceEffects());
 
     // === CONSTRUCTORS ===
 
