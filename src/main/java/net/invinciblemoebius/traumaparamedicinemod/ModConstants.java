@@ -55,6 +55,12 @@ public final class ModConstants
     public static final float RESERVE_ARREST_DRAIN = 0.004f; // Per sec in a non-perfusing rhythm (4min to flat)
     public static final float RESERVE_RECOVERY = 0.01f; // Per sec when perfused and pumping
 
+    // CIRCULATION
+    public static final float NORMAL_MAP_MMHG = 93f; // Mean arterial pressure of a healthy adult. Just for reference.
+    public static final float MAX_PERFUSION_FACTOR = 1.75f; // Cap on hyperdynamic transport, so a high MAP can't speed flow without limit.
+    public static final float BASE_ADVECTION_RATE = 0.35f; // Fraction of a substance moving one node proximal per second at normal perfusion.
+    public static final float INFUSION_RATE_ML_PER_SEC = 25f; // Transfusion speed. Bolus volume converted to blood per second at normal perfusion.
+
     // RESPIRATION
     public static final float RESPIRATORY_NORMAL = 16f; // Up to here, typical breaths per minute.
     public static final float RESPIRATORY_FLOOR = 2.5f; // Below this, total respiratory collapse. Agonal breaths.

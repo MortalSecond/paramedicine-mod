@@ -42,18 +42,45 @@ public class CirculatingSubstance
     // Returns true if this instance should be removed.
     // ambientVolume = local blood volume if substance is compartmentalized in a node, otherwise it's the total blood volume.
     // locationLimb = the node the substance currently occupies. Null if it's systemic.
-    public boolean tick(float ambientVolume, float dt, PlayerHealthData data, @Nullable LimbData locationLimb)
+    public boolean tick(float ambientVolume, float dt, float perfusionFactor, PlayerHealthData data, @Nullable LimbData locationLimb)
     {
         ageSeconds += dt;
-        float onsetProgress = (onsetSeconds > 0f) ? Math.min(1f, ageSeconds / onsetSeconds) : 1f;
-        float concentration = (ambientVolume > 0f) ? (amountML / ambientVolume) * onsetProgress : 0f;
 
-        float lambda = (float) Math.log(2) / type.halfLifeSeconds;
-        float eliminated = Math.min(amountML, amountML * lambda * dt);
+        float consumed;
 
-        type.applyEffects(concentration, eliminated, dt, data, locationLimb);
+        if (type.substanceClass.isVolumeExpander())
+        {
+            // No concentration effect. The bolus infuses into the bloodstream at a perfusion-scaled rate.
+            // Epi speeds it, vasodilation slows it, asystole halts it.
+            consumed = Math.min(amountML, ModConstants.INFUSION_RATE_ML_PER_SEC * perfusionFactor * dt);
+            type.applyEffects(0f, consumed, dt, data, locationLimb);
+        }
+        else
+        {
+            // Drug. Concentration-driven effect, eliminated by half-life. Pharmacology unchanged.
+            float onsetProgress = (onsetSeconds > 0f) ? Math.min(1f, ageSeconds / onsetSeconds) : 1f;
+            float concentration = (ambientVolume > 0f) ? (amountML / ambientVolume) * onsetProgress : 0f;
 
-        amountML = Math.max(0f, amountML - eliminated);
+            float lambda = (float) Math.log(2) / type.halfLifeSeconds;
+            consumed = Math.min(amountML, amountML * lambda * dt);
+
+            type.applyEffects(concentration, consumed, dt, data, locationLimb);
+        }
+
+        // Every consumed millilitre is fluid and joins the bloodstream per the substance's yields — the
+        // drug's solvent as plasma, the expander's volume as plasma + cells. Systemic substances deposit
+        // into the core, redistribution spreads it next tick..
+        if (consumed > 0f && (type.plasmaYield > 0f || type.redCellYield > 0f))
+        {
+            LimbData target = (locationLimb != null) ? locationLimb : data.getLimb(LimbNode.UPPER_TORSO);
+            if (target != null)
+            {
+                target.setPlasmaVolume(target.getPlasmaVolume() + consumed * type.plasmaYield);
+                target.setRedCellVolume(target.getRedCellVolume() + consumed * type.redCellYield);
+            }
+        }
+
+        amountML = Math.max(0f, amountML - consumed);
         return amountML < NEGLIGIBLE_THRESHOLD;
     }
 

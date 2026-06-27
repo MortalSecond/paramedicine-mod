@@ -47,33 +47,4 @@ public enum LimbNode
         this.category = category;
         this.canApplyTourniquet = canApplyTourniquet;
     }
-
-    // === GRAPH TRAVERSAL METHODS ===
-
-    public boolean anyProximal(java.util.function.Predicate<LimbNode> predicate)
-    {
-        LimbNode current = this;
-        while (current != null)
-        {
-            if (predicate.test(current)) return true;
-            current = current.proximalNode;
-        }
-        return false;
-    }
-
-    public boolean isProximalAncestorOf(LimbNode other)
-    {
-        LimbNode current = other.proximalNode;
-        while (current != null)
-        {
-            if (current == this) return true;
-            current = current.proximalNode;
-        }
-        return false;
-    }
-
-    public boolean isTerminal()
-    {
-        return !canApplyTourniquet;
-    }
 }

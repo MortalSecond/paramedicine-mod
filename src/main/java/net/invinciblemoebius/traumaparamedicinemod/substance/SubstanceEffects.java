@@ -15,7 +15,6 @@ public class SubstanceEffects
     private boolean painLocalOnly = false;
     private float respUnderdose, respTherapeutic, respTherapeuticFloor;
     private float respToxicThreshold, respToxicCoefficient;
-    private float plasmaFraction = 0f, redCellFraction = 0f;
     private float chronoUnderdose, chronoTherapeutic, chronoTherapeuticDelta;
     private float chronoToxicThreshold, chronoToxicCoefficient;
     private float vasoDeltaPerUnit = 0f;
@@ -52,17 +51,6 @@ public class SubstanceEffects
         respTherapeuticFloor = therapeuticFloor;
         respToxicThreshold = toxicThreshold;
         respToxicCoefficient = toxicCoefficient;
-        return this;
-    }
-
-    public SubstanceEffects increasesPlasma(float fraction)
-    {
-        plasmaFraction = fraction;
-        return this;
-    }
-    public SubstanceEffects increasesRedCells(float fraction)
-    {
-        redCellFraction = fraction;
         return this;
     }
 
@@ -134,8 +122,6 @@ public class SubstanceEffects
             applyPain(concentration, dt, data, locationLimb);
         if (respTherapeuticFloor > 0f || respToxicCoefficient > 0f)
             applyRespiratorySuppression(concentration, data);
-        if (plasmaFraction > 0f || redCellFraction > 0f)
-            applyBulkFluid(eliminatedThisTick, locationLimb, data);
         if (chronoTherapeuticDelta != 0f && systemic)
             applyChronotropic(concentration, data);
         if (vasoDeltaPerUnit != 0f && systemic)
@@ -194,28 +180,6 @@ public class SubstanceEffects
         ceiling = Math.max(0f, ceiling);
 
         data.applyRespiratorySuppression(ceiling);
-    }
-
-    // UHHHH. Let me explain this one.
-    // IRL saline doesn't become 100% plasma, it's only like 1/3rd. The rest typically
-    // leaks into the surrounding tissue. It then, literally, gets pissed out through urine.
-    // HOWEVER. Since i am NEVER going to implement a piss system, i am instead making it
-    // so the 'unused' saline (or any bulk in general) vanishes overtime.
-    // So, the increasePlasma/RBC methods take in the FRACTION of which this substance
-    // will actually become plasma, then the rest gets voided.
-    private void applyBulkFluid(float eliminated, @Nullable LimbData location, PlayerHealthData data)
-    {
-        if (eliminated <= 0f)
-            return;
-
-        LimbData target = (location != null) ? location : data.getLimb(LimbNode.UPPER_TORSO);
-        if (target == null)
-            return;
-
-        if (plasmaFraction > 0f)
-            target.setPlasmaVolume(target.getPlasmaVolume() + eliminated * plasmaFraction);
-        if (redCellFraction > 0f)
-            target.setRedCellVolume(target.getRedCellVolume() + eliminated * redCellFraction);
     }
 
     private void applyChronotropic(float concentration, PlayerHealthData data)

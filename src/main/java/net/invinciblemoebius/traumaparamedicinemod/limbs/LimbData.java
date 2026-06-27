@@ -81,28 +81,6 @@ public class LimbData
         };
     }
 
-    // === GRAPH NAVIGATION ===
-
-    // Does this node currently receive oxygenated blood from the heart?
-    // True ONLY if every node up to the upper chest has isCirculatingDistally = true,
-    // AND if this node's own isCirculatingProximally is true.
-    public boolean hasProximalCirculation(LimbNode self, Map<LimbNode, LimbData> allLimbs)
-    {
-        if (!isCirculatingProximally) return false;
-        if (self.proximalNode == null) return true; // UPPER_TORSO always has central supply.
-
-        LimbData proximalData = allLimbs.get(self.proximalNode);
-        if (proximalData == null) return false;
-
-        return proximalData.isCirculatingDistally() && proximalData.hasProximalCirculation(self.proximalNode, allLimbs);
-    }
-
-    // Does this node drain venous flow distally?
-    public boolean hasDistalCirculation()
-    {
-        return isCirculatingDistally;
-    }
-
     // === TICK METHODS ===
 
     public float computeNetBleedRate(LimbNode self, Map<LimbNode, LimbData> allLimbs, BleedContext ctx)
@@ -110,7 +88,7 @@ public class LimbData
         // Edge case for when there's no wounds.
         if (wounds.isEmpty())
             return 0f;
-        if (!hasProximalCirculation(self, allLimbs))
+        if (!LimbTraversal.hasProximalCirculation(self, allLimbs))
             return 0f;
 
         float total = 0f;
@@ -153,7 +131,7 @@ public class LimbData
     // Circulation = 15% Weight
     public void recomputeTotalHealth(LimbNode self, Map<LimbNode, LimbData> allLimbs)
     {
-        float circulationScore = hasProximalCirculation(self, allLimbs) ? 1.0f: 0.0f;
+        float circulationScore = LimbTraversal.hasProximalCirculation(self, allLimbs) ? 1.0f: 0.0f;
 
         this.totalHealth = (muscleHealth * 0.50f) + (boneHealth * 0.35f) + (circulationScore * 0.15f);
 
@@ -272,15 +250,6 @@ public class LimbData
         if (isCirculatingProximally != v)
         {
             isCirculatingProximally=v;
-            markDirty();
-        }
-    }
-
-    public void setCirculatingDistally(boolean v)
-    {
-        if (isCirculatingDistally != v)
-        {
-            isCirculatingDistally=v;
             markDirty();
         }
     }
@@ -472,7 +441,7 @@ public class LimbData
         markDirty();
     }
 
-    // === UTILITY ===
+    // === DEBUG ===
 
     public static float clamp01(float v)
     {

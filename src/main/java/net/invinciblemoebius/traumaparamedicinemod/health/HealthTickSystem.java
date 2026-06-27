@@ -10,6 +10,7 @@ import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbTraversal;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
@@ -25,16 +26,14 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.network.NetworkDirection;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 // STEP ORDER:
 // 1. Tick the cardiac phase and build the bleed context for wounds.
 // 2. Tick wounds. Advance lifecycle, infection, dressing age, etc.
-// 3. Apply hemorrhage. Drain blood volume from wound bleed rates.
-// 4. Perfusion pass. Moves whole blood distally-to-proximally.
-// 5. Advect substances and surplus blood products distal-to-proximal.
+// 3. Measure bleeding. Sum each wound's loss and update the display rate (no draining here).
+// 4. Apply loss and redistribute. Remove the loss from the connected pool, re-pour by priority.
+// 5. Migrate substances proximally, at a perfusion-scaled rate.
 // 6. Hemothorax sync. Updates lung content from viscera-level chest wounds.
 // 7. Recompute aggregated pain.
 // 8. Tick pain shock and septic shock.
@@ -85,6 +84,26 @@ public class HealthTickSystem
                     LimbNode.UPPER_TORSO
             };
 
+    // === BLOOD PRIORITY ===
+    // Blood fills these nodes top-down to their resting volume each tick, so deficits land on
+    // the lowest-priority nodes first and the heart is defended until total volume falls
+    // below the torso's own resting need. LOWER_TORSO sits last, because IRL
+    // the splanchnic reservoir is the body's first sacrifice in shock.
+    private static final LimbNode[] PRIORITY_HIGH_TO_LOW =
+            {
+                    LimbNode.UPPER_TORSO,
+                    LimbNode.HEAD,
+                    LimbNode.NECK,
+                    LimbNode.GROIN,
+                    LimbNode.LEFT_UPPER_LEG, LimbNode.RIGHT_UPPER_LEG,
+                    LimbNode.LEFT_UPPER_ARM, LimbNode.RIGHT_UPPER_ARM,
+                    LimbNode.LEFT_LOWER_LEG, LimbNode.RIGHT_LOWER_LEG,
+                    LimbNode.LEFT_FOREARM, LimbNode.RIGHT_FOREARM,
+                    LimbNode.LEFT_HAND, LimbNode.RIGHT_HAND,
+                    LimbNode.LEFT_FOOT, LimbNode.RIGHT_FOOT,
+                    LimbNode.LOWER_TORSO
+            };
+
     // === EVENT ENTRY POINT ===
     @SubscribeEvent
     public static void onPlayerTick(TickEvent.PlayerTickEvent event)
@@ -116,9 +135,10 @@ public class HealthTickSystem
                 data.getCardiacPhase(), data.hasPulse(), data.getCoreTemperature(), data.getOxygenSaturation(),
                 data.getNutritionLevel(), data.computeSystemicClottingFactor());
         tickAllWounds(data, limbs, dt);
-        applyHemorrhage(data, limbs, dt);
-        runPerfusionPass(limbs, dt);
-        advectFluids(data, limbs, dt);
+        float bleedTotal = computeBleeding(limbs, dt);
+        redistributeBlood(limbs, bleedTotal);
+        float perfusionFactor = Math.max(0f, Math.min(ModConstants.MAX_PERFUSION_FACTOR, data.getMAP() / ModConstants.NORMAL_MAP_MMHG));
+        migrateSubstances(data, limbs, perfusionFactor, dt);
         syncHemothorax(data, limbs);
         data.recomputeAgreggatedPain();
         data.tickPainShock(dt);
@@ -128,7 +148,7 @@ public class HealthTickSystem
         data.tickEnergy(dt);
         data.resetTransientModifiers();
         data.tickGastricAbsorption(dt);
-        tickAllSubstances(data, limbs);
+        tickAllSubstances(data, limbs, perfusionFactor);
         data.tickNausea(dt);
         tickVomit(player, data);
         data.recomputeBloodVolume();
@@ -172,121 +192,97 @@ public class HealthTickSystem
         }
     }
 
-    private static void drainProximally(LimbNode node, float mlToDrain, Map<LimbNode, LimbData> limbs)
+    // STEP 3: BLEEDING.
+    // Sums each connected wound's loss for this tick and updates the smoothed display rate. Does NOT
+    // drain here. A wound bleeds the connected circulation, not its own node's cup, so the actual
+    // removal happens in redistribution (step 4). computeNetBleedRate already returns 0 for nodes with
+    // no proximal circulation, so tourniqueted limbs contribute nothing. Returns total mL lost this tick.
+    private static float computeBleeding(Map<LimbNode, LimbData> limbs, float dt)
     {
-        if (mlToDrain <= 0f) return;
-
-        LimbData limb = limbs.get(node);
-        if (limb == null) return;
-
-        float available = limb.getActualBloodVolume();
-
-        if (available >= mlToDrain)
+        float bleedTotal = 0f;
+        for (Map.Entry<LimbNode, LimbData> entry : limbs.entrySet())
         {
-            limb.setActualBloodVolume(available -  mlToDrain);
-            return;
+            float instant = entry.getValue().computeNetBleedRate(entry.getKey(), limbs, bleedCtx);
+            entry.getValue().updateBleedDisplay(instant);
+            if (instant > 0f)
+                bleedTotal += instant * dt;
         }
-
-        // Local volume insufficient, drain what's here, pass remains up.
-        limb.setActualBloodVolume(0f);
-        float remains = mlToDrain - available;
-
-        // Only propagate if this node has proximal circulation.
-        if (node.proximalNode != null && limb.isCirculatingProximally())
-            drainProximally(node.proximalNode, remains, limbs);
+        return bleedTotal;
     }
 
-    // STEP 3: HEMORRHAGE.
-    private static void applyHemorrhage(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
+    // STEP 4: BLEED LOSS + PRIORITY REDISTRIBUTION.
+    // The connected circulation is one well-mixed pool. This tick's loss is removed from it at its
+    // current composition, and the remainder is re-poured into nodes in PRIORITY_HIGH_TO_LOW order,
+    // each filled to resting before the next gets anything. So loss falls on the lowest-priority nodes
+    // first (gut, then extremities) and the heart is defended until total volume drops below its own
+    // resting need. Disconnected nodes (tourniquet/severed) are isolated and left untouched.
+    private static void redistributeBlood(Map<LimbNode, LimbData> limbs, float bleedTotal)
     {
-        for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
+        // Gather the connected pool, in priority order.
+        List<LimbNode> connected = new ArrayList<>();
+        float poolPlasma = 0f, poolCells = 0f, connectedResting = 0f;
+        for (LimbNode node : PRIORITY_HIGH_TO_LOW)
         {
-            LimbNode node = entry.getKey();
-            LimbData limb = entry.getValue();
-
-            float instant = limb.computeNetBleedRate(node, limbs, bleedCtx);
-            limb.updateBleedDisplay(instant);
-            if (instant <= 0f)
+            if (!LimbTraversal.hasProximalCirculation(node, limbs))
                 continue;
-            drainBlood(node, instant * dt, limbs);
-        }
-    }
 
-    // Drains blood for a bleed. Local pool first. Once dry, the rest comes straight from
-    // central volume. Perfusion re-balances the limb next pass. A tourniqueted
-    // limb (no proximal circulation) can't reach central, so its bleed is capped
-    // at the local pool, which is exactly why tourniquets work.
-    private static void drainBlood(LimbNode node, float mlToDrain, Map<LimbNode, LimbData> limbs)
-    {
-        if (mlToDrain <= 0f)
-            return;
-
-        LimbData limb = limbs.get(node);
-        if (limb == null)
-            return;
-
-        float available = limb.getActualBloodVolume();
-        if (available >= mlToDrain)
-        {
-            limb.setActualBloodVolume(available - mlToDrain);
-            return;
-        }
-
-        limb.setActualBloodVolume(0f);
-        float remains = mlToDrain - available;
-
-        if (limb.hasProximalCirculation(node, limbs))
-        {
-            LimbData torso = limbs.get(LimbNode.UPPER_TORSO);
-            if (torso != null)
-                torso.setActualBloodVolume(Math.max(0f, torso.getActualBloodVolume() - remains));
-        }
-    }
-
-    // STEP 4: PERFUSION.
-    // Each node that has a deficit below its resting volume requests blood from its neighbor,
-    // up to the node's perfusion rate. The proximal node's volume is reduced by that same amount,
-    // propagating deficit toward the trunk.
-    // Nodes without proximal circulation (tourniquet or severed vessel) skip the request.
-    // There is also a rate limiting guardrail. To prevent a heavily bleeding node from
-    // completely draining its neighbor in one tick.
-    private static void runPerfusionPass(Map<LimbNode, LimbData> limbs, float dt)
-    {
-        for (LimbNode node: DISTAL_TO_PROXIMAL)
-        {
             LimbData limb = limbs.get(node);
-            if (limb == null) continue;
+            connected.add(node);
+            poolPlasma += limb.getPlasmaVolume();
+            poolCells += limb.getRedCellVolume();
+            connectedResting += limb.getRestingBloodVolume();
+        }
+        float poolTotal = poolPlasma + poolCells;
+        if (poolTotal <= 0f)
+            return;
 
-            // No proximal neighbor to pull from.
-            if (node.proximalNode == null) continue;
-            if (!limb.hasProximalCirculation(node, limbs)) continue;
+        // Remove this tick's loss at the pool's current composition (whole blood leaves the wound).
+        if (bleedTotal > 0f)
+        {
+            float lost = Math.min(bleedTotal, poolTotal);
+            float cellFrac = poolCells / poolTotal;
+            poolCells = Math.max(0f, poolCells - lost * cellFrac);
+            poolPlasma = Math.max(0f, poolPlasma - lost * (1f - cellFrac));
+            poolTotal = poolPlasma + poolCells;
+        }
 
-            float deficit = limb.getRestingBloodVolume() - limb.getActualBloodVolume();
-            // No pull needed if it's already at or above resting.
-            if (deficit <= 0f) continue;
+        // Priority waterfall. Fill each connected node to resting, top of the list down.
+        float remaining = poolTotal;
+        Map<LimbNode, Float> target = new EnumMap<>(LimbNode.class);
+        for (LimbNode node : connected)
+        {
+            float give = Math.min(limbs.get(node).getRestingBloodVolume(), remaining);
+            target.put(node, give);
+            remaining -= give;
+        }
+        // Hypervolemia. Blood beyond everyone's resting spreads proportionally above resting.
+        if (remaining > 0f && connectedResting > 0f)
+            for (LimbNode node : connected)
+                target.merge(node, remaining * (limbs.get(node).getRestingBloodVolume() / connectedResting), Float::sum);
 
-            LimbData proximalLimb = limbs.get(node.proximalNode);
-            if (proximalLimb == null) continue;
-
-            // How much can flow this tick, limited by perfusion rate and by how
-            // much the proximal node has above its critical floor (20% resting volume).
-            float proximalFloor = proximalLimb.getRestingBloodVolume() * 0.20f;
-            float proximalSurplus = proximalLimb.getActualBloodVolume() - proximalFloor;
-            if (proximalSurplus <= 0f) continue;
-
-            float maxFlowThisTick = limb.getPerfusionRate() * dt;
-            float actualFlow = Math.min(deficit, Math.min(maxFlowThisTick, proximalSurplus));
-
-            transferWholeBlood(proximalLimb, limb, actualFlow);
+        // Apply each target at the pool's uniform composition (connected blood mixes).
+        float plasmaFrac = poolTotal > 0f ? poolPlasma / poolTotal : 0f;
+        float cellFrac   = poolTotal > 0f ? poolCells  / poolTotal : 0f;
+        for (LimbNode node : connected)
+        {
+            float t = target.get(node);
+            limbs.get(node).setPlasmaVolume(t * plasmaFrac);
+            limbs.get(node).setRedCellVolume(t * cellFrac);
         }
     }
 
-    // STEP 5: VENOUS RETURN.
-    // Surplus above resting drains distal to proximal, carrying dissolved substances.
-    // Compartmentalized nodes keep their substances and fluid.
-    private static void advectFluids(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
+    // STEP 5: SUBSTANCE MIGRATION.
+    // Dissolved substances ride the circulation one node proximal per tick, at a rate that scales with
+    // perfusionFactor so transfusions accelerate under pressure (epi), slow under vasodilation (morphine),
+    // and stop at asystole or death.
+    // This pass carries only substances. Compartmentalized nodes keep theirs.
+    private static void migrateSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float perfusionFactor, float dt)
     {
-        for (LimbNode node: DISTAL_TO_PROXIMAL)
+        float fraction = Math.min(1f, ModConstants.BASE_ADVECTION_RATE * perfusionFactor * dt);
+        if (fraction <= 0f)
+            return;
+
+        for (LimbNode node : DISTAL_TO_PROXIMAL)
         {
             if (node == LimbNode.UPPER_TORSO)
                 continue;
@@ -294,7 +290,11 @@ public class HealthTickSystem
             LimbData limb = limbs.get(node);
             if (limb == null)
                 continue;
-            if (!limb.hasProximalCirculation(node, limbs))
+            if (!LimbTraversal.hasProximalCirculation(node, limbs))
+                continue;
+            if (limb.getActualBloodVolume() <= 0f)
+                continue;
+            if (limb.getLocalSubstances().isEmpty())
                 continue;
 
             LimbNode proximalNode = node.proximalNode;
@@ -305,27 +305,11 @@ public class HealthTickSystem
             if (proximalLimb == null)
                 continue;
 
-            float total = limb.getActualBloodVolume();
-            float surplus = total - limb.getRestingBloodVolume();
+            List<CirculatingSubstance> destination = (proximalNode == LimbNode.UPPER_TORSO)
+                    ? data.getSubstancesInternal()
+                    : proximalLimb.getLocalSubstances();
 
-            // Bulk fluid. Surplus rebalances.
-            if (surplus > 0f && total > 0f)
-            {
-                float flow = Math.min(surplus, limb.getVenousReturnRate() * dt);
-                transferWholeBlood(limb, proximalLimb, flow);
-            }
-
-            // Substances. Ride the perfusion.
-            if (total > 0f && !limb.getLocalSubstances().isEmpty())
-            {
-                // 0.25 stands for 25% of a node's substance moves proximal per second.
-                // E.g. clears a node in 4 seconds and reaches the torso in 12-ish seconds.
-                float fraction = Math.min(1f, 0.25f * dt);
-                // Substances reaching the torso enter the systemic pool,
-                // otherwise they move up one node.
-                List<CirculatingSubstance> destination = (proximalNode == LimbNode.UPPER_TORSO) ? data.getSubstancesInternal() : proximalLimb.getLocalSubstances();
-                migrateSubstance(limb.getLocalSubstances(), destination, fraction);
-            }
+            migrateSubstance(limb.getLocalSubstances(), destination, fraction);
         }
     }
 
@@ -367,21 +351,6 @@ public class HealthTickSystem
             if (substance.getAmountML() < CirculatingSubstance.NEGLIGIBLE_THRESHOLD)
                 iterator.remove();
         }
-    }
-
-    private static void transferWholeBlood(LimbData from, LimbData to, float ml)
-    {
-        float available = from.getActualBloodVolume();
-        if (available <= 0f || ml <= 0f)
-            return;
-
-        float fraction = Math.min(1f, ml / available);
-        float plasmaMoved = from.getPlasmaVolume() * fraction;
-        float cellsMoved = from.getRedCellVolume() * fraction;
-        from.setPlasmaVolume(from.getPlasmaVolume() - plasmaMoved);
-        from.setRedCellVolume(from.getRedCellVolume() - cellsMoved);
-        to.setPlasmaVolume(to.getPlasmaVolume() + plasmaMoved);
-        to.setRedCellVolume(to.getRedCellVolume() + cellsMoved);
     }
 
     // STEP 6: HEMOTHORAX SYNC.
@@ -434,7 +403,7 @@ public class HealthTickSystem
     }
 
     // STEP 15: SUBSTANCES.
-    private static void tickAllSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
+    private static void tickAllSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float perfusionFactor)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
 
@@ -446,7 +415,7 @@ public class HealthTickSystem
                 continue;
 
             float localVolume = limb.getActualBloodVolume();
-            local.removeIf(substance -> substance.tick(localVolume, dt, data, limb));
+            local.removeIf(substance -> substance.tick(localVolume, dt, perfusionFactor, data, limb));
         }
 
         List<CirculatingSubstance> systemic = data.getSubstancesInternal();
@@ -457,7 +426,7 @@ public class HealthTickSystem
                 totalVolume += limb.getActualBloodVolume();
 
             final float finalTotalVolume = totalVolume;
-            systemic.removeIf(substance -> substance.tick(finalTotalVolume, dt, data, null));
+            systemic.removeIf(substance -> substance.tick(finalTotalVolume, dt, perfusionFactor, data, null));
         }
     }
 

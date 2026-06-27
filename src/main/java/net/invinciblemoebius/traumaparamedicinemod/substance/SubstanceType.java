@@ -48,21 +48,14 @@ public enum SubstanceType
 
     // === BLOOD PRODUCTS ===
 
-    PLASMA(180f, new SubstanceEffects()
-            .increasesPlasma(1.0f)),
-
-    RBC_CONCENTRATE(240f, new SubstanceEffects()
-            .increasesRedCells(0.90f)),
-
-    WHOLE_BLOOD(210f, new SubstanceEffects()
-            .increasesPlasma(0.55f)
-            .increasesRedCells(0.45f)),
+    PLASMA(SubstanceClass.BLOOD_PRODUCT, 1.0f, 0f),
+    RBC_CONCENTRATE(SubstanceClass.BLOOD_PRODUCT, 0f, 0.90f),
+    WHOLE_BLOOD(SubstanceClass.BLOOD_PRODUCT, 0.55f, 0.45f),
 
     // === NON-MEDICAL FLUIDS ===
 
-    SALINE(420, new SubstanceEffects()
-            .increasesPlasma(0.30f)), // 3-for-1 rule. Only 30% becomes actual plasma.
-
+    // 3-for-1 rule. Only 30% becomes plasma, the rest third-spaces.
+    SALINE(SubstanceClass.CRYSTALLOID, 0.30f, 0f),
     // Saliva, apple juice, empty potions, and just about any fluid that isn't meant to be in the body.
     FOREIGN_FLUID(120f, new SubstanceEffects()
             .suppressesRespiration(0.00001f, 0.0008f, 0.35f, 0.0008f, 290f)),
@@ -74,35 +67,51 @@ public enum SubstanceType
     // === STUBS ===
 
     // Air for embolism, or water vapor, or smoke, or really anything that isn't clean air or oxygen.
-    FOREIGN_GAS(120f, new SubstanceEffects());
+    FOREIGN_GAS(SubstanceClass.DRUG, 120f, 0f, 0f, 0f, 0f, new SubstanceEffects());
 
     // === CONSTRUCTORS ===
 
+    public final SubstanceClass substanceClass;
     public final float halfLifeSeconds;
-    // Fraction of a dose that survives the gut and first pass and enters the blood. 0 = parenteral only.
     public final float oralBioavailability;
-    // Nausea per ml/s while it's in the stomach. 0 = not an irritant.
     public final float gutIrritation;
+    // Fraction of each consumed ml that becomes plasma or red cells. Drugs are aqueous (1.0 plasma).
+    // Expanders carry the product's ratio, gas carries none. The rest is excreted/third-spaced.
+    public final float plasmaYield;
+    public final float redCellYield;
     private final SubstanceEffects effects;
 
-    // By default, nothing survives swallowing and gives no nausea. Only if the substance specifies
-    // a fraction will it change from zero fraction survival or zero irritation.
+    // Drug. Aqueous (1.0 plasma yield).
     SubstanceType(float halfLifeSeconds, SubstanceEffects effects)
     {
-        this(halfLifeSeconds, 0f, 0f, effects);
+        this(SubstanceClass.DRUG, halfLifeSeconds, 0f, 0f, 1f, 0f, effects);
     }
 
-    // Orally absorbed, non-irritant.
     SubstanceType(float halfLifeSeconds, float oralBioavailability, SubstanceEffects effects)
     {
-        this(halfLifeSeconds, oralBioavailability, 0f, effects);
+        this(SubstanceClass.DRUG, halfLifeSeconds, oralBioavailability, 0f, 1f, 0f, effects);
     }
 
     SubstanceType(float halfLifeSeconds, float oralBioavailability, float gutIrritation, SubstanceEffects effects)
     {
+        this(SubstanceClass.DRUG, halfLifeSeconds, oralBioavailability, gutIrritation, 1f, 0f, effects);
+    }
+
+    // Volume expander. No half-life, no effect, explicit yields.
+    SubstanceType(SubstanceClass substanceClass, float plasmaYield, float redCellYield)
+    {
+        this(substanceClass, 0f, 0f, 0f, plasmaYield, redCellYield, new SubstanceEffects());
+    }
+
+    SubstanceType(SubstanceClass substanceClass, float halfLifeSeconds, float oralBioavailability,
+            float gutIrritation, float plasmaYield, float redCellYield, SubstanceEffects effects)
+    {
+        this.substanceClass = substanceClass;
         this.halfLifeSeconds = halfLifeSeconds;
         this.oralBioavailability = oralBioavailability;
         this.gutIrritation = gutIrritation;
+        this.plasmaYield = plasmaYield;
+        this.redCellYield = redCellYield;
         this.effects = effects;
     }
 

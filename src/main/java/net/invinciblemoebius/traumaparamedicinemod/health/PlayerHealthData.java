@@ -730,7 +730,7 @@ public class PlayerHealthData
         for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
             LimbData limb = entry.getValue();
-            if (!limb.hasProximalCirculation(entry.getKey(), limbData))
+            if (!LimbTraversal.hasProximalCirculation(entry.getKey(), limbData))
                 continue;
 
             for (Wound wound : limb.getWounds())
@@ -750,7 +750,7 @@ public class PlayerHealthData
         for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
             LimbData limb = entry.getValue();
-            boolean reachable = limb.hasProximalCirculation(entry.getKey(), limbData);
+            boolean reachable = LimbTraversal.hasProximalCirculation(entry.getKey(), limbData);
 
             for (Wound wound : limb.getWounds())
             {
@@ -1028,7 +1028,7 @@ public class PlayerHealthData
         for (Map.Entry<LimbNode, LimbData> entry : limbData.entrySet())
         {
             LimbData limb = entry.getValue();
-            if (!limb.hasProximalCirculation(entry.getKey(), limbData))
+            if (!LimbTraversal.hasProximalCirculation(entry.getKey(), limbData))
                 continue;
 
             for (Wound wound : limb.getWounds())
