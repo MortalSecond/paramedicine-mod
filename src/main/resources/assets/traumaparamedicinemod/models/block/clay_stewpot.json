@@ -1,0 +1,6 @@
+{
+  "parent": "traumaparamedicinemod:block/stewpot",
+  "textures": {
+    "0": "traumaparamedicinemod:block/claypotfaces"
+  }
+}

@@ -110,17 +110,17 @@ public final class ModConstants
     public static final float CONSCIOUSNESS_UNRESPONSIVE = 0.00f; // Above this: No response
 
     // IMMUNE SYSTEM
-    public static final float IMMUNE_RESERVE_MAX = 2.0f;   // Ceiling of the reserve pool.
-    public static final float IMMUNE_REGEN_PER_SECOND = 0.03f;  // Reserve regained/sec at full immunity strength.
-    public static final float IMMUNE_CONSUMPTION = 0.5f;   // Fraction of deployed reserve spent/sec.
-    public static final float IMMUNE_SUPPRESS_EFF = 0.04f;  // How hard deployed reserve fights wound infection.
-    public static final float IMMUNE_EXHAUSTION_MIN = 0.1f;   // Reserve at/below this counts as exhausted.
-    public static final float INFECTION_GROWTH_RATE = 0.02f;  // How fast contamination feeds local infection.
-    public static final float BACTEREMIA_SPILL = 0.10f;  // Fraction of unfought growth that seeds the blood.
-    public static final float BACTEREMIA_SYSTEMIC_WEIGHT = 1.5f;   // How aggressively bacteremia competes for reserve.
-    public static final float BACTEREMIA_SUPPRESS_EFF = 0.05f;  // How hard deployed reserve clears systemic load.
-    public static final float SEPSIS_ENTER_LOAD = 0.3f;   // Bacteremia to begin septic shock (with reserve exhausted).
-    public static final float SEPSIS_EXIT_LOAD = 0.1f;   // Bacteremia below which septic shock recedes.
+    public static final float IMMUNE_RESERVE_MAX = 2.0f; // Ceiling of the reserve pool.
+    public static final float IMMUNE_REGEN_PER_SECOND = 0.03f; // Reserve regained/sec at full immunity strength.
+    public static final float IMMUNE_CONSUMPTION = 0.5f; // Fraction of deployed reserve spent/sec.
+    public static final float IMMUNE_SUPPRESS_EFF = 0.04f; // How hard deployed reserve fights wound infection.
+    public static final float IMMUNE_EXHAUSTION_MIN = 0.1f; // Reserve at/below this counts as exhausted.
+    public static final float INFECTION_GROWTH_RATE = 0.02f; // How fast contamination feeds local infection.
+    public static final float BACTEREMIA_SPILL = 0.10f; // Fraction of unfought growth that seeds the blood.
+    public static final float BACTEREMIA_SYSTEMIC_WEIGHT = 1.5f; // How aggressively bacteremia competes for reserve.
+    public static final float BACTEREMIA_SUPPRESS_EFF = 0.05f; // How hard deployed reserve clears systemic load.
+    public static final float SEPSIS_ENTER_LOAD = 0.3f; // Bacteremia to begin septic shock (with reserve exhausted).
+    public static final float SEPSIS_EXIT_LOAD = 0.1f; // Bacteremia below which septic shock recedes.
     public static final float SEPSIS_EMERGENCY_REGEN_MULT = 3.0f; // Regen boost while septic.
 
     // NUTRITION
@@ -136,7 +136,9 @@ public final class ModConstants
     public static final float WOUND_U_MAX = 2.0f;
 
     // CONTAINERS
+    public static final float IV_ONSET_SECONDS = 1f;
     public static final float SYRINGE_CAPACITY_ML = 5f; // Precise dosing tool.
     public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
-    public static final float IV_ONSET_SECONDS = 1f;
+    public static final float STEWPOT_CAPACITY_ML = 10000f; // 10L bulk stock.
+    public static final float WATER_BUCKET_ML = 10000f; // One bucket = a full pot of water.
 }

@@ -1,5 +1,7 @@
 {
   "variants": {
-    "": { "model": "traumaparamedicinemod:block/stewpot" }
+    "state=empty":   { "model": "traumaparamedicinemod:block/stewpot" },
+    "state=filled":  { "model": "traumaparamedicinemod:block/stewpotwaterfull" },
+    "state=boiling": { "model": "traumaparamedicinemod:block/stewpotwaterfull" }
   }
 }

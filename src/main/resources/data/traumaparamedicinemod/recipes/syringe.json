@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "P",
+    "P",
+    "N"
+  ],
+  "key": {
+    "P": { "item": "minecraft:glass_pane" },
+    "N": { "item": "minecraft:iron_nugget" }
+  },
+  "result": { "item": "traumaparamedicinemod:syringe", "count": 1 }
+}

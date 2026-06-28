@@ -21,6 +21,12 @@ public final class ModBlocks
                             .strength(2.0f)
                             .sound(SoundType.METAL)
                             .noOcclusion()));
+    public static final RegistryObject<Block> CLAY_STEWPOT =
+            BLOCKS.register("clay_stewpot", () -> new Block(
+                    BlockBehaviour.Properties.of()
+                            .strength(1.0f)
+                            .sound(SoundType.GRAVEL) // unfired clay crumbles
+                            .noOcclusion()));
 
     public static void register(IEventBus modEventBus)
     {

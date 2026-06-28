@@ -2,5 +2,6 @@
   "item.traumaparamedicinemod.syringe": "Syringe",
   "item.traumaparamedicinemod.glass": "Glass",
   "block.traumaparamedicinemod.stewpot": "Stewpot",
+  "block.traumaparamedicinemod.clay_stewpot": "Unfired Stewpot",
   "itemGroup.traumaparamedicinemod": "Paramedicine"
 }

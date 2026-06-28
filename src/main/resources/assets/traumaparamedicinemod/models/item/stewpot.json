@@ -1,3 +1,7 @@
 {
-  "parent": "traumaparamedicinemod:block/stewpot"
+  "parent": "item/generated",
+  "textures":
+  {
+    "layer0": "traumaparamedicinemod:item/stewpot"
+  }
 }

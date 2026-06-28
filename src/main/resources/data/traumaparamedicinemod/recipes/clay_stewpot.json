@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "C C",
+    "CCC"
+  ],
+  "key": {
+    "C": { "item": "minecraft:clay_ball" }
+  },
+  "result": { "item": "traumaparamedicinemod:clay_stewpot", "count": 1 }
+}

@@ -15,9 +15,19 @@ public class ModItems
 
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, ParamedicineMod.MOD_ID);
 
-    public static final RegistryObject<Item> SYRINGE = ITEMS.register("syringe", () -> new SyringeItem(new Item.Properties()));
-    public static final RegistryObject<Item> GLASS = ITEMS.register("glass", () -> new GlassItem(new Item.Properties()));
-    public static final RegistryObject<Item> STEWPOT = ITEMS.register("stewpot", () -> new BlockItem(ModBlocks.STEWPOT.get(), new Item.Properties()));
+    public static final RegistryObject<Item> SYRINGE = ITEMS.register(
+            "syringe", () -> new SyringeItem(new Item.Properties()
+                    .stacksTo(16)));
+    public static final RegistryObject<Item> GLASS = ITEMS.register(
+            "glass", () -> new GlassItem(new Item.Properties()
+                    .stacksTo(8)));
+    public static final RegistryObject<Item> STEWPOT = ITEMS.register(
+            "stewpot", () -> new BlockItem(ModBlocks.STEWPOT.get(), new Item.Properties()
+                    .stacksTo(1)));
+    public static final RegistryObject<Item> CLAY_STEWPOT = ITEMS.register(
+            "clay_stewpot", () -> new BlockItem(ModBlocks.CLAY_STEWPOT.get(), new Item.Properties()
+                    .stacksTo(1)));
+
 
     public static void register(IEventBus modEventBus)
     {
