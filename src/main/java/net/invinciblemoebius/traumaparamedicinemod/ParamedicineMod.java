@@ -6,6 +6,7 @@ import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.item.ModCreativeTabs;
 import net.invinciblemoebius.traumaparamedicinemod.item.ModItems;
+import net.invinciblemoebius.traumaparamedicinemod.menu.ModMenus;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
@@ -34,6 +35,7 @@ public class ParamedicineMod
         // Attach the deferred registers.
         ModBlocks.register(modEventBus);
         ModBlockEntities.register(modEventBus);
+        ModMenus.register(modEventBus);
         ModItems.register(modEventBus);
         ModCreativeTabs.register(modEventBus);
         // Register the commonSetup method for modloading

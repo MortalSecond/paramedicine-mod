@@ -81,6 +81,25 @@ public class FluidMixture
             components.merge(entry.getKey(), entry.getValue() * fraction, Float::sum);
     }
 
+    public float remove(SubstanceType type, float ml)
+    {
+        if (ml <= 0f)
+            return 0f;
+
+        float have = components.getOrDefault(type, 0f);
+        if (have <= 0f)
+            return 0f;
+
+        float removed = Math.min(ml, have);
+        float left = have - removed;
+        if (left <= ML_MIN)
+            components.remove(type);
+        else
+            components.put(type, left);
+
+        return removed;
+    }
+
     public void clear()
     {
         components.clear();
