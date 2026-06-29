@@ -111,10 +111,15 @@ public class StewpotBlock extends Block implements EntityBlock
         if (!(level.getBlockEntity(pos) instanceof StewpotBlockEntity pot))
             return InteractionResult.PASS;
 
-        // Water bucket.
-        if (heldItem == Items.WATER_BUCKET)
+        // What kind of liquid goes into the pot from right-clicking with a bucket.
+        if (heldItem == Items.WATER_BUCKET || heldItem == Items.MILK_BUCKET)
         {
-            float accepted = pot.addFluid(ModConstants.WATER_BUCKET_ML);
+            float accepted = 0f;
+            if (heldItem == Items.WATER_BUCKET)
+                accepted = pot.addFluid(SubstanceType.WATER, ModConstants.WATER_BUCKET_ML);
+            if (heldItem == Items.MILK_BUCKET)
+                accepted = pot.addFluid(SubstanceType.MILK, ModConstants.WATER_BUCKET_ML);
+
             if (accepted > 0f)
                 return InteractionResult.CONSUME;
 

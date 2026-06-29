@@ -4,6 +4,7 @@ import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.menu.StewpotMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
+import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceEbullition;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,6 +33,7 @@ import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 
 import javax.annotation.Nullable;
+import java.util.Map;
 
 // This holds a container block's bulk stock as a FluidMixture.
 public class StewpotBlockEntity extends BlockEntity implements MenuProvider
@@ -44,6 +46,7 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
     private final FluidMixture contents = new FluidMixture();
     // 0 = Cold, 1 = boiling.
     private float temperature = 0f;
+    private int infuseTimer = 0;
     private int syncTimer = 0;
     private boolean pendingSync = false;
 
@@ -54,12 +57,47 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
 
     // === INTERACTION METHODS ===
 
-    // Returns how much was actually accepted.
-    public float addFluid(float ml)
+    // While boiling, each occupied ingredient slot releases ONE item's payload per
+    // interval (parallel across slots, serial within a slot).
+    private boolean infuse()
     {
-        float accepted = contents.add(SubstanceType.WATER, ml, ModConstants.STEWPOT_CAPACITY_ML);
+        if (++infuseTimer < ModConstants.STEWPOT_INFUSE_INTERVAL_TICKS)
+            return false;
+        infuseTimer = 0;
+
+        boolean changed = false;
+        for (int i = 0; i < INGREDIENT_SLOTS; i++)
+        {
+            int slot = SLOT_INGREDIENT_START + i;
+            ItemStack stack = items.getStackInSlot(slot);
+            if (stack.isEmpty())
+                continue;
+
+            IngredientInfusions.Infusion infusion = IngredientInfusions.forItem(stack.getItem());
+            if (infusion == null)
+                continue;
+
+            float yield = infusion.amountPerItem() * infusion.extractionEfficiency();
+            // Don't waste ingredients if the pot is already full.
+            if (contents.add(infusion.substance(), yield, ModConstants.STEWPOT_CAPACITY_ML) <= 0f)
+                continue;
+
+            // Spent flower vanishes (later: PLANT_MATTER grounds)
+            items.extractItem(slot, 1, false);
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    // Adds a single substance additively, capped at capacity. Returns how much was accepted.
+    public float addFluid(SubstanceType type, float ml)
+    {
+        float oldTotal = contents.totalVolume();
+        float accepted = contents.add(type, ml, ModConstants.STEWPOT_CAPACITY_ML);
         if (accepted > 0)
         {
+            diluteHeat(oldTotal);
             markChangedAndSynced();
             updateFilledState();
         }
@@ -77,6 +115,75 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         }
 
         return pulled;
+    }
+
+    // Drains the input-slot container into the pot, as much as fits this tick.
+    private boolean processInput()
+    {
+        ItemStack in = items.getStackInSlot(SLOT_INPUT);
+        if (in.isEmpty())
+            return false;
+
+        float room = ModConstants.STEWPOT_CAPACITY_ML - contents.totalVolume();
+        if (room <= 0f)
+            return false;
+
+        // Vanilla buckets. Dump their fluid, leave an empty bucket. Overflow past capacity spills.
+        if (in.getItem() == Items.WATER_BUCKET || in.getItem() == Items.MILK_BUCKET)
+        {
+            SubstanceType type = (in.getItem() == Items.MILK_BUCKET) ? SubstanceType.MILK : SubstanceType.WATER;
+            float oldTotal = contents.totalVolume();
+
+            float accepted = contents.add(type, ModConstants.WATER_BUCKET_ML, ModConstants.STEWPOT_CAPACITY_ML);
+            if (accepted <= 0f)
+                return false;
+
+            diluteHeat(oldTotal);
+            items.setStackInSlot(SLOT_INPUT, new ItemStack(Items.BUCKET));
+            return true;
+        }
+
+        // Fluid containers. Move what fits, write the reduced container back into the slot.
+        if (in.getItem() instanceof FluidContainerItem)
+        {
+            FluidMixture mix = FluidContainerItem.getMixture(in);
+            if (mix.isEmpty())
+                return false;
+
+            float oldTotal = contents.totalVolume();
+            FluidMixture moved = mix.drain(Math.min(room, mix.totalVolume()));
+
+            contents.merge(moved, ModConstants.STEWPOT_CAPACITY_ML);
+            diluteHeat(oldTotal);
+
+            FluidContainerItem.setMixture(in, mix);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Fills the output-slot container from the pot, as much as fits this tick.
+    private boolean processOutput()
+    {
+        if (contents.isEmpty())
+            return false;
+
+        ItemStack out = items.getStackInSlot(SLOT_OUTPUT);
+        if (!(out.getItem() instanceof FluidContainerItem container))
+            return false;
+
+        FluidMixture mix = FluidContainerItem.getMixture(out);
+        float room = container.getCapacityML() - mix.totalVolume();
+        if (room <= 0f)
+            return false;
+
+        FluidMixture pulled = contents.drain(Math.min(room, contents.totalVolume()));
+        for (Map.Entry<SubstanceType, Float> e : pulled.getComponents().entrySet())
+            mix.add(e.getKey(), e.getValue(), container.getCapacityML());
+
+        FluidContainerItem.setMixture(out, mix);
+        return true;
     }
 
     private void updateFilledState()
@@ -176,6 +283,15 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         return true;
     }
 
+    // Cold input cools the pot, mixing-style. Temperature scales by the fraction of old (hot) volume.
+    // 250ml into 10L barely does anything, but 10L into a near-dry pot resets it hard.
+    private void diluteHeat(float oldTotal)
+    {
+        float newTotal = contents.totalVolume();
+        if (newTotal > oldTotal && newTotal > 0f)
+            temperature *= oldTotal / newTotal;
+    }
+
     public static void serverTick(Level level, BlockPos pos, BlockState state, StewpotBlockEntity pot)
     {
         float dt = ModConstants.SECONDS_PER_TICK;
@@ -190,28 +306,33 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         if (pot.temperature != prevTemp)
             dirty = true;
 
-        if (heated && !pot.contents.isEmpty())
+        // Input slot into pot.
+        if (pot.processInput())
+            dirty = true;
+
+        // Boiling only once hot enough. Cold input drops temperature, so it pauses until reheated.
+        // Convert advances water through its chain; evaporate removes volume (concentrating dissolved
+        // meds) or scorches the remainder to JUNK once boiled dry. Both run at the same time.
+        // At the same time, it runs the infusion process.
+        if (pot.temperature >= ModConstants.STEWPOT_BOIL_THRESHOLD && !pot.contents.isEmpty())
         {
-            // Still coming to a boil...
-            float toBoil = pot.contents.remove(SubstanceType.WATER, ModConstants.STEWPOT_BOIL_CONVERT_PER_SECOND * dt);
-            if (toBoil > 0f)
-            {
-                pot.contents.add(SubstanceType.BOILED_WATER, toBoil, ModConstants.STEWPOT_CAPACITY_ML);
+            if (SubstanceEbullition.convert(pot.contents, ModConstants.STEWPOT_BOIL_CONVERT_PER_SECOND * dt, ModConstants.STEWPOT_CAPACITY_ML))
                 dirty = true;
-            }
-            // And done! Begin evaporation.
-            else
-            {
-                float evaporated = pot.contents.remove(SubstanceType.BOILED_WATER, ModConstants.STEWPOT_EVAPORATION_PER_SECOND * dt);
-                if (evaporated > 0f)
-                    dirty = true;
-            }
+            if (SubstanceEbullition.evaporate(pot.contents, ModConstants.STEWPOT_EVAPORATION_PER_SECOND * dt, ModConstants.STEWPOT_CAPACITY_ML))
+                dirty = true;
+            if (pot.infuse())
+                dirty = true;
         }
+
+        // Pot into output slot.
+        if (pot.processOutput())
+            dirty = true;
 
         if (dirty)
         {
             pot.setChanged();
             pot.pendingSync = true;
+            pot.updateFilledState();
         }
 
         // The client UI push is a little throttled, so it doesn't send a packet every single tick.

@@ -71,6 +71,10 @@ public enum SubstanceType
     // Default "nonsense" fluid. Should probably cause direct bactermia and intense pain.
     JUNK(200f, new SubstanceEffects()),
 
+    // Generic "plant stuff" from flowers and bark and whatnot.
+    PLANT_MATTER(10000f, new SubstanceEffects()
+            .causesNausea(1f)),
+
     // Saliva, apple juice, empty potions, and just about any fluid that isn't meant to be in the body.
     FOREIGN_FLUID(120f, new SubstanceEffects()
             .suppressesRespiration(0.00001f, 0.0008f,
@@ -80,6 +84,13 @@ public enum SubstanceType
     // Should probably cause a very direct pain spike, or whichever problem embolism causes when injected directly.
     FOREIGN_GAS(SubstanceClass.DRUG, 120f, 0f,
             0f, 0f, 0f, new SubstanceEffects()),
+
+    // === FOODSTUFFS ===
+
+    // Generic food fluid that gets added whenever a food item is added into a mixture.
+    FOOD(1000f, new SubstanceEffects()),
+    MILK(1000f, new SubstanceEffects()),
+    CARAMEL(1000f, new SubstanceEffects()),
 
     // === INERT / BINDERS ===
 

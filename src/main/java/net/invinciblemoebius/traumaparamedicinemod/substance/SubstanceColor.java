@@ -17,7 +17,8 @@ public class SubstanceColor
     static
     {
         COLORS.put(SubstanceType.WATER, 0xFF3A7CC4);
-        COLORS.put(SubstanceType.BOILED_WATER, 0xFF5B97D6);
+        COLORS.put(SubstanceType.BOILED_WATER, 0xFF3A7CC4);
+        COLORS.put(SubstanceType.PURIFIED_WATER, 0xFF3A7CC4);
     }
 
     public static int get(SubstanceType type)

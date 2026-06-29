@@ -141,9 +141,13 @@ public final class ModConstants
     public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
     public static final float STEWPOT_CAPACITY_ML = 10000f; // 10L bulk stock.
     public static final float WATER_BUCKET_ML = 10000f; // One bucket = a full pot of water.
-    public static final float STEWPOT_BOIL_CONVERT_PER_SECOND = 250f; // Seconds to bring a full pot to a boil.
-    public static final float STEWPOT_EVAPORATION_PER_SECOND = 25f; // Boiled water lost to steam.
+
+    // STEWPOT
+    public static final float STEWPOT_BOIL_CONVERT_PER_SECOND = 100f; // Rate of conversion from one substance to another substance.
+    public static final float STEWPOT_EVAPORATION_PER_SECOND = 50f; // Boiled water lost to steam.
     public static final float STEWPOT_TEMP_RISE_PER_SECOND = 0.10f; // 10 secs from cold to boiling.
     public static final float STEWPOT_TEMP_FALL_PER_SECOND = 0.05f; // 20 secs to cool once the heat is gone.
     public static final int STEWPOT_SYNC_INTERVAL_TICKS = 5; // Quarter-second UI sync while changing.
+    public static final float STEWPOT_BOIL_THRESHOLD = 0.9f; // Temperature needed to boil. Below this, boiling pauses.
+    public static final int STEWPOT_INFUSE_INTERVAL_TICKS = 100; // One item per occupied slot per interval while boiling (1.5s).
 }

@@ -2,22 +2,22 @@ package net.invinciblemoebius.traumaparamedicinemod.substance;
 
 import net.minecraft.nbt.CompoundTag;
 
-// This represents a LIQUID. All mechanism is in SubstanceStorage, this
+// This represents a SOLID. All mechanism is in SubstanceStorage, this
 // just sets the fluid's vocabulary. "mL", and the "Mixture" NBT key.
-public class FluidMixture extends SubstanceStorage<FluidMixture>
+public class PowderMixture extends SubstanceStorage<PowderMixture>
 {
-    private static final String NBT_KEY = "Mixture";
+    private static final String NBT_KEY = "Powder";
 
     @Override
-    protected FluidMixture createEmpty() { return new FluidMixture(); }
+    protected PowderMixture createEmpty() { return new PowderMixture(); }
 
     // === UI ===
 
-    public String describe() { return describe("mL"); }
+    public String describe() { return describe("mg"); }
 
     // === ACESSORS ===
 
-    public float totalVolume() { return total(); }
+    public float totalMass() { return total(); }
 
     // === SAVING STUFF ===
 
