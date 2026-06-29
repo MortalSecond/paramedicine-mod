@@ -7,9 +7,7 @@ import java.util.Map;
 // is white, BUT, it can be overriden by the cases inside the static.
 public class SubstanceColor
 {
-    private SubstanceColor()
-    {
-    }
+    private SubstanceColor() {}
 
     private static final int DEFAULT = 0xFFE8E8E8;
     private static final Map<SubstanceType, Integer> COLORS = new EnumMap<>(SubstanceType.class);
@@ -19,6 +17,8 @@ public class SubstanceColor
         COLORS.put(SubstanceType.WATER, 0xFF3A7CC4);
         COLORS.put(SubstanceType.BOILED_WATER, 0xFF3A7CC4);
         COLORS.put(SubstanceType.PURIFIED_WATER, 0xFF3A7CC4);
+        COLORS.put(SubstanceType.PLANT_MATTER, 0xFF1B941C);
+        COLORS.put(SubstanceType.CARAMEL, 0xFF853C11);
     }
 
     public static int get(SubstanceType type)

@@ -9,6 +9,8 @@ import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -46,7 +48,6 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
     private final FluidMixture contents = new FluidMixture();
     // 0 = Cold, 1 = boiling.
     private float temperature = 0f;
-    private int infuseTimer = 0;
     private int syncTimer = 0;
     private boolean pendingSync = false;
 
@@ -57,34 +58,47 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
 
     // === INTERACTION METHODS ===
 
-    // While boiling, each occupied ingredient slot releases ONE item's payload per
-    // interval (parallel across slots, serial within a slot).
-    private boolean infuse()
+    // While boiling, each occupied ingredient slot materializes its item's composition
+    // into a per-slot buffer (locks the item for this), then bleeds that buffer into the pot at
+    // a fixed rate. Bigger composition = more ticks.
+    // The bleed runs even off the boil, so a started item always finishes and unlocks.
+    private boolean infuse(float dt, boolean boiling)
     {
-        if (++infuseTimer < ModConstants.STEWPOT_INFUSE_INTERVAL_TICKS)
-            return false;
-        infuseTimer = 0;
-
         boolean changed = false;
+        float perTick = ModConstants.STEWPOT_INFUSE_PER_SECOND * dt;
+
         for (int i = 0; i < INGREDIENT_SLOTS; i++)
         {
+            FluidMixture buffer = dissolveBuffers[i];
             int slot = SLOT_INGREDIENT_START + i;
             ItemStack stack = items.getStackInSlot(slot);
-            if (stack.isEmpty())
-                continue;
 
-            IngredientInfusions.Infusion infusion = IngredientInfusions.forItem(stack.getItem());
-            if (infusion == null)
-                continue;
+            // Begin a new item dissolving, but only while boiling.
+            if (buffer.isEmpty())
+            {
+                if (!boiling || stack.isEmpty() || !ItemComposition.has(stack.getItem()))
+                    continue;
+                ItemComposition.materializeInto(buffer, stack.getItem());
+                changed = true;
+            }
 
-            float yield = infusion.amountPerItem() * infusion.extractionEfficiency();
-            // Don't waste ingredients if the pot is already full.
-            if (contents.add(infusion.substance(), yield, ModConstants.STEWPOT_CAPACITY_ML) <= 0f)
-                continue;
+            // Bleed the buffer into the pot (capped at pot's max size).
+            float room = ModConstants.STEWPOT_CAPACITY_ML - contents.totalVolume();
+            if (room > 0f)
+            {
+                FluidMixture slice = buffer.drain(Math.min(perTick, room));
+                for (Map.Entry<SubstanceType, Float> e : slice.getComponents().entrySet())
+                    contents.add(e.getKey(), e.getValue(), ModConstants.STEWPOT_CAPACITY_ML);
+                if (!slice.isEmpty())
+                    changed = true;
+            }
 
-            // Spent flower vanishes (later: PLANT_MATTER grounds)
-            items.extractItem(slot, 1, false);
-            changed = true;
+            // Consume the source item and unlock (buffer is empty, so extract passes).
+            if (buffer.isEmpty() && !stack.isEmpty())
+            {
+                items.extractItem(slot, 1, false);
+                changed = true;
+            }
         }
 
         return changed;
@@ -203,6 +217,13 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             level.setBlock(worldPosition, state.setValue(StewpotBlock.STATE, desired), Block.UPDATE_CLIENTS);
     }
 
+    // Per-slot dissolving buffers. A non-empty buffer means that slot is mid-infusion (locked).
+    private final FluidMixture[] dissolveBuffers = new FluidMixture[INGREDIENT_SLOTS];
+    {
+        for (int i = 0; i < INGREDIENT_SLOTS; i++)
+            dissolveBuffers[i] = new FluidMixture();
+    }
+
     // === UI STUFF ===
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT)
@@ -219,10 +240,22 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             return StewpotBlockEntity.this.isItemValidForSlot(slot, stack);
         }
 
+        // This locks stacks to be only one item, so whole stacks don't get locked out.
         @Override
         public int getSlotLimit(int slot)
         {
-            return (slot == SLOT_INPUT || slot == SLOT_OUTPUT) ? 1 : super.getSlotLimit(slot);
+            return 1;
+        }
+
+        // Locks an ingredient slot while its dissolve buffer is non-empty (mid-infusion).
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate)
+        {
+            if (slot >= SLOT_INGREDIENT_START && slot < SLOT_COUNT
+                    && !StewpotBlockEntity.this.dissolveBuffers[slot - SLOT_INGREDIENT_START].isEmpty())
+                return ItemStack.EMPTY;
+
+            return super.extractItem(slot, amount, simulate);
         }
     };
 
@@ -311,16 +344,17 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             dirty = true;
 
         // Boiling only once hot enough. Cold input drops temperature, so it pauses until reheated.
-        // Convert advances water through its chain; evaporate removes volume (concentrating dissolved
+        // Convert advances water through its chain, evaporate removes volume (concentrating dissolved
         // meds) or scorches the remainder to JUNK once boiled dry. Both run at the same time.
         // At the same time, it runs the infusion process.
-        if (pot.temperature >= ModConstants.STEWPOT_BOIL_THRESHOLD && !pot.contents.isEmpty())
+        boolean boiling = pot.temperature >= ModConstants.STEWPOT_BOIL_THRESHOLD && !pot.contents.isEmpty();
+        if (boiling)
         {
             if (SubstanceEbullition.convert(pot.contents, ModConstants.STEWPOT_BOIL_CONVERT_PER_SECOND * dt, ModConstants.STEWPOT_CAPACITY_ML))
                 dirty = true;
             if (SubstanceEbullition.evaporate(pot.contents, ModConstants.STEWPOT_EVAPORATION_PER_SECOND * dt, ModConstants.STEWPOT_CAPACITY_ML))
                 dirty = true;
-            if (pot.infuse())
+            if (pot.infuse(dt, boiling))
                 dirty = true;
         }
 
@@ -372,6 +406,14 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         tag.put("Contents", contentsTag);
         tag.put("Inventory", items.serializeNBT());
         tag.putFloat("Temperature", temperature);
+        ListTag buffersTag = new ListTag();
+        for (FluidMixture buffer : dissolveBuffers)
+        {
+            CompoundTag bt = new CompoundTag();
+            buffer.writeToNBT(bt);
+            buffersTag.add(bt);
+        }
+        tag.put("DissolveBuffers", buffersTag);
     }
 
     @Override
@@ -384,6 +426,15 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         if (tag.contains("Inventory"))
             items.deserializeNBT(tag.getCompound("Inventory"));
         temperature = tag.getFloat("Temperature");
+        if (tag.contains("DissolveBuffers"))
+        {
+            ListTag buffersTag = tag.getList("DissolveBuffers", Tag.TAG_COMPOUND);
+            for (int i = 0; i < INGREDIENT_SLOTS && i < buffersTag.size(); i++)
+            {
+                dissolveBuffers[i].clear();
+                dissolveBuffers[i].merge(FluidMixture.readFromNBT(buffersTag.getCompound(i)), Float.MAX_VALUE);
+            }
+        }
     }
 
     // === SYNC STUFF ===

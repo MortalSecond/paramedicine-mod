@@ -149,5 +149,5 @@ public final class ModConstants
     public static final float STEWPOT_TEMP_FALL_PER_SECOND = 0.05f; // 20 secs to cool once the heat is gone.
     public static final int STEWPOT_SYNC_INTERVAL_TICKS = 5; // Quarter-second UI sync while changing.
     public static final float STEWPOT_BOIL_THRESHOLD = 0.9f; // Temperature needed to boil. Below this, boiling pauses.
-    public static final int STEWPOT_INFUSE_INTERVAL_TICKS = 100; // One item per occupied slot per interval while boiling (1.5s).
+    public static final float STEWPOT_INFUSE_PER_SECOND = 0.5f;
 }
