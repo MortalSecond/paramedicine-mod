@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "traumaparamedicinemod:plant_fiber" },
+    { "item": "traumaparamedicinemod:plant_fiber" },
+    { "item": "traumaparamedicinemod:plant_fiber" },
+    { "item": "traumaparamedicinemod:plant_fiber" }
+  ],
+  "result": { "item": "traumaparamedicinemod:cordage" }
+}

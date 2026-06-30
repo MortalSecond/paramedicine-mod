@@ -3,5 +3,9 @@
   "item.traumaparamedicinemod.glass": "Glass",
   "block.traumaparamedicinemod.stewpot": "Stewpot",
   "block.traumaparamedicinemod.clay_stewpot": "Unfired Stewpot",
+  "item.traumaparamedicinemod.wooden_shears": "Wooden Shears",
+  "item.traumaparamedicinemod.plant_fiber": "Plant Fiber",
+  "item.traumaparamedicinemod.cordage": "Cordage",
+  "item.traumaparamedicinemod.long_leaf": "Long Leaf",
   "itemGroup.traumaparamedicinemod": "Paramedicine"
 }

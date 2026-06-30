@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
+import net.invinciblemoebius.traumaparamedicinemod.item.LongLeafItem;
 import net.invinciblemoebius.traumaparamedicinemod.item.SyringeItem;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.minecraft.network.FriendlyByteBuf;
@@ -55,6 +56,14 @@ public class ServerboundApplyItemToNodePacket
                 {
                     // Push the now-empty syringe back to the client
                     if (syringe.injectAll(stack, data))
+                        sender.inventoryMenu.broadcastChanges();
+                });
+            }
+            else if (stack.getItem() instanceof LongLeafItem leaf)
+            {
+                sender.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+                {
+                    if (leaf.applyToNode(stack, data, p.node))
                         sender.inventoryMenu.broadcastChanges();
                 });
             }

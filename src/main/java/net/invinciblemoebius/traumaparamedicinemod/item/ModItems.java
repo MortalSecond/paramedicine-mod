@@ -15,6 +15,7 @@ public class ModItems
 
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, ParamedicineMod.MOD_ID);
 
+    // === USABLE ITEMS ===
     public static final RegistryObject<Item> SYRINGE = ITEMS.register(
             "syringe", () -> new SyringeItem(new Item.Properties()
                     .stacksTo(16)));
@@ -27,7 +28,17 @@ public class ModItems
     public static final RegistryObject<Item> CLAY_STEWPOT = ITEMS.register(
             "clay_stewpot", () -> new BlockItem(ModBlocks.CLAY_STEWPOT.get(), new Item.Properties()
                     .stacksTo(1)));
+    public static final RegistryObject<Item> WOODEN_SHEARS = ITEMS.register(
+            "wooden_shears", () -> new WoodenShearsItem(new Item.Properties()
+                    .durability(32)));
 
+    // === MISC STUFF ===
+    public static final RegistryObject<Item> PLANT_FIBER = ITEMS.register(
+            "plant_fiber", () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> CORDAGE = ITEMS.register(
+            "cordage", () -> new Item(new Item.Properties()));
+    public static final RegistryObject<Item> LONG_LEAF = ITEMS.register(
+            "long_leaf", () -> new LongLeafItem(new Item.Properties()));
 
     public static void register(IEventBus modEventBus)
     {

@@ -330,8 +330,10 @@ public class HealthScreen extends Screen
         PlayerHealthData self = target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).resolve().orElse(null);
         long duration = NodeInteractionOptions.castDurationMs(action, self);
 
+        // If it's instant, then it just applies the action directly.
         if (duration <= 0L)
-            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(node, action)); // instant
+            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(node, action));
+        // But if it's not, it calls the cursor cast to initialize.
         else
             ClientCastState.start(node, action, duration);
     }

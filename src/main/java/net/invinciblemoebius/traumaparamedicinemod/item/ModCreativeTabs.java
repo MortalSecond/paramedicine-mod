@@ -26,6 +26,10 @@ public class ModCreativeTabs
                         pOutput.accept(ModItems.GLASS.get());
                         pOutput.accept(ModItems.STEWPOT.get());
                         pOutput.accept(ModItems.CLAY_STEWPOT.get());
+                        pOutput.accept(ModItems.WOODEN_SHEARS.get());
+                        pOutput.accept(ModItems.PLANT_FIBER.get());
+                        pOutput.accept(ModItems.CORDAGE.get());
+                        pOutput.accept(ModItems.LONG_LEAF.get());
                     })
                     .build());
 
