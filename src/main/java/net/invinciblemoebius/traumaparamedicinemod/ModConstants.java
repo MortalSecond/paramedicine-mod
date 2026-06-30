@@ -155,6 +155,6 @@ public final class ModConstants
     public static final float DROWN_SINK_ACCELERATION_MAX = 0.040f; // Downward acceleration when breath runs out.
     public static final float DROWN_RISE_CEILEING_ALERT = 0.060f; // Max upward Y/tick a fully-conscious swimmer can still reach.
     public static final float DROWN_RISE_CEILEING_OUT = -0.020f; // Upward Y/tick ceiling when fully unconscious. Negative = can't rise, sinks.
-    public static final float DROWN_PUSHOFF_IMPULSE = 0.18f; // Upward lunge off the seabed (pre-drag).
+    public static final float DROWN_PUSHOFF_IMPULSE = 0.25f; // Upward lunge off the seabed (pre-drag).
     public static final float DROWN_MAX_SINK_SPEED  = 0.25f; // Cap on sink speed.
 }

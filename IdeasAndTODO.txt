@@ -1,5 +1,6 @@
 - Oh yeah, gotta give the clientbound packet to the new nausea system, or else there won't be any moodle response for it.
 - Fix the fact that right click selects nodes. Only left click should select nodes, so right click can focus on just being the context menu button.
+    ADDENDUM: Actually, fuck. The nodes have a little too much "zone of influence," it's very easy to misclick between nodes at the moment. It seems that the bigger nodes have an unusually large 'zone of influence,' so things like selecting the neck, hands, or feet are very finnicky. Gotta fix that.
 - The stewpot doesn't show the correct "waterfull" variant when it has a FluidMixture inside it. Gotta fix that.
 - Epi should give arrhythmia relative to the dosage. Probably just a small electricalInstability addition to SubstanceEffects.
     ADDENDUM: Actually, for some reason epi makes heart rate go down. That's kinda weird. Probably related to the fact that chronotropic modifier is part of the old heart model, while the new heart model utilizes actual cardiac rhythm and whatnot.

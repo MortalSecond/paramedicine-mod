@@ -34,10 +34,14 @@ public class GameplayEffects
     {
         // Prevent Creative and Spectator players, and bots from
         // getting Paramedicine's capability.
-        if (event.phase == TickEvent.Phase.END) return;
-        if (event.player.level().isClientSide) return;
-        if (event.player.isCreative()) return;
-        if (event.player.isSpectator()) return;
+        if (event.phase == TickEvent.Phase.END)
+            return;
+        if (event.player.level().isClientSide)
+            return;
+        if (event.player.isCreative())
+            return;
+        if (event.player.isSpectator())
+            return;
 
         event.player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> applyAll(event.player, data));
     }
