@@ -23,7 +23,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float immunity = data.getImmunity();
-                    return immunity >= 0.90f;
+                    return immunity >= 1.5f;
                 }
             },
 
@@ -669,7 +669,8 @@ public enum     Condition
                 {
                     float respirations = data.getActualRespiratoryRate();
                     float breathingUrge = data.getRespiratoryDrive();
-                    return respirations < (breathingUrge * 0.85f);
+                    float breathReserve = data.getBreathReserveSeconds();
+                    return respirations < (breathingUrge * 0.85f) && breathReserve <= PlayerHealthData.BREATH_RESERVE_MAX / 2;
                 }
             },
 

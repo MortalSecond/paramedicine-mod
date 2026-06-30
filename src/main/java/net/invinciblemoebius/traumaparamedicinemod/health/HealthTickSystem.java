@@ -21,6 +21,7 @@ import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -166,7 +167,7 @@ public class HealthTickSystem
 
         // === VANILLA INTERACTIONS ===
         if (isUnderwater)
-            suppressVanillaDrowning(player);
+            suppressVanillaDrowning(player, data);
     }
 
     // STEP 2: WOUND TICKING.
@@ -480,8 +481,16 @@ public class HealthTickSystem
     // === VANILLA SUPPRESSION ===
 
     // Keeps vanilla air supply at max so Minecraft never triggers its own drowning damage.
-    private static void suppressVanillaDrowning(ServerPlayer player)
+    private static void suppressVanillaDrowning(ServerPlayer player, PlayerHealthData data)
     {
         player.setAirSupply(player.getMaxAirSupply());
+
+        // Hijacks the vanilla bubbles GUI to use the breath reserve instead.
+        if (!player.level().isClientSide)
+        {
+            int maxAir = player.getMaxAirSupply();
+            float frac = Mth.clamp(data.getBreathReserveSeconds() / PlayerHealthData.BREATH_RESERVE_MAX, 0f, 1f);
+            player.setAirSupply(Math.max(1, Math.round(frac * maxAir)));
+        }
     }
 }

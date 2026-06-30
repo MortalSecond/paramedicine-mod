@@ -19,6 +19,9 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class PlayerHealthEvents
 {
+
+    // === ENTRY ===
+
     // Attach a fresh capability instance to every player entity that loads.
     @SubscribeEvent
     public static void onAttachCapabilities(AttachCapabilitiesEvent<net.minecraft.world.entity.Entity> event)
@@ -33,6 +36,8 @@ public class PlayerHealthEvents
             event.addListener(provider::invalidate);
         }
     }
+
+    // === INPUT REACTIONS ===
 
     // Detect when the player jumps.
     @SubscribeEvent
@@ -74,6 +79,8 @@ public class PlayerHealthEvents
             data.markDirty();
         });
     }
+
+    // === PERSISTENCE STUFF ===
 
     // Copies health data on death and respawn so values persist through death.
     // (Or resets, it really depends on how things turn out)

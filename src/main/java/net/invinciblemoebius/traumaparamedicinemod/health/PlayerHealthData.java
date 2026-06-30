@@ -75,7 +75,7 @@ public class PlayerHealthData
     private float actualRespiratoryRate = 16f;
     // Seconds of breath available after actualRespiratoryRate is forced to zero.
     private float breathReserveSeconds = 50f;
-    public static final float BREATH_RESERVE_MAX = 50f;
+    public static final float BREATH_RESERVE_MAX = 30f;
     private AirwayState airwayState = AirwayState.CLEAR;
 
     // SYSTEMIC VALUES.

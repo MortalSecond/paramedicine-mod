@@ -1,20 +1,14 @@
 package net.invinciblemoebius.traumaparamedicinemod.ui;
 
-import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.status.Condition;
 import net.invinciblemoebius.traumaparamedicinemod.status.ConditionSeverity;
 import net.invinciblemoebius.traumaparamedicinemod.status.PlayerStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 
 import java.util.*;
 
-@Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class MoodleHudOverlay
 {
     // LAYOUT
@@ -31,13 +25,6 @@ public class MoodleHudOverlay
     private static final Map<Condition, ConditionSeverity> lastSeverity = new HashMap<>();
 
     // === METHODS ===
-
-    // Registers the HUD into the game's GUI.
-    @SubscribeEvent
-    public static void onRegisterOverlays(RegisterGuiOverlaysEvent event)
-    {
-        event.registerAboveAll("moodle_bar", MoodleHudOverlay::render);
-    }
 
     public static void clientTick()
     {
