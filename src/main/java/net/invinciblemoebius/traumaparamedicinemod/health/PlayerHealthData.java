@@ -185,7 +185,7 @@ public class PlayerHealthData
         float painPressor = 1.0f + (aggregatedPain * 0.15f);
 
         // Compensatory vasoconstriction.
-        // Rises with volume loss, maxes near Class III/IV. Past thatm it can't compensate and
+        // Rises with volume loss, maxes near Class III/IV. Past that, it can't compensate and
         // pressure finally falls (decompensation).
         float compensation = 1.0f + Math.min(0.45f, Math.max(0f, 1.0f - bloodFraction) * 1.3f);
         float effectiveTone = Math.max(0.1f, Math.min(3.0f, (vascularTone * compensation) + vascularToneModifier));
