@@ -38,7 +38,6 @@ public class WoundingInstruction
     private float consciousnessDrop = 0f;
     private float painSpike = 0f;
     private float fibrillationAmount = 0f;
-    private boolean fibrillationsForced = false;
     private float vascularToneDelta = 0f;
     private float lungAirML = 0f;
     private float lungBloodML = 0f;

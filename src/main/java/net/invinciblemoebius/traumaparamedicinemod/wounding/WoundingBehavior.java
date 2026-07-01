@@ -23,7 +23,10 @@ public final class WoundingBehavior
         switch (ctx.category())
         {
             case MELEE_UNARMED -> handleUnarmedMelee(ctx);
-            case MELEE_BLADED ->  handleBladedMelee(ctx);
+            case MELEE_BLADED -> handleBladedMelee(ctx);
+            case MELEE_BLUNT -> handleBluntMelee(ctx);
+            case PROJECTILE_ARROW, PROJECTILE_TRIDENT -> handleProjectileArrow(ctx);
+            case FALL -> handleFall(ctx);
 
             // Nhhh... I don't feel like doing the rest of the
             // damage types so it'll all get routed here for now.
@@ -210,6 +213,7 @@ public final class WoundingBehavior
 
     // === MELEE - BLADED ===
     // Armor changes wound type. A blade stopped by hard armor becomes BABT.
+
     private static void handleBladedMelee(WoundingContext ctx)
     {
         LimbData limb = ctx.data().getLimb(ctx.attackedNode());
@@ -390,6 +394,280 @@ public final class WoundingBehavior
         new WoundingInstruction(BLUNT, SUBDERMAL, dmg / 30f)
                 .atPosition(ctx.hitU(), ctx.hitV())
                 .apply(limb, ctx.data());
+    }
+
+    // === MELEE - BLUNT ===
+    // Functionally the same with or without armor (broken bones, internal bleeding),
+    // but hard armor helps spread out the kinetic force so it isn't as immediately deadly.
+
+    private static void handleBluntMelee(WoundingContext ctx)
+    {
+        LimbData limb = ctx.data().getLimb(ctx.attackedNode());
+        if (limb == null) return;
+        float roll = RNG.nextFloat();
+        float dmg = ctx.preArmorDamage();
+
+        switch (ctx.nodeArmorTier())
+        {
+            case NONE, LEATHER, CHAIN -> bluntLightOrNoArmor(ctx, limb, roll, dmg);
+            case HARD -> bluntHardArmor(ctx, limb, roll, dmg);
+        }
+    }
+
+    private static void bluntLightOrNoArmor(WoundingContext ctx, LimbData limb, float roll, float dmg)
+    {
+        // 3% chance of direct hit causing bone fracture.
+        // IRL it's borderline guaranteed, but... feels unfair gameplay-wise.
+        if (roll < 0.03f)
+            if (limb.getBoneState().ordinal() < BoneState.FRACTURED.ordinal())
+                limb.setBoneState(BoneState.FRACTURED);
+
+        // 15% chance of a less brutal dislocation, as a stand-in for the commonality of fractures.
+        if (roll < 0.15f)
+            if (limb.getBoneState().ordinal() < BoneState.DISLOCATED.ordinal())
+                limb.setBoneState(BoneState.DISLOCATED);
+
+        // If the hit was on the head, it basically causes severe concussion.
+        // Just a 15% chance to make it a bit fairer.
+        if (ctx.isHeadHit() && roll < 0.15)
+        {
+            new WoundingInstruction(BLUNT, VISCERAL, dmg / 30f)
+                    .consciousnessDrop(0.80f)
+                    .muscleHealthDamage(dmg / 30f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // The actual muscle/internal bleeding, which rolls a 50/50 of reaching internals.
+        if (roll < 0.50f)
+            new WoundingInstruction(BLUNT, VISCERAL, dmg / 30f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+        else
+            new WoundingInstruction(BLUNT, MUSCULAR, dmg / 24f)
+                    .muscleHealthDamage(dmg / 20f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+    }
+
+    private static void bluntHardArmor(WoundingContext ctx, LimbData limb, float roll, float dmg)
+    {
+        // 40% chance that the armor itself cuts at the edges.
+        if (roll < 0.40f)
+            applyArmorEdgeTrauma(ctx);
+
+        // The generic normal wound. Less brutal than without armor, but
+        // the force is still transmitted.
+        new WoundingInstruction(BLUNT, SUBDERMAL, dmg / 30f)
+                .muscleHealthDamage(dmg / 20f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(limb, ctx.data());
+    }
+
+    // === PROJECTILE - ARROW ===
+    // Using hard armor effectively negates the danger of arrows, and
+    // chainmail prevents total penetration.
+
+    private static void handleProjectileArrow(WoundingContext ctx)
+    {
+        LimbData limb = ctx.data().getLimb(ctx.attackedNode());
+        if (limb == null) return;
+        float roll = RNG.nextFloat();
+        float dmg = ctx.preArmorDamage();
+
+        switch (ctx.nodeArmorTier())
+        {
+            case NONE -> projectileArrowNoArmor(ctx, limb, roll, dmg);
+            case LEATHER -> projectileArrowLeather(ctx, limb, roll, dmg);
+            case CHAIN -> projectileArrowChain(ctx, limb, roll, dmg);
+            case HARD -> new WoundingInstruction(BLUNT, DERMAL, dmg / 50f)
+                                .atPosition(ctx.hitU(), ctx.hitV())
+                                .apply(limb, ctx.data());
+        }
+    }
+
+    private static void projectileArrowNoArmor(WoundingContext ctx, LimbData limb, float roll, float dmg)
+    {
+        // 3% that an arrow goes through-and-through, with an entry and exit wound
+        // but no arrow to tamponade the bleeding.
+        if (roll < 0.03f)
+        {
+            new WoundingInstruction(PUNCTURE, ARTERIAL, dmg / 30f)
+                    .asEntry()
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+            new WoundingInstruction(PUNCTURE, MUSCULAR, dmg / 30f)
+                    .asExit()
+                    .atPosition(wrapU(ctx.hitU()), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // 10% that an arrow goes through but gets lodged in.
+        if (roll < 0.20f)
+        {
+            new WoundingInstruction(PUNCTURE, ARTERIAL, dmg / 30f)
+                    .asEntry()
+                    .withArrow()
+                    .managedBleeding(0.1f)
+                    .withContamination(0.6f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+            new WoundingInstruction(PUNCTURE, MUSCULAR, dmg / 30f)
+                    .asExit()
+                    .managedBleeding(0.1f)
+                    .atPosition(wrapU(ctx.hitU()), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // 30% that an arrow DOESN'T go through and gets lodged in.
+        if (roll < 0.30f)
+        {
+            new WoundingInstruction(PUNCTURE, depthFromDamage(dmg * 1.3f), dmg / 30f)
+                    .withArrow()
+                    .managedBleeding(0.1f)
+                    .withContamination(0.6f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // Generic wound, which is that the arrow cuts but glances off.
+        new WoundingInstruction(LACERATION, depthFromDamage(dmg * 1.3f), dmg / 30f)
+                .withContamination(0.1f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(limb, ctx.data());
+    }
+
+    private static void projectileArrowLeather(WoundingContext ctx, LimbData limb, float roll, float dmg)
+    {
+        // Functionally, leather armor is the same as no armor, but slightly lowered lethality.
+        // 5% that an arrow goes through but gets lodged in.
+        if (roll < 0.05f)
+        {
+            new WoundingInstruction(PUNCTURE, ARTERIAL, dmg / 30f)
+                    .asEntry()
+                    .withArrow()
+                    .managedBleeding(0.1f)
+                    .withContamination(0.6f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+            new WoundingInstruction(PUNCTURE, MUSCULAR, dmg / 30f)
+                    .asExit()
+                    .managedBleeding(0.1f)
+                    .atPosition(wrapU(ctx.hitU()), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // 15% that an arrow DOESN'T go through and gets lodged in.
+        if (roll < 0.15f)
+        {
+            new WoundingInstruction(PUNCTURE, depthFromDamage(dmg * 1.3f), dmg / 30f)
+                    .withArrow()
+                    .managedBleeding(0.1f)
+                    .withContamination(0.6f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // Generic wound, which is that the arrow cuts but glances off. With this
+        // multiplier, the wound basically never reaches arterial depth.
+        new WoundingInstruction(LACERATION, depthFromDamage(dmg * 0.9f), dmg / 30f)
+                .withContamination(0.1f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(limb, ctx.data());
+    }
+
+    private static void projectileArrowChain(WoundingContext ctx, LimbData limb, float roll, float dmg)
+    {
+        // A perfectly straight arrow doesn't bounce and actually tears through the armor.
+        // 10% that an arrow DOESN'T go through and gets lodged in.
+        if (roll < 0.10f)
+        {
+            new WoundingInstruction(PUNCTURE, depthFromDamage(dmg), dmg / 30f)
+                    .withArrow()
+                    .managedBleeding(0.1f)
+                    .withContamination(0.6f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+
+            return;
+        }
+
+        // Generic wound, which is that the arrow glances off without cutting.
+        new WoundingInstruction(BLUNT, depthFromDamage(dmg), dmg / 30f)
+                .withContamination(0.1f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(limb, ctx.data());
+    }
+
+    // === ENVIRONMENTAL ===
+
+    private static void handleFall(WoundingContext ctx)
+    {
+        LimbData leftFoot = ctx.data().getLimb(LEFT_FOOT);
+        LimbData rightFoot = ctx.data().getLimb(RIGHT_FOOT);
+        LimbData leftShin = ctx.data().getLimb(LEFT_LOWER_LEG);
+        LimbData rightShin = ctx.data().getLimb(RIGHT_LOWER_LEG);
+        if (leftFoot == null ||  rightFoot == null || leftShin == null || rightShin == null)
+            return;
+        float roll = RNG.nextFloat();
+        float dmg = ctx.preArmorDamage();
+        float weightedRoll = roll * dmg;
+
+        // Helper to choose between a random lower leg node.
+        LimbData randomLimb;
+        if (roll > 0.75f)
+            randomLimb = rightFoot;
+        else if (roll < 0.75f)
+            randomLimb = leftFoot;
+        else if (roll < 0.50f)
+            randomLimb = leftShin;
+        else
+            randomLimb = rightShin;
+
+        // Roll a check to see if a fall gives fractures.
+        if (weightedRoll > 9f)
+        {
+            if (randomLimb.getBoneState().ordinal() < BoneState.COMPOUND.ordinal())
+                randomLimb.setBoneState(BoneState.COMPOUND);
+        }
+        else if (weightedRoll > 8f)
+        {
+            if (randomLimb.getBoneState().ordinal() < BoneState.FRACTURED.ordinal())
+                randomLimb.setBoneState(BoneState.FRACTURED);
+        }
+        else if (weightedRoll > 7f)
+        {
+            if (randomLimb.getBoneState().ordinal() < BoneState.HAIRLINE.ordinal())
+                randomLimb.setBoneState(BoneState.HAIRLINE);
+        }
+        else if (weightedRoll > 6f)
+        {
+            if (randomLimb.getBoneState().ordinal() < BoneState.DISLOCATED.ordinal())
+                randomLimb.setBoneState(BoneState.DISLOCATED);
+        }
+
+
+        // Generic wound, which is that fall damage scales the severity of the wound on the feet.
+        new WoundingInstruction(BLUNT, depthFromDamage(Math.min(13, dmg)), Math.min(1f, dmg))
+                .muscleHealthDamage(dmg / 20f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(leftFoot, ctx.data());
+        new WoundingInstruction(BLUNT, depthFromDamage(Math.min(13, dmg)), Math.min(1f, dmg))
+                .muscleHealthDamage(dmg / 20f)
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(rightFoot, ctx.data());
     }
 
     // === HELPER METHODS ===
