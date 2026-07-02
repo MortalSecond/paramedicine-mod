@@ -4,11 +4,11 @@
     "sounds": [{ "name": "traumaparamedicinemod:stewpot_boiling", "stream": true }]
   },
   "beep_on": {
-    "subtitle": "subtitles.traumaparamedicinemod.healthscreen_open",
+    "subtitle": "subtitles.traumaparamedicinemod.health_screen_open",
     "sounds": [ "traumaparamedicinemod:beep_on" ]
   },
   "click_off": {
-    "subtitle": "subtitles.traumaparamedicinemod.health_creen_close",
+    "subtitle": "subtitles.traumaparamedicinemod.health_screen_close",
     "sounds": [ "traumaparamedicinemod:click_off" ]
   },
   "radio_mild": {
