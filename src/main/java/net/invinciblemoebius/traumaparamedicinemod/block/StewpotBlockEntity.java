@@ -209,9 +209,15 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
         if (!state.hasProperty(StewpotBlock.STATE))
             return;
 
-        StewpotBlock.StewpotState desired = contents.isEmpty()
-                ? StewpotBlock.StewpotState.EMPTY
-                : StewpotBlock.StewpotState.FILLED;
+        StewpotBlock.StewpotState desired;
+        if (contents.isEmpty())
+            desired = StewpotBlock.StewpotState.EMPTY;
+        else if (!contents.isEmpty() && temperature <= ModConstants.STEWPOT_BOIL_THRESHOLD)
+            desired = StewpotBlock.StewpotState.FILLED;
+        else if (!contents.isEmpty() && temperature >= ModConstants.STEWPOT_BOIL_THRESHOLD)
+            desired = StewpotBlock.StewpotState.BOILING;
+        else
+            desired = StewpotBlock.StewpotState.EMPTY;
 
         if (state.getValue(StewpotBlock.STATE) != desired)
             level.setBlock(worldPosition, state.setValue(StewpotBlock.STATE, desired), Block.UPDATE_CLIENTS);

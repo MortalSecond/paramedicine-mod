@@ -7,5 +7,8 @@
   "item.traumaparamedicinemod.plant_fiber": "Plant Fiber",
   "item.traumaparamedicinemod.cordage": "Cordage",
   "item.traumaparamedicinemod.long_leaf": "Long Leaf",
+  "subtitles.traumaparamedicinemod.stewpot_boil": "Pot bubbles",
+  "subtitles.traumaparamedicinemod.health_screen_open": "Health screen opens",
+  "subtitles.traumaparamedicinemod.health_screen_close": "Health screen closes",
   "itemGroup.traumaparamedicinemod": "Paramedicine"
 }

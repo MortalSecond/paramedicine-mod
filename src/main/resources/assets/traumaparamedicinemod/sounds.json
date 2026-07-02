@@ -1,0 +1,20 @@
+{
+  "stewpot_boiling": {
+    "subtitle": "subtitles.traumaparamedicinemod.stewpot_boil",
+    "sounds": [{ "name": "traumaparamedicinemod:stewpot_boiling", "stream": true }]
+  },
+  "beep_on": {
+    "subtitle": "subtitles.traumaparamedicinemod.healthscreen_open",
+    "sounds": [ "traumaparamedicinemod:beep_on" ]
+  },
+  "click_off": {
+    "subtitle": "subtitles.traumaparamedicinemod.health_creen_close",
+    "sounds": [ "traumaparamedicinemod:click_off" ]
+  },
+  "radio_mild": {
+    "sounds": [{ "name": "traumaparamedicinemod:radio_mild", "stream": true }]
+  },
+  "radio_mid": {
+    "sounds": [{ "name": "traumaparamedicinemod:radio_mid", "stream": true }]
+  }
+}

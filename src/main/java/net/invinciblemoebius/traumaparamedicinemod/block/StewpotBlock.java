@@ -2,11 +2,15 @@ package net.invinciblemoebius.traumaparamedicinemod.block;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.sounds.ModSounds;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
@@ -76,6 +80,8 @@ public class StewpotBlock extends Block implements EntityBlock
         return (lvl, pos, st, be) -> StewpotBlockEntity.serverTick(lvl, pos, st, (StewpotBlockEntity) be);
     }
 
+    // === INTERACTION METHODS ===
+
     @Override
     public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston)
     {
@@ -92,6 +98,25 @@ public class StewpotBlock extends Block implements EntityBlock
 
             super.onRemove(state, level, pos, newState, movedByPiston);
         }
+    }
+
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random)
+    {
+        if (state.getValue(STATE) != StewpotState.BOILING)
+            return;
+
+        // Intermittent bubbling noises so the loop doesn't drive people crazy.
+        if (random.nextFloat() < 0.15f)
+            level.playLocalSound(pos.getX() + 0.5, pos.getY() + 0.5f, pos.getZ() + 0.5,
+                    ModSounds.STEWPOT_BOIL.get(), SoundSource.BLOCKS,
+                    0.6f + random.nextFloat() * 0.2f, 0.9f + random.nextFloat() * 0.2f, false);
+
+        // Bubbles rising off the surface.
+        if (random.nextFloat() < 0.5f)
+            level.addParticle(ParticleTypes.BUBBLE_POP,
+                    pos.getX() + 0.3 + random.nextDouble() * 0.4, pos.getY() + 0.72,
+                    pos.getZ() + 0.3 + random.nextDouble() * 0.4, 0.0, 0.01, 0.0);
     }
 
     @Override

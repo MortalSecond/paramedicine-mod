@@ -13,9 +13,14 @@ import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundApplyItemToNodePacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundInspectPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundNodeActionPacket;
+import net.invinciblemoebius.traumaparamedicinemod.sounds.ModSounds;
+import net.invinciblemoebius.traumaparamedicinemod.sounds.RadioAmbienceSound;
 import net.invinciblemoebius.traumaparamedicinemod.ui.components.*;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.client.sounds.SoundManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -64,11 +69,20 @@ public class HealthScreen extends Screen
     private final int[] slotXs = new int[9];
     private final int[] slotYs = new int[9];
 
+    // Sounds.
+    private RadioAmbienceSound radioLoop;
+
     // === CONSTRUCTOR ===
     public HealthScreen(Player target)
     {
         super(Component.literal("paramedicine.health_screen"));
         this.target = target;
+
+        // Sounds.
+        SoundManager sm = Minecraft.getInstance().getSoundManager();
+        sm.play(SimpleSoundInstance.forUI(ModSounds.HEALTHSCREEN_OPEN.get(), 1.0f));
+        radioLoop = new RadioAmbienceSound(ModSounds.HEALTHSCREEN_SUSTAIN_MILD.get());
+        sm.play(radioLoop);
     }
 
     // === RENDERING METHODS ===
@@ -323,6 +337,17 @@ public class HealthScreen extends Screen
     {
         ModNetwork.CHANNEL.sendToServer(new ServerboundInspectPacket(-1));
         super.removed();
+        SoundManager sm = Minecraft.getInstance().getSoundManager();
+
+        // Play the click off sound.
+        sm.play(SimpleSoundInstance.forUI(ModSounds.HEALTHSCREEN_CLOSE.get(), 1.0f));
+
+        // Kill the radio loop.
+        if (radioLoop != null)
+        {
+            sm.stop(radioLoop);
+            radioLoop = null;
+        }
     }
 
     private void startInteraction(LimbNode node, NodeAction action)
