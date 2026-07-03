@@ -3,8 +3,11 @@ package net.invinciblemoebius.traumaparamedicinemod.network;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.*;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
+
+import java.util.Optional;
 
 public class ModNetwork
 {
@@ -62,5 +65,11 @@ public class ModNetwork
                 ServerboundApplyItemToNodePacket::decode,
                 ServerboundApplyItemToNodePacket::handle
         );
+        CHANNEL.registerMessage(id,
+                ServerboundDeathPacket.class,
+                ServerboundDeathPacket::encode,
+                ServerboundDeathPacket::new,
+                ServerboundDeathPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 }

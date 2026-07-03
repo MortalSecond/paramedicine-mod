@@ -21,6 +21,10 @@ public final class OverlayRegistry
         // Base of the stack: the moodle bar, above all vanilla layers.
         event.registerAboveAll("moodle_bar", MoodleHudOverlay::render);
 
+        // The Give Up button. Registers above all of the physiological overlays,
+        // so the unconsciousness overlay doesn't hide the button.
+        event.registerAboveAll("give_up", GiveUpOverlay::render);
+
         // "Vibe" overlays stack on top, each above the previous line.
         event.registerAbove(id("moodle_bar"), "consciousness_vignette", ConsciousnessOverlay::render);
     }

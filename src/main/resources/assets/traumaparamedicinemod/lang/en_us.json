@@ -10,5 +10,8 @@
   "subtitles.traumaparamedicinemod.stewpot_boil": "Pot bubbles",
   "subtitles.traumaparamedicinemod.health_screen_open": "Health screen opens",
   "subtitles.traumaparamedicinemod.health_screen_close": "Health screen closes",
+  "key.paramedicine.health_screen": "Open Health Screen",
+  "key.paramedicine.give_up": "Give Up",
+  "hud.paramedicine.give_up": "Press %s to Give Up",
   "itemGroup.traumaparamedicinemod": "Paramedicine"
 }

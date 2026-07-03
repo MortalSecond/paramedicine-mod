@@ -433,8 +433,6 @@ public class HealthScreen extends Screen
                 if (!opts.isEmpty())
                     contextMenu.open((int) mouseX, (int) mouseY, opts);
 
-                anatomyMap.setSelected(hit);
-                rightPanel.resetScroll();
                 return true;
             }
         }

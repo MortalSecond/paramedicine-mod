@@ -240,7 +240,8 @@ public class DamageRouter
         return source.is(DamageTypeTags.IS_DROWNING)
                 || source.is(DamageTypes.FELL_OUT_OF_WORLD)
                 || source.is(DamageTypeTags.IS_FREEZING)
-                || source.is(DamageTypeTags.BYPASSES_ARMOR) && source.is(DamageTypeTags.WITCH_RESISTANT_TO);
+                || source.is(DamageTypeTags.BYPASSES_ARMOR) && source.is(DamageTypeTags.WITCH_RESISTANT_TO)
+                || source.is(DamageTypes.GENERIC_KILL);
     }
 
     private static AttackCategory classify(DamageSource source)

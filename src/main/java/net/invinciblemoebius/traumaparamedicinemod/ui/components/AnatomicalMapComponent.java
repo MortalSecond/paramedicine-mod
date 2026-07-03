@@ -193,17 +193,33 @@ public class AnatomicalMapComponent
 
     public LimbNode nodeAt(int mx, int my)
     {
+        LimbNode best = null;
+        float bestArea = Float.MAX_VALUE;
+
+        // Boxes: candidate if inside the AABB. Smaller box wins ties.
         for (Map.Entry<LimbNode, int[]> e : boxPx.entrySet())
         {
             int[] r = e.getValue();
-            if (mx >= r[0] && mx < r[2] && my >= r[1] && my < r[3]) return e.getKey();
+            if (mx >= r[0] && mx < r[2] && my >= r[1] && my < r[3])
+            {
+                float area = (float) (r[2] - r[0]) * (r[3] - r[1]);
+                if (area < bestArea) { bestArea = area; best = e.getKey(); }
+            }
         }
+
+        // Segments. Candidate if inside the capsule. Area = length * thickness.
         for (Map.Entry<LimbNode, float[]> e : segPx.entrySet())
         {
             float[] s = e.getValue();
-            if (distToSegment(mx, my, s[0], s[1], s[2], s[3]) <= s[4] / 2f) return e.getKey();
+            if (distToSegment(mx, my, s[0], s[1], s[2], s[3]) <= s[4] / 2f)
+            {
+                float len = (float) Math.hypot(s[2] - s[0], s[3] - s[1]);
+                float area = len * s[4];
+                if (area < bestArea) { bestArea = area; best = e.getKey(); }
+            }
         }
-        return null;
+
+        return best;
     }
 
     public LimbNode getSelected() { return selected; }

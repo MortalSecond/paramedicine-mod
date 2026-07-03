@@ -1,9 +1,3 @@
-- Oh yeah, gotta give the clientbound packet to the new nausea system, or else there won't be any moodle response for it.
-- Fix the fact that right click selects nodes. Only left click should select nodes, so right click can focus on just being the context menu button.
-    ADDENDUM: Actually, fuck. The nodes have a little too much "zone of influence," it's very easy to misclick between nodes at the moment. It seems that the bigger nodes have an unusually large 'zone of influence,' so things like selecting the neck, hands, or feet are very finnicky. Gotta fix that.
-- Epi should give arrhythmia relative to the dosage. Probably just a small electricalInstability addition to SubstanceEffects.
-    ADDENDUM: Actually, for some reason epi makes heart rate go down. That's kinda weird. Probably related to the fact that chronotropic modifier is part of the old heart model, while the new heart model utilizes actual cardiac rhythm and whatnot.
-    ADDENDUM 2: Okay, this isn't an epi issue. Now that substances and circulation got fixed, i realize that any BP increase makes BPM scale down. Likely a typo in recomputeHeartRate, probably a misplaced substract sign instead of a plus sign. Eh. I'll fix it later.
 - Make ENDORPHINS a SubstanceType. This could get added directly into the UPPER_TORSO so it becomes immediately systemic, reducing the initial pain from high-damage hits and encouraging self-monitoring. Cool thing is, the CirculatingSubstance model already models how substances decay overtime, so the pain-relief effect wears off overtime, emulating that "didn't hurt until later" phenomenon of severe wounds.
 - On that note, making high BPM or high BP increase player speed or jumping height or mining efficiency or whatever could be pretty cool too. Emulates the initial rush of saving yourself before crashing from the endorphins and adrenaline wearing off.
 - Add sounds. To everything, really. Beeps and boops to the GUI, so on and so forth.

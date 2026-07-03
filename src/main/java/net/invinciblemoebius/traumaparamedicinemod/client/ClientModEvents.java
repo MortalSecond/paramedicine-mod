@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.client;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.overlays.GiveUpOverlay;
 import net.invinciblemoebius.traumaparamedicinemod.ui.HealthScreen;
 import net.invinciblemoebius.traumaparamedicinemod.ui.MoodleHudOverlay;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,9 @@ public class ClientModEvents
 
         // Advance the moodles.
         MoodleHudOverlay.clientTick();
+
+        // Check for Give Up selectability.
+        GiveUpOverlay.clientTick();
 
         // Prevent spam-opening the health screen.
         while(ModKeybinds.OPEN_HEALTH_SCREEN.consumeClick())

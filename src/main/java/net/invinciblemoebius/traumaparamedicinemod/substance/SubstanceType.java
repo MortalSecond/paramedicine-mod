@@ -35,7 +35,7 @@ public enum SubstanceType
     // === VASOPRESSORS ===
 
     EPINEPHRINE(60f, new SubstanceEffects()
-            .chronotropic(0.0001f, 0.0003f, 80f, 0.0003f, 60000f)
+            .chronotropic(0f, 0.0003f, 80f, 0.0003f, 60000f)
             .vasoactive(1500f)),
 
     NALOXONE(300f, new SubstanceEffects()

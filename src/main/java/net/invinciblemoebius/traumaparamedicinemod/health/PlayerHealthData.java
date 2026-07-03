@@ -79,6 +79,8 @@ public class PlayerHealthData
     private AirwayState airwayState = AirwayState.CLEAR;
 
     // SYSTEMIC VALUES.
+    // Cumulative hypoxic/ischemic brain injury. 1.0 = healthy, 0.0 = brain death.
+    private float brainHealth = 1.0f;
     private float coreTemperature = 36.8f;
     private float oxygenSaturation = 0.97f;
     private float heartRateBPM = 72f;
@@ -468,12 +470,8 @@ public class PlayerHealthData
         bloodPressureResponse = Math.max(-25f, Math.min(25f, bloodPressureResponse));
 
         // These are the compensatory respones only, it gets clamped AT MOST 180, so VFIB doesn't reach early.
-        float compensatory = bloodResponse + painResponse + spo2Response + staminaResponse + sepsisResponse - tempSuppression;
-        // This little edge case exists because baroreflex was making BPM go lower when
-        // given low doses of epi. Now, it's not totally wrong since IRL it can happen,
-        // but it's very counterintuitive.
-        if (chronotropicModifier <= 0f)
-            compensatory += bloodPressureResponse;
+        float compensatory = bloodResponse + painResponse + spo2Response + staminaResponse
+                + sepsisResponse - tempSuppression + bloodPressureResponse;
 
         // Clamp. Only medications are able to go past 180 BPM.
         float compensated = Math.min(180f, base + compensatory);
@@ -511,6 +509,29 @@ public class PlayerHealthData
     }
 
     // === TICK METHODS ===
+
+    public void tickBrainOxygenation(float dt)
+    {
+        // Cerebral supply needs BOTH pressure to reach the head AND oxygen in the blood.
+        // Either failing starves the brain. Heart failure kills perfusion, lung failure kills oxygen.
+        float perfusion = Math.min(1f, getMAP() / ModConstants.BRAIN_PERFUSION_MAP);
+        float supply = perfusion * getOxygenDelivery();
+        float before = brainHealth;
+
+        // Deficit-scaled loss. Zero supply empties a full brain in 1/BRAIN_DRAIN_MAX seconds;
+        // perfused hypoxia (drowning) drains far slower, leaving the rescue / Give-Up window.
+        if (supply < ModConstants.BRAIN_SUPPLY_FLOOR)
+        {
+            float deficit = (ModConstants.BRAIN_SUPPLY_FLOOR - supply) / ModConstants.BRAIN_SUPPLY_FLOOR;
+            brainHealth = Math.max(0f, brainHealth - deficit * ModConstants.BRAIN_DRAIN_MAX * dt);
+        }
+        // Adequately supplied brain recovers. Survive the scare, get your head back.
+        else
+            brainHealth = Math.min(1.0f, brainHealth + ModConstants.BRAIN_RECOVERY * dt);
+
+        if (brainHealth != before)
+            markDirty();
+    }
 
     // Applies respiratory effect on oxygenation each tick.
     public void tickRespiratorySpO2Effect()
@@ -1062,6 +1083,9 @@ public class PlayerHealthData
 
     // === ACCESSORS ===
 
+    public float getBrainHealth() { return brainHealth; }
+    public boolean canGiveUp() { return brainHealth <= ModConstants.BRAIN_GIVE_UP; }
+    public boolean isBrainDead() { return brainHealth <= 0f; }
     public float getBloodVolume() { return bloodVolume; }
     public float getHematocrit() { return systemicHematocrit; }
     public float getRedCellFraction() { return redCellFraction; }
@@ -1247,6 +1271,7 @@ public class PlayerHealthData
     public void setSepticShock(float v) { septicShock = v; }
     public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
     public void setNauseaClientOnly(float v) { nausea = v; }
+    public void setBrainHealthClientOnly(float v) { brainHealth = v; }
     public void setClientActiveSubstances(List<SubstanceType> types)
     {
         clientActiveSubstances.clear();
@@ -1321,6 +1346,7 @@ public class PlayerHealthData
         septicShock = 0;
         overexertionPain = 0;
         nausea = 0f;
+        brainHealth = 1.0f;
 
         // Reinitialize limbs to their defaults.
         for (LimbNode node : LimbNode.values())
@@ -1346,6 +1372,7 @@ public class PlayerHealthData
         return String.format(
                 """
                         PlayerHealth:
+                            TOTAL BRAIN HEALTH: %.0f%%
                             CARDIOVASCULAR
                                 Blood Volume = %.0fml
                                 Blood Pressure = %d/%d
@@ -1373,6 +1400,7 @@ public class PlayerHealthData
                                   Overexertion Pain = %.0f%%
                                   Shock = %.0f%%
                                   Sepsis = %.0f%%""",
+                brainHealth * 100f,
                 bloodVolume,
                 (int) systolicBP, (int) diastolicBP,
                 bloodViscosity,
@@ -1424,6 +1452,7 @@ public class PlayerHealthData
         tag.putFloat("ImmuneReserve", immuneReserve);
         tag.putFloat("Bacteremia", bacteremia);
         tag.putFloat("Nausea", nausea);
+        tag.putFloat("BrainHealth", brainHealth);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1483,6 +1512,7 @@ public class PlayerHealthData
         septicShock = tag.getFloat("SepticShock");
         overexertionPain = tag.getFloat("OverexertionPain");
         nausea = tag.getFloat("Nausea");
+        brainHealth = tag.getFloat("BrainHealth");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
@@ -1555,6 +1585,7 @@ public class PlayerHealthData
         this.breathReserveSeconds = other.breathReserveSeconds;
         this.airwayState = other.airwayState;
         this.nausea = other.nausea;
+        this.brainHealth = other.brainHealth;
 
         // Limbs.
         for (LimbNode node : LimbNode.values())

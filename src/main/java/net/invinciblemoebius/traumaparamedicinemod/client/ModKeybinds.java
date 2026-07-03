@@ -19,10 +19,18 @@ public class ModKeybinds
             GLFW.GLFW_KEY_H,
             "key.categories.paramedicine");
 
+    // Hold to give up when mortally wounded.
+    public static final KeyMapping GIVE_UP = new KeyMapping(
+            "key.paramedicine.give_up",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            "key.categories.paramedicine");
+
     // === REGISTRATION ===
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event)
     {
         event.register(OPEN_HEALTH_SCREEN);
+        event.register(GIVE_UP);
     }
 }

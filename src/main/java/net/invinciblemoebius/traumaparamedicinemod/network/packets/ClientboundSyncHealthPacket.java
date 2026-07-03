@@ -45,6 +45,8 @@ public class ClientboundSyncHealthPacket
     private final boolean leftTension;
     private final boolean rightTension;
     private final float overexertionPain;
+    private final float nausea;
+    private final float brainHealth;
     private Map<LimbNode, NodeSummary> nodeSummaries = new EnumMap<>(LimbNode.class);
 
     public record NodeSummary(float muscleHealth, BoneState boneState, float netBleedML, WoundType worstWound, int woundCount){}
@@ -75,7 +77,9 @@ public class ClientboundSyncHealthPacket
             float stamina,
             boolean leftTension,
             boolean rightTension,
-            float overexertionPain
+            float overexertionPain,
+            float nausea,
+            float brainHealth
     )
     {
         this.bloodVolume = bloodVolume;
@@ -104,6 +108,8 @@ public class ClientboundSyncHealthPacket
         this.leftTension = leftTension;
         this.rightTension = rightTension;
         this.overexertionPain = overexertionPain;
+        this.nausea = nausea;
+        this.brainHealth = brainHealth;
     }
 
     // === FACTORY ===
@@ -135,7 +141,9 @@ public class ClientboundSyncHealthPacket
                 data.getStamina(),
                 data.getLeftLung().hasTensionPneumothorax(),
                 data.getRightLung().hasTensionPneumothorax(),
-                data.getOverexertionPain()
+                data.getOverexertionPain(),
+                data.getNausea(),
+                data.getBrainHealth()
         );
 
         for (LimbNode node : LimbNode.values())
@@ -183,6 +191,8 @@ public class ClientboundSyncHealthPacket
         buf.writeBoolean(p.leftTension);
         buf.writeBoolean(p.rightTension);
         buf.writeFloat(p.overexertionPain);
+        buf.writeFloat(p.nausea);
+        buf.writeFloat(p.brainHealth);
 
         for (LimbNode node : LimbNode.values())
         {
@@ -228,7 +238,9 @@ public class ClientboundSyncHealthPacket
                 buf.readFloat(),                        // stamina
                 buf.readBoolean(),                      // leftTension
                 buf.readBoolean(),                      // rightTension
-                buf.readFloat()                         // overexertionPain
+                buf.readFloat(),                        // overexertionPain
+                buf.readFloat(),                        // nausea
+                buf.readFloat()                         // brainHealth
         );
 
         for (LimbNode node : LimbNode.values())
@@ -290,6 +302,8 @@ public class ClientboundSyncHealthPacket
         data.getLeftLung().setTensionPneumothorax(p.leftTension);
         data.getRightLung().setTensionPneumothorax(p.rightTension);
         data.setOverexertionPain(p.overexertionPain);
+        data.setNauseaClientOnly(p.nausea);
+        data.setBrainHealthClientOnly(p.brainHealth);
 
         // Lung compromise. Applied to LungData directly.
         data.getLeftLung().setCompromiseClientOnly(p.leftLungCompromise);

@@ -8,6 +8,13 @@ public final class ModConstants
     public static final float TICKS_PER_SECOND = 20f;
     public static final float SECONDS_PER_TICK = 1f / TICKS_PER_SECOND;
 
+    // BRAIN
+    public static final float BRAIN_PERFUSION_MAP = 60f; // MAP where cerebral perfusion is full.
+    public static final float BRAIN_SUPPLY_FLOOR = 0.70f; // Below this: Brain injury begins.
+    public static final float BRAIN_DRAIN_MAX = 0.08f; // Brain lost/sec at absolutely zero supply.
+    public static final float BRAIN_RECOVERY = 0.02f; // Brain regained/sec when adequately supplied.
+    public static final float BRAIN_GIVE_UP = 0.50f; // Below this: the Give Up button becomes available.
+
     // BLOOD LOSS
     public static final float BLOOD_NORMAL = 5000f; // IRL this ranges, but 5L seems like a nice universal value.
     public static final float BLOOD_MILD_HYPOVOLEMIA = 0.85f; // 15% Blood loss, Class 1 hemorrhage.

@@ -12,6 +12,8 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbTraversal;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
+import net.invinciblemoebius.traumaparamedicinemod.network.DeathCause;
+import net.invinciblemoebius.traumaparamedicinemod.network.ParamedicineDeath;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncHealthPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundSyncDetailPacket;
@@ -52,9 +54,10 @@ import java.util.*;
 // 20. Recompute heart rate.
 // 21. Recompute blood pressure.
 // 22. Recompute consciousness.
-// 23. Tick fibrillations.
-// 24. Recompute total health on all limbs.
-// 25. Sync and dispatch the packet if marked dirty.
+// 23. Calculate the brain deterioration tick-by-tick.
+// 24. Tick fibrillations.
+// 25. Recompute total health on all limbs.
+// 26. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -118,7 +121,8 @@ public class HealthTickSystem
             return;
 
         // Creative and spectator players aren't simulated.
-        if (sp.isCreative() || sp.isSpectator())
+        // Dead players are now also excluded.
+        if (sp.isCreative() || sp.isSpectator() || !sp.isAlive())
             return;
 
         sp.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data -> tickPlayer(sp, data));
@@ -161,9 +165,14 @@ public class HealthTickSystem
         data.recomputeHeartRate();
         data.recomputeBloodPressure();
         data.recomputeConsciousness();
+        data.tickBrainOxygenation(dt);
         data.tickCardiacRhythm(dt);
         recomputeAllLimbHealth(data, limbs);
         syncIfDirty(player, data);
+
+        // Terminal: brain starvation ends the run. Give Up routes here too, via the packet.
+        if (data.isBrainDead())
+            ParamedicineDeath.kill(player, DeathCause.BRAIN_DEATH);
 
         // === VANILLA INTERACTIONS ===
         if (isUnderwater)
@@ -279,6 +288,13 @@ public class HealthTickSystem
     // This pass carries only substances. Compartmentalized nodes keep theirs.
     private static void migrateSubstances(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float perfusionFactor, float dt)
     {
+        // The torso IS the central/systemic compartment. Anything sitting in its local pool
+        // (like syringes into the chest or an ENDORPHINS dump) is promoted fully to systemic, immediately.
+        // Perfusion-independent ON PURPOSE. Chest epi during arrest must still go systemic.
+        LimbData torso = limbs.get(LimbNode.UPPER_TORSO);
+        if (torso != null && !torso.getLocalSubstances().isEmpty())
+            migrateSubstance(torso.getLocalSubstances(), data.getSubstancesInternal(), 1f);
+
         float fraction = Math.min(1f, ModConstants.BASE_ADVECTION_RATE * perfusionFactor * dt);
         if (fraction <= 0f)
             return;
@@ -447,14 +463,14 @@ public class HealthTickSystem
         float volume = data.triggerVomit();
     }
 
-    // STEP 24: LIMB HEALTH RECOMPUTE
+    // STEP 25: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 25: SYNC
+    // STEP 26: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag())
