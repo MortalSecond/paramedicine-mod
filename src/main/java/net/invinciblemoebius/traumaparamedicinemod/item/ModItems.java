@@ -31,6 +31,9 @@ public class ModItems
     public static final RegistryObject<Item> WOODEN_SHEARS = ITEMS.register(
             "wooden_shears", () -> new WoodenShearsItem(new Item.Properties()
                     .durability(32)));
+    public static final RegistryObject<Item> DRYING_RACK = ITEMS.register(
+            "drying_rack", () -> new BlockItem(ModBlocks.DRYING_RACK.get(), new Item.Properties()
+                    .stacksTo(1)));
 
     // === MISC STUFF ===
     public static final RegistryObject<Item> PLANT_FIBER = ITEMS.register(
@@ -39,6 +42,8 @@ public class ModItems
             "cordage", () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> LONG_LEAF = ITEMS.register(
             "long_leaf", () -> new LongLeafItem(new Item.Properties()));
+    public static final RegistryObject<Item> DRIED_PLANT = ITEMS.register(
+            "dried_plant", () -> new DriedPlantItem(new Item.Properties()));
 
     public static void register(IEventBus modEventBus)
     {

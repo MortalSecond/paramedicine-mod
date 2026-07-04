@@ -142,6 +142,13 @@ public final class ModConstants
     public static final float WOUND_U_LEFT_LATERAL = 1.5f;
     public static final float WOUND_U_MAX = 2.0f;
 
+    // GAMEPLAY
+    public static final float DROWN_SINK_ACCELERATION_MAX = 0.040f; // Downward acceleration when breath runs out.
+    public static final float DROWN_RISE_CEILEING_ALERT = 0.060f; // Max upward Y/tick a fully-conscious swimmer can still reach.
+    public static final float DROWN_RISE_CEILEING_OUT = -0.020f; // Upward Y/tick ceiling when fully unconscious. Negative = can't rise, sinks.
+    public static final float DROWN_PUSHOFF_IMPULSE = 0.25f; // Upward lunge off the seabed (pre-drag).
+    public static final float DROWN_MAX_SINK_SPEED  = 0.25f; // Cap on sink speed.
+
     // CONTAINERS
     public static final float IV_ONSET_SECONDS = 1f;
     public static final float SYRINGE_CAPACITY_ML = 5f; // Precise dosing tool.
@@ -158,10 +165,9 @@ public final class ModConstants
     public static final float STEWPOT_BOIL_THRESHOLD = 0.9f; // Temperature needed to boil. Below this, boiling pauses.
     public static final float STEWPOT_INFUSE_PER_SECOND = 0.5f;
 
-    // GAMEPLAY
-    public static final float DROWN_SINK_ACCELERATION_MAX = 0.040f; // Downward acceleration when breath runs out.
-    public static final float DROWN_RISE_CEILEING_ALERT = 0.060f; // Max upward Y/tick a fully-conscious swimmer can still reach.
-    public static final float DROWN_RISE_CEILEING_OUT = -0.020f; // Upward Y/tick ceiling when fully unconscious. Negative = can't rise, sinks.
-    public static final float DROWN_PUSHOFF_IMPULSE = 0.25f; // Upward lunge off the seabed (pre-drag).
-    public static final float DROWN_MAX_SINK_SPEED  = 0.25f; // Cap on sink speed.
+    // DRYING RACK
+    public static final float DRYER_DRYING_SECONDS = 7f; // Time for a fresh plant to turn into its dried variant.
+    public static final float DRYER_WATER_REMOVAL_FRACTION = 0.90f; // Fraction of the WATER component dried off.
+    public static final float DRYER_MIN_WATER_TO_DRY = 0.5f; // Below this WATER, a stack isn't dryable (stops re-drying).
+    public static final int DRYER_SYNC_INTERVAL_TICKS = 5; // Throttled client sync.
 }

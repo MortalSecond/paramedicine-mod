@@ -25,7 +25,13 @@ public final class ModBlocks
             BLOCKS.register("clay_stewpot", () -> new Block(
                     BlockBehaviour.Properties.of()
                             .strength(1.0f)
-                            .sound(SoundType.GRAVEL) // unfired clay crumbles
+                            .sound(SoundType.GRAVEL)
+                            .noOcclusion()));
+    public static final RegistryObject<Block> DRYING_RACK =
+            BLOCKS.register("drying_rack", () -> new DryingRackBlock(
+                    BlockBehaviour.Properties.of()
+                            .strength(1.0f)
+                            .sound(SoundType.WOOD)
                             .noOcclusion()));
 
     public static void register(IEventBus modEventBus)

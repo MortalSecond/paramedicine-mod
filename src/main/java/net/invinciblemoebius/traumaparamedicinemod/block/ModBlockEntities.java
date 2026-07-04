@@ -13,7 +13,12 @@ public class ModBlockEntities
 
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, ParamedicineMod.MOD_ID);
 
-    public static final RegistryObject<BlockEntityType<StewpotBlockEntity>> STEWPOT = BLOCK_ENTITIES.register("stewpot", () -> BlockEntityType.Builder.of(StewpotBlockEntity::new, ModBlocks.STEWPOT.get()).build(null));
+    public static final RegistryObject<BlockEntityType<StewpotBlockEntity>> STEWPOT =
+            BLOCK_ENTITIES.register("stewpot",
+                    () -> BlockEntityType.Builder.of(StewpotBlockEntity::new, ModBlocks.STEWPOT.get()).build(null));
+    public static final RegistryObject<BlockEntityType<DryingRackBlockEntity>> DRYING_RACK =
+            BLOCK_ENTITIES.register("drying_rack",
+                    () -> BlockEntityType.Builder.of(DryingRackBlockEntity::new, ModBlocks.DRYING_RACK.get()).build(null));
 
     public static void register(IEventBus modEventBus)
     {

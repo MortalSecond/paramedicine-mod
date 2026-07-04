@@ -30,6 +30,8 @@ public class ModCreativeTabs
                         pOutput.accept(ModItems.PLANT_FIBER.get());
                         pOutput.accept(ModItems.CORDAGE.get());
                         pOutput.accept(ModItems.LONG_LEAF.get());
+                        pOutput.accept(ModItems.DRYING_RACK.get());
+                        pOutput.accept(ModItems.DRIED_PLANT.get());
                     })
                     .build());
 

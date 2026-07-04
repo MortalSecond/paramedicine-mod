@@ -76,9 +76,10 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             // Begin a new item dissolving, but only while boiling.
             if (buffer.isEmpty())
             {
-                if (!boiling || stack.isEmpty() || !ItemComposition.has(stack.getItem()))
+                if (!boiling || stack.isEmpty() || !ItemComposition.has(stack))
                     continue;
-                ItemComposition.materializeInto(buffer, stack.getItem());
+
+                ItemComposition.materializeInto(buffer, stack);
                 changed = true;
             }
 
