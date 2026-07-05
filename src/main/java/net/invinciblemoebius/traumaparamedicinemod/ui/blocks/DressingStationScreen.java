@@ -1,7 +1,7 @@
-package net.invinciblemoebius.traumaparamedicinemod.ui;
+package net.invinciblemoebius.traumaparamedicinemod.ui.blocks;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
-import net.invinciblemoebius.traumaparamedicinemod.menu.DressingStationMenu;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.DressingStationMenu;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;

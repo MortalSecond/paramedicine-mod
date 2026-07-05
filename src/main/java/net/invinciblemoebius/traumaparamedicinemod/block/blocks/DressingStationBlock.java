@@ -1,5 +1,6 @@
-package net.invinciblemoebius.traumaparamedicinemod.block;
+package net.invinciblemoebius.traumaparamedicinemod.block.blocks;
 
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.DressingStationBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
@@ -15,14 +16,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.network.NetworkHooks;
 
-public class MolcajeteBlock extends Block implements EntityBlock
+public class DressingStationBlock extends Block implements EntityBlock
 {
-    public MolcajeteBlock(Properties properties) { super(properties); }
+    public DressingStationBlock(Properties properties) { super(properties); }
 
-    @Override
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state)
+    @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state)
     {
-        return new MolcajeteBlockEntity(pos, state);
+        return new DressingStationBlockEntity(pos, state);
     }
 
     @Override
@@ -31,25 +31,26 @@ public class MolcajeteBlock extends Block implements EntityBlock
         if (level.isClientSide)
             return InteractionResult.SUCCESS;
 
-        if (level.getBlockEntity(pos) instanceof MolcajeteBlockEntity be && player instanceof ServerPlayer sp)
+        if (level.getBlockEntity(pos) instanceof DressingStationBlockEntity be && player instanceof ServerPlayer sp)
             NetworkHooks.openScreen(sp, be, buf -> buf.writeBlockPos(pos));
 
         return InteractionResult.CONSUME;
     }
 
     @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston)
+    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean moved)
     {
         if (!state.is(newState.getBlock()))
         {
-            if (level.getBlockEntity(pos) instanceof MolcajeteBlockEntity be)
+            if (level.getBlockEntity(pos) instanceof DressingStationBlockEntity be)
             {
                 SimpleContainer drops = new SimpleContainer(be.getItems().getSlots());
                 for (int i = 0; i < be.getItems().getSlots(); i++)
                     drops.setItem(i, be.getItems().getStackInSlot(i));
+
                 Containers.dropContents(level, pos, drops);
             }
-            super.onRemove(state, level, pos, newState, movedByPiston);
+            super.onRemove(state, level, pos, newState, moved);
         }
     }
 }

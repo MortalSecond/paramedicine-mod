@@ -1,6 +1,9 @@
 package net.invinciblemoebius.traumaparamedicinemod.menu;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.DressingStationMenu;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.MolcajeteMenu;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.StewpotMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.eventbus.api.IEventBus;

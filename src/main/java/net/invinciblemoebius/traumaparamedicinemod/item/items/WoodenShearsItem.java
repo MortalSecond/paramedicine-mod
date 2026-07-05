@@ -1,5 +1,6 @@
-package net.invinciblemoebius.traumaparamedicinemod.item;
+package net.invinciblemoebius.traumaparamedicinemod.item.items;
 
+import net.invinciblemoebius.traumaparamedicinemod.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.InteractionResult;

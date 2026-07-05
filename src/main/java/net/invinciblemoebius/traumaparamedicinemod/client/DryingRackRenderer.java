@@ -2,7 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
-import net.invinciblemoebius.traumaparamedicinemod.block.DryingRackBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.DryingRackBlockEntity;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;

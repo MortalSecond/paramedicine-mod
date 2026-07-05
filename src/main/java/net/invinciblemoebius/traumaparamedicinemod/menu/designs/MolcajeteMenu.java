@@ -1,8 +1,9 @@
-package net.invinciblemoebius.traumaparamedicinemod.menu;
+package net.invinciblemoebius.traumaparamedicinemod.menu.designs;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
-import net.invinciblemoebius.traumaparamedicinemod.block.MolcajeteBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.MolcajeteBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.menu.ModMenus;
 import net.invinciblemoebius.traumaparamedicinemod.substance.PowderMixture;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;

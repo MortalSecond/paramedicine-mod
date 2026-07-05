@@ -1,8 +1,9 @@
-package net.invinciblemoebius.traumaparamedicinemod.menu;
+package net.invinciblemoebius.traumaparamedicinemod.menu.designs;
 
-import net.invinciblemoebius.traumaparamedicinemod.block.DressingStationBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.DressingStationBlockEntity;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
-import net.invinciblemoebius.traumaparamedicinemod.item.DressingItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.DressingItem;
+import net.invinciblemoebius.traumaparamedicinemod.menu.ModMenus;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;

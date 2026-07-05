@@ -1,6 +1,10 @@
 package net.invinciblemoebius.traumaparamedicinemod.block;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.block.blocks.DressingStationBlock;
+import net.invinciblemoebius.traumaparamedicinemod.block.blocks.DryingRackBlock;
+import net.invinciblemoebius.traumaparamedicinemod.block.blocks.MolcajeteBlock;
+import net.invinciblemoebius.traumaparamedicinemod.block.blocks.StewpotBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;

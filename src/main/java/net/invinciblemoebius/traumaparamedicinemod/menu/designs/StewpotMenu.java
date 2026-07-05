@@ -1,8 +1,9 @@
-package net.invinciblemoebius.traumaparamedicinemod.menu;
+package net.invinciblemoebius.traumaparamedicinemod.menu.designs;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
-import net.invinciblemoebius.traumaparamedicinemod.block.StewpotBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.StewpotBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.menu.ModMenus;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.entity.player.Inventory;

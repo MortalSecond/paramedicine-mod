@@ -2,9 +2,8 @@ package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
-import net.invinciblemoebius.traumaparamedicinemod.item.DressingItem;
-import net.invinciblemoebius.traumaparamedicinemod.item.LongLeafItem;
-import net.invinciblemoebius.traumaparamedicinemod.item.SyringeItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.DressingItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.SyringeItem;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;

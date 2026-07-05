@@ -1,9 +1,12 @@
-package net.invinciblemoebius.traumaparamedicinemod.block;
+package net.invinciblemoebius.traumaparamedicinemod.block.entities;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
-import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
-import net.invinciblemoebius.traumaparamedicinemod.item.PowderContainerItem;
-import net.invinciblemoebius.traumaparamedicinemod.menu.StewpotMenu;
+import net.invinciblemoebius.traumaparamedicinemod.block.ItemComposition;
+import net.invinciblemoebius.traumaparamedicinemod.block.ModBlockEntities;
+import net.invinciblemoebius.traumaparamedicinemod.block.blocks.StewpotBlock;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.PowderContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.StewpotMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.PowderMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceEbullition;

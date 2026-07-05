@@ -10,7 +10,7 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
-import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.AirwayState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;

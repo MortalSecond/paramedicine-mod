@@ -1,6 +1,10 @@
 package net.invinciblemoebius.traumaparamedicinemod.block;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.DressingStationBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.DryingRackBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.MolcajeteBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.StewpotBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.registries.DeferredRegister;

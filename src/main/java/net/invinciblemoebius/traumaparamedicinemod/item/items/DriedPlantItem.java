@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.item;
+package net.invinciblemoebius.traumaparamedicinemod.item.items;
 
 import net.invinciblemoebius.traumaparamedicinemod.block.ItemComposition;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;

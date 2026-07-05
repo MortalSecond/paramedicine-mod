@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.item;
+package net.invinciblemoebius.traumaparamedicinemod.item.items;
 
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.minecraft.ChatFormatting;
@@ -10,7 +10,6 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
-import java.awt.*;
 import java.util.List;
 
 public class FluidContainerItem extends Item

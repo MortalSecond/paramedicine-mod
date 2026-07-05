@@ -1,7 +1,9 @@
-package net.invinciblemoebius.traumaparamedicinemod.block;
+package net.invinciblemoebius.traumaparamedicinemod.block.blocks;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
-import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.block.ModBlockEntities;
+import net.invinciblemoebius.traumaparamedicinemod.block.entities.StewpotBlockEntity;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.sounds.ModSounds;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;

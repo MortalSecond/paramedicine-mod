@@ -2,9 +2,9 @@ package net.invinciblemoebius.traumaparamedicinemod.client;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.menu.ModMenus;
-import net.invinciblemoebius.traumaparamedicinemod.ui.DressingStationScreen;
-import net.invinciblemoebius.traumaparamedicinemod.ui.MolcajeteScreen;
-import net.invinciblemoebius.traumaparamedicinemod.ui.StewpotScreen;
+import net.invinciblemoebius.traumaparamedicinemod.ui.blocks.DressingStationScreen;
+import net.invinciblemoebius.traumaparamedicinemod.ui.blocks.MolcajeteScreen;
+import net.invinciblemoebius.traumaparamedicinemod.ui.blocks.StewpotScreen;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.SubscribeEvent;

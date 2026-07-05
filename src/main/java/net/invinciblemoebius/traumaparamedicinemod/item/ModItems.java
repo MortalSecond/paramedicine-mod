@@ -3,6 +3,7 @@ package net.invinciblemoebius.traumaparamedicinemod.item;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
+import net.invinciblemoebius.traumaparamedicinemod.item.items.*;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
 import net.invinciblemoebius.traumaparamedicinemod.wound.DressingType;
 import net.minecraft.world.item.BlockItem;

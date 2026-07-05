@@ -1,6 +1,8 @@
-package net.invinciblemoebius.traumaparamedicinemod.block;
+package net.invinciblemoebius.traumaparamedicinemod.block.entities;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
+import net.invinciblemoebius.traumaparamedicinemod.block.ItemComposition;
+import net.invinciblemoebius.traumaparamedicinemod.block.ModBlockEntities;
 import net.invinciblemoebius.traumaparamedicinemod.item.ModItems;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.core.BlockPos;

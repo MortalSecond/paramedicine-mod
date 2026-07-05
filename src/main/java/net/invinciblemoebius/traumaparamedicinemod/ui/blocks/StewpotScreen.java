@@ -1,7 +1,7 @@
-package net.invinciblemoebius.traumaparamedicinemod.ui;
+package net.invinciblemoebius.traumaparamedicinemod.ui.blocks;
 
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
-import net.invinciblemoebius.traumaparamedicinemod.menu.StewpotMenu;
+import net.invinciblemoebius.traumaparamedicinemod.menu.designs.StewpotMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceColor;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
