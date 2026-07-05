@@ -151,10 +151,12 @@ public final class ModConstants
 
     // CONTAINERS
     public static final float IV_ONSET_SECONDS = 1f;
-    public static final float SYRINGE_CAPACITY_ML = 5f; // Precise dosing tool.
+    public static final float SYRINGE_CAPACITY_ML = 5f; // 5ml.
     public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
+    public static final float JAR_CAPACITY_MG = 250f; // 250mg of powder.
     public static final float STEWPOT_CAPACITY_ML = 10000f; // 10L bulk stock.
     public static final float WATER_BUCKET_ML = 10000f; // One bucket = a full pot of water.
+    public static final float MOLCAJETE_CAPACITY_MG = 50f; // Internal grind buffer cap.
 
     // STEWPOT
     public static final float STEWPOT_BOIL_CONVERT_PER_SECOND = 100f; // Rate of conversion from one substance to another substance.

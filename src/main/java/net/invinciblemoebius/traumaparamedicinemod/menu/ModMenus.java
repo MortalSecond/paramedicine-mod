@@ -15,6 +15,7 @@ public final class ModMenus
     public static final DeferredRegister<MenuType<?>> MENUS = DeferredRegister.create(ForgeRegistries.MENU_TYPES, ParamedicineMod.MOD_ID);
 
     public static final RegistryObject<MenuType<StewpotMenu>> STEWPOT = MENUS.register("stewpot", () -> IForgeMenuType.create(StewpotMenu::new));
+    public static final RegistryObject<MenuType<MolcajeteMenu>> MOLCAJETE = MENUS.register("molcajete", () -> IForgeMenuType.create(MolcajeteMenu::new));
 
     public static void register(IEventBus modEventBus)
     {

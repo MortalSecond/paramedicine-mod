@@ -1,5 +1,6 @@
 package net.invinciblemoebius.traumaparamedicinemod.item;
 
+import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
 import net.minecraft.world.item.BlockItem;
@@ -22,6 +23,10 @@ public class ModItems
     public static final RegistryObject<Item> GLASS = ITEMS.register(
             "glass", () -> new GlassItem(new Item.Properties()
                     .stacksTo(8)));
+    public static final RegistryObject<Item> JAR = ITEMS.register(
+            "jar", () -> new PowderContainerItem(new Item.Properties()
+                    .stacksTo(16),
+                    ModConstants.JAR_CAPACITY_MG));
     public static final RegistryObject<Item> STEWPOT = ITEMS.register(
             "stewpot", () -> new BlockItem(ModBlocks.STEWPOT.get(), new Item.Properties()
                     .stacksTo(1)));
@@ -34,6 +39,9 @@ public class ModItems
     public static final RegistryObject<Item> DRYING_RACK = ITEMS.register(
             "drying_rack", () -> new BlockItem(ModBlocks.DRYING_RACK.get(), new Item.Properties()
                     .stacksTo(1)));
+    public static final RegistryObject<Item> MOLCAJETE = ITEMS.register(
+            "molcajete", () -> new BlockItem(ModBlocks.MOLCAJETE.get(), new Item.Properties().stacksTo(1)));
+
 
     // === MISC STUFF ===
     public static final RegistryObject<Item> PLANT_FIBER = ITEMS.register(

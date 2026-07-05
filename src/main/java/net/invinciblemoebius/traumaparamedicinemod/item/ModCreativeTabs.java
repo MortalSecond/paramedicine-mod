@@ -32,6 +32,8 @@ public class ModCreativeTabs
                         pOutput.accept(ModItems.LONG_LEAF.get());
                         pOutput.accept(ModItems.DRYING_RACK.get());
                         pOutput.accept(ModItems.DRIED_PLANT.get());
+                        pOutput.accept(ModItems.MOLCAJETE.get());
+                        pOutput.accept(ModItems.JAR.get());
                     })
                     .build());
 

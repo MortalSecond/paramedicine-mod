@@ -19,6 +19,9 @@ public class ModBlockEntities
     public static final RegistryObject<BlockEntityType<DryingRackBlockEntity>> DRYING_RACK =
             BLOCK_ENTITIES.register("drying_rack",
                     () -> BlockEntityType.Builder.of(DryingRackBlockEntity::new, ModBlocks.DRYING_RACK.get()).build(null));
+    public static final RegistryObject<BlockEntityType<MolcajeteBlockEntity>> MOLCAJETE =
+            BLOCK_ENTITIES.register("molcajete",
+                    () -> BlockEntityType.Builder.of(MolcajeteBlockEntity::new, ModBlocks.MOLCAJETE.get()).build(null));
 
     public static void register(IEventBus modEventBus)
     {

@@ -2,8 +2,10 @@ package net.invinciblemoebius.traumaparamedicinemod.block;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.PowderContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.menu.StewpotMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
+import net.invinciblemoebius.traumaparamedicinemod.substance.PowderMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceEbullition;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.core.BlockPos;
@@ -76,11 +78,29 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             // Begin a new item dissolving, but only while boiling.
             if (buffer.isEmpty())
             {
-                if (!boiling || stack.isEmpty() || !ItemComposition.has(stack))
+                if (!boiling || stack.isEmpty())
                     continue;
 
-                ItemComposition.materializeInto(buffer, stack);
-                changed = true;
+                if (stack.getItem() instanceof PowderContainerItem)
+                {
+                    PowderMixture powder = PowderContainerItem.getPowder(stack);
+                    if (powder.isEmpty())
+                        continue;
+
+                    for (Map.Entry<SubstanceType, Float> e : powder.getComponents().entrySet())
+                        buffer.add(e.getKey(), e.getValue(), Float.MAX_VALUE);
+
+                    // Emptied jar stays in the slot
+                    PowderContainerItem.setPowder(stack, new PowderMixture());
+                    changed = true;
+                }
+                else if (ItemComposition.has(stack))
+                {
+                    ItemComposition.materializeInto(buffer, stack);
+                    changed = true;
+                }
+                else
+                    continue;
             }
 
             // Bleed the buffer into the pot (capped at pot's max size).
@@ -95,7 +115,8 @@ public class StewpotBlockEntity extends BlockEntity implements MenuProvider
             }
 
             // Consume the source item and unlock (buffer is empty, so extract passes).
-            if (buffer.isEmpty() && !stack.isEmpty())
+            // Void a plain item; leave an emptied jar behind.
+            if (buffer.isEmpty() && !stack.isEmpty() && !(stack.getItem() instanceof PowderContainerItem))
             {
                 items.extractItem(slot, 1, false);
                 changed = true;

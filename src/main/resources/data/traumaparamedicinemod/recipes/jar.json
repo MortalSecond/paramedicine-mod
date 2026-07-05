@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "traumaparamedicinemod:glass" },
+    { "item": "minecraft:copper_ingot" }
+  ],
+  "result": { "item": "traumaparamedicinemod:jar" }
+}

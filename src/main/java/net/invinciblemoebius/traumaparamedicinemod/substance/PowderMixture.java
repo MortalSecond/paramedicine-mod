@@ -3,7 +3,7 @@ package net.invinciblemoebius.traumaparamedicinemod.substance;
 import net.minecraft.nbt.CompoundTag;
 
 // This represents a SOLID. All mechanism is in SubstanceStorage, this
-// just sets the fluid's vocabulary. "mL", and the "Mixture" NBT key.
+// just sets the fluid's vocabulary. "mg", and the "Mixture" NBT key.
 public class PowderMixture extends SubstanceStorage<PowderMixture>
 {
     private static final String NBT_KEY = "Powder";
@@ -26,9 +26,9 @@ public class PowderMixture extends SubstanceStorage<PowderMixture>
         writeComponents(tag, NBT_KEY);
     }
 
-    public static FluidMixture readFromNBT(CompoundTag tag)
+    public static PowderMixture readFromNBT(CompoundTag tag)
     {
-        FluidMixture mix = new FluidMixture();
+        PowderMixture mix = new PowderMixture();
         mix.readComponents(tag, NBT_KEY);
         return mix;
     }
