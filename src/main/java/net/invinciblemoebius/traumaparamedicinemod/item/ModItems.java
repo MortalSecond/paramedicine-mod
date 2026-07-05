@@ -3,6 +3,8 @@ package net.invinciblemoebius.traumaparamedicinemod.item;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.ParamedicineMod;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlocks;
+import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
+import net.invinciblemoebius.traumaparamedicinemod.wound.DressingType;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -16,7 +18,7 @@ public class ModItems
 
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, ParamedicineMod.MOD_ID);
 
-    // === USABLE ITEMS ===
+    // === CONTAINER ITEMS ===
     public static final RegistryObject<Item> SYRINGE = ITEMS.register(
             "syringe", () -> new SyringeItem(new Item.Properties()
                     .stacksTo(16)));
@@ -27,6 +29,22 @@ public class ModItems
             "jar", () -> new PowderContainerItem(new Item.Properties()
                     .stacksTo(16),
                     ModConstants.JAR_CAPACITY_MG));
+
+    // === MEDICAL ITEMS ===
+    public static final RegistryObject<Item> CORDAGE_BANDAGE = ITEMS.register(
+            "cordage_bandage", () -> new DressingItem(new Item.Properties().stacksTo(8),
+                    () -> Dressing.builder()
+                            .cleanliness(0.5f)
+                            .pressure(0.7f)
+                            .absorption(0.15f)
+                            .adherence(0.3f)
+                            .occlusion(0.1f)
+                            .build()));
+    public static final RegistryObject<Item> GAUZE_PAD = ITEMS.register(
+            "gauze_pad", () -> new DressingItem(new Item.Properties().stacksTo(8),
+                    DressingType.GAUZE::create));
+
+    // === BLOCK ITEMS ===
     public static final RegistryObject<Item> STEWPOT = ITEMS.register(
             "stewpot", () -> new BlockItem(ModBlocks.STEWPOT.get(), new Item.Properties()
                     .stacksTo(1)));
@@ -40,7 +58,11 @@ public class ModItems
             "drying_rack", () -> new BlockItem(ModBlocks.DRYING_RACK.get(), new Item.Properties()
                     .stacksTo(1)));
     public static final RegistryObject<Item> MOLCAJETE = ITEMS.register(
-            "molcajete", () -> new BlockItem(ModBlocks.MOLCAJETE.get(), new Item.Properties().stacksTo(1)));
+            "molcajete", () -> new BlockItem(ModBlocks.MOLCAJETE.get(), new Item.Properties()
+                    .stacksTo(1)));
+    public static final RegistryObject<Item> DRESSING_STATION = ITEMS.register(
+            "dressing_station", () -> new BlockItem(ModBlocks.DRESSING_STATION.get(), new Item.Properties()
+                    .stacksTo(1)));
 
 
     // === MISC STUFF ===

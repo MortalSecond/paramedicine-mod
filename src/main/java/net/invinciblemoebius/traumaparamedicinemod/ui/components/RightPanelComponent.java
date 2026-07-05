@@ -4,6 +4,7 @@ import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
+import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
 import net.invinciblemoebius.traumaparamedicinemod.wound.DressingType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.minecraft.client.gui.Font;
@@ -91,7 +92,7 @@ public class RightPanelComponent
 
             for (Wound wound : allDressed)
             {
-                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingName(wound.getDressingType());
+                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingLabel(wound.getDressing());
                 dress.merge(name, 1, Integer::sum);
             }
 
@@ -141,8 +142,8 @@ public class RightPanelComponent
                 cy = line(g, font, x, cy, "+ Irrigated", C_GOOD, 1);
             if (wound.hasDressing())
             {
-                int hours = (int) (wound.getDressingAgeTicks() / TICKS_PER_HOUR);
-                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingName(wound.getDressingType());
+                int hours = (int) (wound.getDressing().getAgeTicks() / TICKS_PER_HOUR);
+                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingLabel(wound.getDressing());
                 cy = line(g, font, x, cy, "+ " + name + " [" + hours + "h ago]", wound.isDressingOverdue() ? C_GOLD : C_GOOD, 1);
             }
 
@@ -234,18 +235,22 @@ public class RightPanelComponent
         return "Heavily contaminated";
     }
 
-    private static String dressingName(DressingType dressing)
+    private static String dressingLabel(Dressing d)
     {
-        return switch (dressing)
-        {
-            case RAG -> "Cloth Rag";
-            case BANDAGE -> "Bandage";
-            case GAUZE -> "Gauze";
-            case HEMOSTATIC -> "Hemostatic Gauze";
-            case OCCLUSIVE -> "Occlusive Seal";
-            case NONADHERENT -> "Non-Adherent Pad";
-            case NONE -> "None";
-        };
+        if (d == null)
+            return "Dressing";
+        if (d.getHemostatic() >= 0.5f)
+            return "Hemostatic Dressing";
+        if (d.getOcclusion()  >= 0.6f)
+            return "Occlusive Seal";
+        if (d.getAntiseptic() >= 0.5f)
+            return "Antiseptic Dressing";
+        if (d.getCleanliness() >= 0.75f)
+            return "Clean Dressing";
+        if (d.getCleanliness() <  0.30f)
+            return "Dirty Dressing";
+
+        return "Dressing";
     }
 
     private static float severityScore(Wound wound)

@@ -39,6 +39,11 @@ public final class ModBlocks
                             .strength(1.5f)
                             .sound(SoundType.STONE)
                             .noOcclusion()));
+    public static final RegistryObject<Block> DRESSING_STATION =
+            BLOCKS.register("dressing_station", () -> new DressingStationBlock(
+                    BlockBehaviour.Properties.of()
+                            .strength(1.0f)
+                            .sound(SoundType.WOOD).noOcclusion()));
 
     public static void register(IEventBus modEventBus)
     {

@@ -34,6 +34,9 @@ public class ModCreativeTabs
                         pOutput.accept(ModItems.DRIED_PLANT.get());
                         pOutput.accept(ModItems.MOLCAJETE.get());
                         pOutput.accept(ModItems.JAR.get());
+                        pOutput.accept(ModItems.DRESSING_STATION.get());
+                        pOutput.accept(ModItems.CORDAGE_BANDAGE.get());
+                        pOutput.accept(ModItems.GAUZE_PAD.get());
                     })
                     .build());
 

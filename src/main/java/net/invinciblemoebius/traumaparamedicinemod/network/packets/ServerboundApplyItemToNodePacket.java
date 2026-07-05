@@ -1,9 +1,13 @@
 package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
+import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.item.DressingItem;
 import net.invinciblemoebius.traumaparamedicinemod.item.LongLeafItem;
 import net.invinciblemoebius.traumaparamedicinemod.item.SyringeItem;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -59,15 +63,51 @@ public class ServerboundApplyItemToNodePacket
                         sender.inventoryMenu.broadcastChanges();
                 });
             }
-            else if (stack.getItem() instanceof LongLeafItem leaf)
+            else if (stack.getItem() instanceof DressingItem)
             {
                 sender.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
                 {
-                    if (leaf.applyToNode(stack, data, p.node))
+                    if (applyDressingToNode(stack, data, p.node))
                         sender.inventoryMenu.broadcastChanges();
                 });
             }
         });
         ctx.get().setPacketHandled(true);
+    }
+
+    // Applies the held dressing to the worst still-undressed wound in the node.
+    // Interim until TreatmentContext/Instruction path replaces this dispatch.
+    private static boolean applyDressingToNode(ItemStack stack, PlayerHealthData data, LimbNode node)
+    {
+        LimbData limb = data.getLimb(node);
+        if (limb == null)
+            return false;
+
+        Wound target = worstUndressedWound(limb);
+        if (target == null)
+            return false;
+
+        target.applyDressing(DressingItem.getDressing(stack)); // applyDressing snapshots internally
+        limb.markDirty();
+        stack.shrink(1);
+        return true;
+    }
+
+    private static Wound worstUndressedWound(LimbData limb)
+    {
+        Wound worst = null;
+        float bestScore = -1f;
+        for (Wound wound : limb.getWounds())
+        {
+            if (wound.hasDressing())
+                continue;
+            float score = wound.getDepth().ordinal() + wound.getSize();
+            if (score > bestScore)
+            {
+                bestScore = score;
+                worst = wound;
+            }
+        }
+        return worst;
     }
 }

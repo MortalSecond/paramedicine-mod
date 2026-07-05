@@ -158,6 +158,18 @@ public final class ModConstants
     public static final float WATER_BUCKET_ML = 10000f; // One bucket = a full pot of water.
     public static final float MOLCAJETE_CAPACITY_MG = 50f; // Internal grind buffer cap.
 
+    // DRESSING
+    public static final float DRESSING_PRESSURE_STOP_VENOUS = 0.90f; // Max venous bleed a perfect pressure dressing removes.
+    public static final float DRESSING_PRESSURE_STOP_ARTERIAL = 0.50f; // Arterial resists pressure so it still needs packing/tourniquet.
+    public static final float DRESSING_HEMOSTATIC_CLOT_MULT = 3.5f; // Clotting multiplier at perfect 1.0f hemostatic.
+    public static final float DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND = 0.01f; // Contamination cleared per sec at antiseptic = 1f.
+    public static final float DRESSING_FOUL_BASE_TICKS = 24000f; // Change interval at cleanliness = 1f (scales with cleanliness).
+    public static final float DRESSING_FOUL_CONTAM_RISE = 0.001f; // Contamination per tick once overdue.
+    public static final float DRESSING_OCCLUSION_ANAEROBIC_RISE = 0.0008f; // Contamination per tick when a sealed dressing traps a dirty wound.
+    public static final float DRESSING_DIRTY_APPLY_FRACTION = 0.5f; // How far a dirty dressing drags contamination toward its floor on application.
+    public static final float DRESSING_ADHERENCE_REOPEN_CHANCE = 0.8f; // Reopen probability at adherence = 1f when pulled off a healing wound.
+    public static final float DRESSING_ABSORB_CAPACITY_ML = 60f; // Blood an absorption = 1f dressing holds before it's soaked.
+
     // STEWPOT
     public static final float STEWPOT_BOIL_CONVERT_PER_SECOND = 100f; // Rate of conversion from one substance to another substance.
     public static final float STEWPOT_EVAPORATION_PER_SECOND = 50f; // Boiled water lost to steam.
@@ -172,4 +184,11 @@ public final class ModConstants
     public static final float DRYER_WATER_REMOVAL_FRACTION = 0.90f; // Fraction of the WATER component dried off.
     public static final float DRYER_MIN_WATER_TO_DRY = 0.5f; // Below this WATER, a stack isn't dryable (stops re-drying).
     public static final int DRYER_SYNC_INTERVAL_TICKS = 5; // Throttled client sync.
+
+    // DRESSING STATION
+    public static final int DRESSING_MAX_COATS = 2;
+    public static final float DRESSING_POWDER_CAPACITY_MG = 40f; // Powder a dressing holds per coat.
+    public static final float DRESSING_AGENT_REF_FLUID_ML = 30f; // Dose that gives full agent effect (fluid).
+    public static final float DRESSING_AGENT_REF_POWDER_MG = 30f; // Dose that gives full agent effect (powder).
+    public static final float DRESSING_SATURATION_OCCLUSION = 0.25f; // Occlusion gained from a full soak (less porous).
 }
