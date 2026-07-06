@@ -7,6 +7,7 @@ import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
 import net.invinciblemoebius.traumaparamedicinemod.wound.DressingType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
+import net.invinciblemoebius.traumaparamedicinemod.wound.WoundStage;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -212,15 +213,26 @@ public class RightPanelComponent
 
     private static String stageText(Wound wound)
     {
-        return switch (wound.getStage())
+        String phase = switch (wound.getStage())
         {
-            case BLEEDING -> wound.getStageProgress() > 0.5f ? "Bleeding, slowing" : "Still bleeding";
-            case CLOTTING -> "Clotting";
+            case FRESH -> "Fresh";
             case INFLAMED -> "Inflamed";
             case SCABBING -> wound.getStageProgress() > 0.5f ? "Mostly scabbed" : "Scabbing over";
             case SCARRING -> "Scarring";
             case HEALED -> "Healed";
         };
+
+        if (wound.getStage() == WoundStage.FRESH)
+        {
+            String trend = switch (wound.hemostasisTrend())
+            {
+                case BLEEDING -> "bleeding";
+                case CLOTTING -> "clotting";
+                case CLOTTED -> "clotted";
+            };
+            return phase + " - " + trend;
+        }
+        return phase;
     }
 
     private static String contaminationText(float c)

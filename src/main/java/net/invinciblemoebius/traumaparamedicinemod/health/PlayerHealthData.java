@@ -67,6 +67,8 @@ public class PlayerHealthData
     private float respiratorySuppressionCeiling = 1.0f;
     private float cprCompressionSupport = 0f;
     private float nauseaPressureModifier = 0f;
+    private float centralAnalgesia = 0f;
+    private float opioidReversal = 0f;
 
     // RESPIRATORY VALUES
     // Represents the "urge" to breathe, or how many breaths the body "wants."
@@ -325,13 +327,11 @@ public class PlayerHealthData
     public void recomputeAgreggatedPain()
     {
         float sum = 0f;
-
         for (LimbData limb : limbData.values())
-        {
             sum += limb.getEffectivePain();
-        }
 
-        this.aggregatedPain = Math.min(2.0f, sum + overexertionPain);
+        float effectiveCentral = centralAnalgesia * (1f - opioidReversal);
+        this.aggregatedPain = Math.min(2.0f, sum * (1f - effectiveCentral) + overexertionPain);
     }
 
     // Computes the target consciousness from the current systemic state,
@@ -728,9 +728,9 @@ public class PlayerHealthData
     public void tickPainShock(float dt)
     {
         // If the pain is over the threshold, increase shock.
-        if (aggregatedPain > 0.70f)
+        if (aggregatedPain > 1.0f)
         {
-            float excess = (aggregatedPain - 0.70f) / 0.30f;
+            float excess = (aggregatedPain - 1.0f) / 1.0f;
             painShock = Math.min(1f, painShock + (excess * 0.0003f * dt));
         }
         // If under the threshold, decrease it.
@@ -1039,6 +1039,10 @@ public class PlayerHealthData
         respiratorySuppressionCeiling = 1.0f;
         cprCompressionSupport = 0f;
         nauseaPressureModifier = 0f;
+        centralAnalgesia = 0f;
+        opioidReversal = 0f;
+        for (LimbData limb : limbData.values())
+            limb.resetPainTransient();
     }
 
     public void applyAntibioticToReachableWounds(float amountPerWound, boolean deepOnly)
@@ -1127,6 +1131,8 @@ public class PlayerHealthData
     public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
     public FluidMixture getGastricContents() { return gastricContents; }
     public float getNausea() { return nausea; }
+    public void addCentralAnalgesia(float v) { centralAnalgesia = Math.min(0.95f, centralAnalgesia + Math.max(0f, v)); }
+    public void addOpioidReversal(float v)   { opioidReversal = Math.min(1f, opioidReversal + Math.max(0f, v)); }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }

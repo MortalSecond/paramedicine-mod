@@ -490,7 +490,7 @@ public enum     Condition
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float bleedRate = computeExternalBleedRate(data);
-                    return bleedRate > 0 && bleedRate < 3f;
+                    return bleedRate >= 1f && bleedRate < 3f;
                 }
             },
 

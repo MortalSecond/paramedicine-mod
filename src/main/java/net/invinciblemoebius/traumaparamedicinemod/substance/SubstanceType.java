@@ -19,8 +19,7 @@ public enum SubstanceType
             .reducesPain(0.0001f, 0.0005f, 0.75f, 0.08f)),
 
     LIDOCAINE(300f, new SubstanceEffects()
-            .reducesPain(0.0005f, 0.0020f, 1.0f, 0.2f)
-            .locallyOnly()),
+            .reducesPain(0.0005f, 0.0020f, 1.0f, 0.2f)),
 
     // === ANTIBIOTICS ===
 

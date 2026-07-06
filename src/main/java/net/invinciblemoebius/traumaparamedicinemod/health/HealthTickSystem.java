@@ -182,8 +182,6 @@ public class HealthTickSystem
     // STEP 2: WOUND TICKING.
     private static void tickAllWounds(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
     {
-        float immunity = data.getImmunity();
-
         for (LimbData limb: limbs.values())
         {
             List<Wound> wounds = limb.getWounds();
@@ -192,7 +190,7 @@ public class HealthTickSystem
             for (Wound wound: wounds)
             {
                 wound.tickClotting(bleedCtx, dt);
-                if (wound.tickAdvance())
+                if (wound.tickAdvance(wound.computeBleedRate(bleedCtx)))
                     syncDirty = true;
             }
 

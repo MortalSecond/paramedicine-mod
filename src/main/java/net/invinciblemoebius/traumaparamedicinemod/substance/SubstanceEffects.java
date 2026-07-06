@@ -12,7 +12,6 @@ import javax.annotation.Nullable;
 public class SubstanceEffects
 {
     private float painUnderdose, painTherapeutic, painStrength, painLerp;
-    private boolean painLocalOnly = false;
     private float respUnderdose, respTherapeutic, respTherapeuticFloor;
     private float respToxicThreshold, respToxicCoefficient;
     private float chronoUnderdose, chronoTherapeutic, chronoTherapeuticDelta;
@@ -35,12 +34,6 @@ public class SubstanceEffects
         painTherapeutic = therapeutic;
         painStrength = strength;
         painLerp = lerp;
-        return this;
-    }
-
-    public SubstanceEffects locallyOnly()
-    {
-        painLocalOnly = true;
         return this;
     }
 
@@ -146,22 +139,12 @@ public class SubstanceEffects
         if (relief <= 0f)
             return;
 
-        if (painLocalOnly)
-        {
-            if (location == null)
-                return;
-
-            float current = location.getSensitivity();
-            location.setSensitivity(lerp(current, Math.max(0f, current - relief), dt * painLerp));
-        }
+        // WHERE the drug is decides local vs central. Sitting in a limb's local fluid = local block,
+        // reached the blood = systemic. Local and general anesthesia, same drug, same code.
+        if (location != null)
+            location.addLocalAnalgesia(relief);
         else
-        {
-            data.getLimbs().values().forEach(limb ->
-            {
-                float current = limb.getSensitivity();
-                limb.setSensitivity(lerp(current, Math.max(0.05f, current - relief), dt * painLerp));
-            });
-        }
+            data.addCentralAnalgesia(relief);
     }
 
     // Writes a ceiling to actual respiratory rate.
@@ -199,13 +182,8 @@ public class SubstanceEffects
 
         // Lifts respiratory suppression by pushing a high ceiling.
         // This races against whatever opioid is still present.
-        data.applyRespiratorySuppression(lerp(1.0f, 0.8f, 1.0f - potency)); // approaches 1.0 (no suppression).
-
-        data.getLimbs().values().forEach(limb ->
-        {
-            float current = limb.getSensitivity();
-            if (current < 1.0f) limb.setSensitivity(lerp(current, 1.0f, potency * dt * reversalLerp));
-        });
+        data.applyRespiratorySuppression(lerp(1.0f, 0.8f, 1.0f - potency));
+        data.addOpioidReversal(potency);
 
         if (reversalSpo2PerUnit > 0f)
             data.setOxygenSaturation(Math.min(data.getOxygenSaturation() + potency * reversalSpo2PerUnit * dt, ModConstants.SPO2_NORMAL));

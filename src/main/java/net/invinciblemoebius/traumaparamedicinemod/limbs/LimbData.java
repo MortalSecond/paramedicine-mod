@@ -43,6 +43,8 @@ public class LimbData
     private float rawPain = 0.0f;
     // Pain multiplier. 1.0 = Normal sensation, 0.0 = Anesthesized, >1.0 = Hyperalgesia.
     private float sensitivity = 1.0f;
+    // Local anesthetic in this limb's depot.
+    private float localAnalgesia = 0f;
     // SUMMARIES
     private float totalHealth = 1.0f;
     private float lastNetBleedRateML = 0f;
@@ -206,7 +208,7 @@ public class LimbData
     public float getMaxBloodVolume() {return maxBloodVolume;}
     public float getPerfusionRate() {return perfusionRate;}
     public float getRawPain() {return rawPain;}
-    public float getEffectivePain() { return rawPain * sensitivity; }
+    public float getEffectivePain() { return rawPain * sensitivity * (1f - localAnalgesia); }
     public float getSensitivity() {return sensitivity;}
     public float getTotalHealth() {return totalHealth;}
     public List<Wound> getWounds() { return wounds; }
@@ -214,6 +216,8 @@ public class LimbData
     public float getLastNetBleedRateML()  { return lastNetBleedRateML; }
     public WoundType getClientWorstWoundType() { return clientWorstWoundType; }
     public int getClientWoundCount() { return clientWoundCount; }
+    public void resetPainTransient() { localAnalgesia = 0f; }
+    public void addLocalAnalgesia(float v) { localAnalgesia = Math.min(0.95f, localAnalgesia + Math.max(0f, v)); }
     public List<CirculatingSubstance> getLocalSubstances() {return localSubstances;}
 
     public void setMuscleHealth(float v)

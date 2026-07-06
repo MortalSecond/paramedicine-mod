@@ -13,7 +13,7 @@ public class Wound
     private float size;
     private boolean isArterial;
     private float bleedRateML;
-    private WoundStage stage = WoundStage.BLEEDING;
+    private WoundStage stage = WoundStage.FRESH;
     private float stageProgress = 0f;
     // 0 = open, 1 = sealed.
     private float clotIntegrity = 0f;
@@ -161,6 +161,17 @@ public class Wound
 
     // === CLOTTING COMPUTATION ===
 
+    // Derived bleed/clot readout from stored clot integrity (works client-side too).
+    public HemostasisTrend hemostasisTrend()
+    {
+        if (isClosed || clotIntegrity >= 0.90f)
+            return HemostasisTrend.CLOTTED;
+        if (clotIntegrity >= 0.15f)
+            return HemostasisTrend.CLOTTING;
+
+        return HemostasisTrend.BLEEDING;
+    }
+
     public void tickClotting(BleedContext ctx, float dt)
     {
         // Edge case in case the wound is either already closed or visceral (can't clot).
@@ -211,7 +222,8 @@ public class Wound
 
     // === PAIN CONTRIBUTION ===
 
-    // How much pain this wound contributes to its node's rawPain, scaled by depth and scale.
+    // Nociception this wound generates. Peaks in inflammation and fades to zero as
+    // it heals. This is just the signal generation, modulation happens at limb/systemic.
     public float getPainContribution()
     {
         boolean isBurn = (type == WoundType.BURN);
@@ -227,16 +239,30 @@ public class Wound
 
         // Burns are disproportionately painful relative to their bleed rate.
         float typeScale = isBurn ? 1.5f : 1.0f;
+        float base = depthScale * typeScale * size;
 
         // Infection amplifies pain.
-        float infectionScale = 1.0f + (infectionLevel * 0.8f);
+        float infectionScale = (1.0f + infectionLevel * 0.8f);
+        return Math.min(1.5f, base * stagePainFactor() * infectionScale);
+    }
 
-        return Math.min(1.0f, depthScale * typeScale * size * infectionScale);
+    // Pain envelope across the healing phases. Fresh is sharp, inflammation is the throbbing peak,
+    // then it tapers into no pain at all.
+    private float stagePainFactor()
+    {
+        return switch (stage)
+        {
+            case FRESH -> 1.0f;
+            case INFLAMED -> 1.3f;
+            case SCABBING -> 0.5f;
+            case SCARRING -> 0.1f;
+            case HEALED -> 0.0f;
+        };
     }
 
     // === TICK ADVANCEMENT ===
 
-    public boolean tickAdvance()
+    public boolean tickAdvance(float currentBleedML)
     {
         boolean changed = false;
         ageTicks++;
@@ -244,18 +270,20 @@ public class Wound
         // Dressing wear, fouling, active antiseptic, and anaerobic occlusion risk.
         if (dressing != null)
         {
-            dressing.tickWear(bleedRateML, ModConstants.SECONDS_PER_TICK);
+            dressing.tickWear(currentBleedML, ModConstants.SECONDS_PER_TICK);
 
+            // Once the dressing becomes due for a change, it starts adding contamination.
             if (dressing.isOverdue())
             {
                 contamination = Math.min(1f, contamination + ModConstants.DRESSING_FOUL_CONTAM_RISE);
                 changed = true;
             }
 
-            float anti = dressing.getAntiseptic();
-            if (anti > 0f && contamination > 0f)
+            // If the dressing had antiseptic on it, it decreases contamination.
+            float antiseptic = dressing.getAntiseptic();
+            if (antiseptic > 0f && contamination > 0f)
             {
-                contamination = Math.max(0f, contamination - anti * ModConstants.DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND * ModConstants.SECONDS_PER_TICK);
+                contamination = Math.max(0f, contamination - antiseptic * ModConstants.DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND * ModConstants.SECONDS_PER_TICK);
                 changed = true;
             }
 
@@ -269,7 +297,6 @@ public class Wound
 
         // Stage advancement.
         changed |= tickStageProgress();
-
         return changed;
     }
 
@@ -289,50 +316,43 @@ public class Wound
     private boolean tickStageProgress()
     {
         boolean changed = false;
-
         switch (stage)
         {
-            case BLEEDING ->
+            case FRESH ->
             {
-                // Clotting rate moves the wound towards CLOTTING stage.
+                // Inflammation can't begin until hemostasis is achieved.
                 if (clotIntegrity >= 0.95f)
                 {
-                    advanceTo(WoundStage.CLOTTING);
+                    advanceTo(WoundStage.INFLAMED);
                     changed = true;
                 }
             }
-            case CLOTTING ->
-            {
-                stageProgress = Math.min(1f, stageProgress + 0.0005f);
-                if (stageProgress > 1f) {advanceTo(WoundStage.INFLAMED);}
-                changed = true;
-            }
             case INFLAMED ->
             {
-                // Inflammation resolves in roughly 1 in-game day.
-                // Infection slows this down though.
+                // Roughly 1 in-game day. Infection stalls it though.
                 float rate = 1f / 24000f * (1f - (infectionLevel * 0.8f));
                 stageProgress = Math.min(1f, stageProgress + rate);
-                if (stageProgress > 1f) {advanceTo(WoundStage.SCABBING);}
+                if (stageProgress >= 1f)
+                    advanceTo(WoundStage.SCABBING);
                 changed = true;
             }
             case SCABBING ->
             {
-                // Scabbing resolves after ~2 in-game days.
-                float rate = 1f / 48000f;
-                stageProgress = Math.min(1f, stageProgress + rate);
-                if (stageProgress > 1f) {advanceTo(WoundStage.SCARRING);}
+                // Roughly 3 days.
+                stageProgress = Math.min(1f, stageProgress + 1f / 72000f);
+                if (stageProgress >= 1f)
+                    advanceTo(WoundStage.SCARRING);
                 changed = true;
             }
             case SCARRING ->
             {
-                // Scarring resolves after ~5 in-game days.
-                float rate = 1f / 120000f;
-                stageProgress = Math.min(1f, stageProgress + rate);
-                if (stageProgress > 1f) {advanceTo(WoundStage.HEALED);}
+                // Roughly 5 days.
+                stageProgress = Math.min(1f, stageProgress + 1f / 120000f);
+                if (stageProgress >= 1f)
+                    advanceTo(WoundStage.HEALED);
                 changed = true;
             }
-            case HEALED -> { /* Terminal stage, no advancement. */ }
+            case HEALED -> { }
         }
 
         return changed;
@@ -404,7 +424,7 @@ public class Wound
     {
         isClosed = false;
         isPacked = false;
-        stage = WoundStage.BLEEDING;
+        stage = WoundStage.FRESH;
         stageProgress = 0f;
         bleedRateML = computeInitialBleedRate() * 0.60f;
         clotIntegrity = 0f;
@@ -428,6 +448,7 @@ public class Wound
     public boolean isArterial() { return isArterial; }
     public float getBleedRateML() { return bleedRateML; }
     public WoundStage getStage() { return stage; }
+    public float getClotIntegrity() { return clotIntegrity; }
     public float getStageProgress() { return stageProgress; }
     public float getContamination() { return contamination; }
     public float getInfectionLevel() { return infectionLevel; }
