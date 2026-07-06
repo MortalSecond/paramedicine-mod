@@ -2,6 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.wound;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.RandomSource;
 
 public class Wound
 {
@@ -357,7 +358,7 @@ public class Wound
     }
 
     // Returns true if removal ripped the wound open.
-    public boolean removeDressing(net.minecraft.util.RandomSource rand)
+    public boolean removeDressing(RandomSource rand)
     {
         if (dressing == null)
             return false;
@@ -523,7 +524,7 @@ public class Wound
         isExit = tag.getBoolean("isExit");
         woundPositionU = tag.getFloat("woundPositionU");
         woundPositionV = tag.getFloat("woundPositionV");
-        dressing = Dressing.readFromNBT(tag.getCompound("Dressing"));
+        dressing = tag.contains("Dressing") ? Dressing.readFromNBT(tag.getCompound("Dressing")) : null;
     }
 
     public Wound copy()

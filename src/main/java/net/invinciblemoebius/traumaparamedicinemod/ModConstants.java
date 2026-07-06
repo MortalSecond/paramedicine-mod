@@ -172,7 +172,7 @@ public final class ModConstants
     public static final float DRESSING_HEMOSTATIC_CLOT_MULT = 3.5f; // Clotting multiplier at perfect 1.0f hemostatic.
     public static final float DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND = 0.01f; // Contamination cleared per sec at antiseptic = 1f.
     public static final float DRESSING_FOUL_BASE_TICKS = 24000f; // Change interval at cleanliness = 1f (scales with cleanliness).
-    public static final float DRESSING_FOUL_CONTAM_RISE = 0.001f; // Contamination per tick once overdue.
+    public static final float DRESSING_FOUL_CONTAM_RISE = 0.0001f; // Contamination per tick once overdue.
     public static final float DRESSING_OCCLUSION_ANAEROBIC_RISE = 0.0008f; // Contamination per tick when a sealed dressing traps a dirty wound.
     public static final float DRESSING_DIRTY_APPLY_FRACTION = 0.5f; // How far a dirty dressing drags contamination toward its floor on application.
     public static final float DRESSING_ADHERENCE_REOPEN_CHANCE = 0.8f; // Reopen probability at adherence = 1f when pulled off a healing wound.
