@@ -2,9 +2,9 @@ package net.invinciblemoebius.traumaparamedicinemod.block.entities;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlockEntities;
-import net.invinciblemoebius.traumaparamedicinemod.item.items.DressingItem;
-import net.invinciblemoebius.traumaparamedicinemod.item.items.FluidContainerItem;
-import net.invinciblemoebius.traumaparamedicinemod.item.items.PowderContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.DressingItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.PowderContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.menu.designs.DressingStationMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.PowderMixture;

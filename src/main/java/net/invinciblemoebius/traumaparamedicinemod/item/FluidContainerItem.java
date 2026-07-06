@@ -1,6 +1,7 @@
-package net.invinciblemoebius.traumaparamedicinemod.item.items;
+package net.invinciblemoebius.traumaparamedicinemod.item;
 
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
+import net.invinciblemoebius.traumaparamedicinemod.treatment.RouteOfEntry;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -15,6 +16,14 @@ import java.util.List;
 public class FluidContainerItem extends Item
 {
     private final float capacityML;
+    public RouteOfEntry[] supportedRoutes()
+    {
+        return new RouteOfEntry[]
+                {
+                        RouteOfEntry.ORAL,
+                        RouteOfEntry.TOPICAL
+                };
+    }
 
     public FluidContainerItem(Properties properties, float capacityML)
     {

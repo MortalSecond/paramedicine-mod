@@ -8,6 +8,7 @@ import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.InteractionOption;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeAction;
 import net.invinciblemoebius.traumaparamedicinemod.interactions.NodeInteractionOptions;
+import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundApplyItemToNodePacket;
@@ -15,6 +16,7 @@ import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundIn
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ServerboundNodeActionPacket;
 import net.invinciblemoebius.traumaparamedicinemod.sounds.ModSounds;
 import net.invinciblemoebius.traumaparamedicinemod.sounds.RadioAmbienceSound;
+import net.invinciblemoebius.traumaparamedicinemod.treatment.RouteOfEntry;
 import net.invinciblemoebius.traumaparamedicinemod.ui.components.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -288,6 +290,25 @@ public class HealthScreen extends Screen
         return menu;
     }
 
+    // Route choices for a fluid container dropped on a node. ORAL is excluded because drinking
+    // is a world action, not something you do "to a limb".
+    private List<ContextMenuComponent.MenuOption> buildRouteOptions(int slot, LimbNode node, ItemStack stack)
+    {
+        List<ContextMenuComponent.MenuOption> menu = new ArrayList<>();
+        if (!(stack.getItem() instanceof FluidContainerItem container))
+            return menu;
+
+        for (RouteOfEntry route : container.supportedRoutes())
+        {
+            if (route == RouteOfEntry.ORAL)
+                continue;
+            menu.add(new ContextMenuComponent.MenuOption(route.actionLabel,
+                    () -> ModNetwork.CHANNEL.sendToServer(new ServerboundApplyItemToNodePacket(slot, node, route))));
+        }
+
+        return menu;
+    }
+
     private void renderFeedbackText(GuiGraphics g)
     {
         String full = ClientDiagnosticState.getFeedbackText();
@@ -473,7 +494,24 @@ public class HealthScreen extends Screen
 
             LimbNode hit = anatomyMap.nodeAt((int) mouseX, (int) mouseY);
             if (hit != null)
+            {
+                ItemStack stack = target.getInventory().getItem(slot);
+
+                // Routable fluid container. Pick a route from a context menu (skip if empty).
+                if (stack.getItem() instanceof FluidContainerItem)
+                {
+                    if (!FluidContainerItem.getMixture(stack).isEmpty())
+                    {
+                        List<ContextMenuComponent.MenuOption> routeOpts = buildRouteOptions(slot, hit, stack);
+                        if (!routeOpts.isEmpty())
+                            contextMenu.open((int) mouseX, (int) mouseY, routeOpts);
+                    }
+                    return true;
+                }
+
+                // Everything else applies directly.
                 ModNetwork.CHANNEL.sendToServer(new ServerboundApplyItemToNodePacket(slot, hit));
+            }
 
             return true;
         }

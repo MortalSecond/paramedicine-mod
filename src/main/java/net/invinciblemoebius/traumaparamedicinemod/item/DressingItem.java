@@ -1,4 +1,4 @@
-package net.invinciblemoebius.traumaparamedicinemod.item.items;
+package net.invinciblemoebius.traumaparamedicinemod.item;
 
 import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
 import net.minecraft.ChatFormatting;

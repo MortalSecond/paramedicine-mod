@@ -2,11 +2,11 @@ package net.invinciblemoebius.traumaparamedicinemod.item.items;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.item.FluidContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.substance.FluidMixture;
-import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
+import net.invinciblemoebius.traumaparamedicinemod.treatment.RouteOfEntry;
+import net.invinciblemoebius.traumaparamedicinemod.treatment.TreatmentInstruction;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.Map;
 
 public class SyringeItem extends FluidContainerItem
 {
@@ -15,14 +15,21 @@ public class SyringeItem extends FluidContainerItem
         super(properties, ModConstants.SYRINGE_CAPACITY_ML);
     }
 
+    @Override
+    public RouteOfEntry[] supportedRoutes()
+    {
+        return new RouteOfEntry[]
+                {
+                        RouteOfEntry.IV,
+                        RouteOfEntry.IM
+                };
+    }
+
     public boolean injectAll(ItemStack stack, PlayerHealthData target)
     {
         FluidMixture mixture = getMixture(stack);
-        if (mixture.isEmpty())
+        if (!TreatmentInstruction.intravenous(mixture).apply(target))
             return false;
-
-        for (Map.Entry<SubstanceType, Float> entry : mixture.getComponents().entrySet())
-            target.depositSystemicSubstance(entry.getKey(), entry.getValue(), ModConstants.IV_ONSET_SECONDS);
 
         setMixture(stack, new FluidMixture());
         return true;

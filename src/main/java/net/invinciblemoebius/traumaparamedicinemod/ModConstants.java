@@ -149,8 +149,16 @@ public final class ModConstants
     public static final float DROWN_PUSHOFF_IMPULSE = 0.25f; // Upward lunge off the seabed (pre-drag).
     public static final float DROWN_MAX_SINK_SPEED  = 0.25f; // Cap on sink speed.
 
-    // CONTAINERS
+    // ROUTES / TREATMENT
     public static final float IV_ONSET_SECONDS = 1f;
+    public static final float IM_ONSET_SECONDS = 25f; // Local limb fluid onset. Perfusion does the absorption.
+    public static final float TOPICAL_ONSET_SECONDS = 5f; // TRANSdermal onset, not surface onset in and of itself.
+    public static final float TOPICAL_FLUSH_PER_ML = 0.003f; // Contamination flushed per ml of irrigant.
+    public static final float TOPICAL_MAX_FLUSH = 0.90f; // Cap on a single irrigation's flush.
+    public static final float TOPICAL_REF_ML = 100f; // Volume at which a fluid's own dirtiness fully expresses.
+    public static final float TOPICAL_DIRTY_STRENGTH = 0.6f; // How hard a dirty irrigant re-contaminates.
+
+    // CONTAINERS
     public static final float SYRINGE_CAPACITY_ML = 5f; // 5ml.
     public static final float GLASS_CAPACITY_ML = 250f; // Oral bulk: stews, teas, water.
     public static final float JAR_CAPACITY_MG = 250f; // 250mg of powder.

@@ -3,7 +3,7 @@ package net.invinciblemoebius.traumaparamedicinemod.block.entities;
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.block.ItemComposition;
 import net.invinciblemoebius.traumaparamedicinemod.block.ModBlockEntities;
-import net.invinciblemoebius.traumaparamedicinemod.item.items.PowderContainerItem;
+import net.invinciblemoebius.traumaparamedicinemod.item.PowderContainerItem;
 import net.invinciblemoebius.traumaparamedicinemod.menu.designs.MolcajeteMenu;
 import net.invinciblemoebius.traumaparamedicinemod.substance.PowderMixture;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;

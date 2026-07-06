@@ -1,5 +1,6 @@
 package net.invinciblemoebius.traumaparamedicinemod.item.items;
 
+import net.invinciblemoebius.traumaparamedicinemod.item.DressingItem;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Dressing;
 
 // Ultra-basic dressing base. Usable as-is, but terrible. A smooth leaf holds almost
