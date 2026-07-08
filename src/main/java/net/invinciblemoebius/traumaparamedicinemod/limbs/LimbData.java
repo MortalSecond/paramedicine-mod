@@ -2,16 +2,13 @@ package net.invinciblemoebius.traumaparamedicinemod.limbs;
 
 import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.substance.CirculatingSubstance;
-import net.invinciblemoebius.traumaparamedicinemod.wound.BleedContext;
-import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
-import net.invinciblemoebius.traumaparamedicinemod.wound.WoundType;
+import net.invinciblemoebius.traumaparamedicinemod.wound.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.util.RandomSource;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class LimbData
 {
@@ -38,7 +35,9 @@ public class LimbData
     // Compartmentalized, they only become systemic once they reach the heart.
     private final List<CirculatingSubstance> localSubstances = new ArrayList<>();
     // WOUNDS
+    private int nextWoundId = 0;
     private final List<Wound> wounds = new ArrayList<>();
+    private final List<AppliedDressing> dressings = new ArrayList<>();
     // PAIN
     private float rawPain = 0.0f;
     // Pain multiplier. 1.0 = Normal sensation, 0.0 = Anesthesized, >1.0 = Hyperalgesia.
@@ -95,7 +94,7 @@ public class LimbData
 
         float total = 0f;
         for (Wound wound: wounds)
-            total += wound.computeBleedRate(ctx);
+            total += wound.computeBleedRate(ctx) * dressingBleedFactor(wound);
 
         return total;
     }
@@ -168,10 +167,182 @@ public class LimbData
         lastNetBleedRateML = smoothed;
     }
 
+    // === DRESSINGS MANAGEMENT ===
+
+    // Applies a dressing to the node, covering undressed wounds worst-first until its length runs out.
+    // Returns true if it covered at least one wound.
+    public boolean applyDressing(Dressing snapshot)
+    {
+        Set<Integer> alreadyCovered = new HashSet<>();
+        for (AppliedDressing appliedDressing : dressings)
+            alreadyCovered.addAll(appliedDressing.getCoveredWoundIds());
+
+        List<Wound> candidates = new ArrayList<>();
+        for (Wound wound : wounds)
+            if (!alreadyCovered.contains(wound.getId()))
+                candidates.add(wound);
+        candidates.sort((a, b) -> Float.compare(severityScore(b), severityScore(a)));
+
+        Dressing dressing = snapshot.copy();
+        float remaining = dressing.getLength();
+        List<Integer> covered = new ArrayList<>();
+        for (Wound wound : candidates)
+        {
+            if (remaining <= 0f)
+                break;
+            covered.add(wound.getId());
+            remaining -= wound.getSize();
+
+            // A dirty dressing drags contamination toward (1 - cleanliness).
+            float floor = 1f - dressing.getCleanliness();
+            if (wound.getContamination() < floor)
+                wound.setContamination(wound.getContamination() + (floor - wound.getContamination()) * ModConstants.DRESSING_DIRTY_APPLY_FRACTION);
+        }
+
+        if (covered.isEmpty())
+            return false;
+
+        dressings.add(new AppliedDressing(dressing, covered));
+        markDirty();
+        return true;
+    }
+
+    // Removes the dressing covering the given wound. Adhered dressings can rip healing wounds open.
+    // Returns true if anything reopened.
+    public boolean removeDressingCovering(int woundId, RandomSource rand)
+    {
+        Iterator<AppliedDressing> iterator = dressings.iterator();
+        while (iterator.hasNext())
+        {
+            AppliedDressing appliedDressing = iterator.next();
+            if (!appliedDressing.getCoveredWoundIds().contains(woundId))
+                continue;
+
+            boolean ripped = false;
+            float adherence = appliedDressing.getDressing().getAdherence();
+            for (int id : appliedDressing.getCoveredWoundIds())
+            {
+                Wound wound = woundById(id);
+                if (wound == null)
+                    continue;
+
+                boolean healing = wound.getStage() == WoundStage.INFLAMED || wound.getStage() == WoundStage.SCABBING || wound.getStage() == WoundStage.SCARRING;
+                if (adherence > 0f && healing && rand.nextFloat() < adherence * ModConstants.DRESSING_ADHERENCE_REOPEN_CHANCE)
+                {
+                    wound.reopen();
+                    ripped = true;
+                }
+            }
+            iterator.remove();
+            markDirty();
+            return ripped;
+        }
+        return false;
+    }
+
+    public Dressing coveringDressing(int woundId)
+    {
+        for (AppliedDressing appliedDressing : dressings)
+            if (appliedDressing.getCoveredWoundIds().contains(woundId))
+                return appliedDressing.getDressing();
+
+        return null;
+    }
+
+    // Bleed multiplier a wound gets from its covering dressing (1.0 = uncovered).
+    public float dressingBleedFactor(Wound wound)
+    {
+        Dressing d = coveringDressing(wound.getId());
+        return (d != null) ? d.pressureBleedFactor(wound.isArterial()) : 1f;
+    }
+
+    // Clot multiplier a wound gets from its covering dressing's hemostatic agent (1.0 = uncovered).
+    public float dressingClotMult(Wound wound)
+    {
+        Dressing dressing = coveringDressing(wound.getId());
+        return (dressing != null) ? (1f + dressing.getHemostatic() * ModConstants.DRESSING_HEMOSTATIC_CLOT_MULT) : 1f;
+    }
+
+    // Wear, fouling, antiseptic, and anaerobic occlusion, per dressing across its covered wounds.
+    // Prunes dead wound IDs and drops dressings that no longer cover anything.
+    public void tickDressings(float dt)
+    {
+        if (dressings.isEmpty())
+            return;
+
+        boolean changed = false;
+        Iterator<AppliedDressing> iterator = dressings.iterator();
+        while (iterator.hasNext())
+        {
+            AppliedDressing appliedDressing = iterator.next();
+
+            List<Wound> covered = new ArrayList<>();
+            Iterator<Integer> idIterator = appliedDressing.getCoveredWoundIds().iterator();
+            while (idIterator.hasNext())
+            {
+                Wound wound = woundById(idIterator.next());
+                if (wound == null) idIterator.remove();
+                else covered.add(wound);
+            }
+            if (covered.isEmpty())
+            {
+                iterator.remove();
+                changed = true;
+                continue;
+            }
+
+            Dressing dressing = appliedDressing.getDressing();
+            float sumBleed = 0f;
+            for (Wound coveredWound : covered)
+                sumBleed += coveredWound.getBleedRateML();
+            dressing.tickWear(sumBleed, dt);
+
+            boolean overdue = dressing.isOverdue();
+            float antiseptic = dressing.getAntiseptic();
+            boolean occlusive = dressing.getOcclusion() > 0.5f;
+            for (Wound coveredWound : covered)
+            {
+                if (overdue)
+                {
+                    coveredWound.setContamination(coveredWound.getContamination() + ModConstants.DRESSING_FOUL_CONTAM_RISE);
+                    changed = true;
+                }
+                if (antiseptic > 0f && coveredWound.getContamination() > 0f)
+                {
+                    coveredWound.setContamination(coveredWound.getContamination() - antiseptic * ModConstants.DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND * dt);
+                    changed = true;
+                }
+                if (occlusive && coveredWound.getContamination() > 0.3f)
+                {
+                    coveredWound.setContamination(coveredWound.getContamination() + ModConstants.DRESSING_OCCLUSION_ANAEROBIC_RISE);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+            markDirty();
+    }
+
+    private Wound woundById(int id)
+    {
+        for (Wound wound : wounds)
+            if (wound.getId() == id)
+                return wound;
+
+        return null;
+    }
+
+    private static float severityScore(Wound wound)
+    {
+        return wound.getDepth().ordinal() + wound.getSize();
+    }
+
     // === WOUND MANAGEMENT ===
 
     public void addWound(Wound wound)
     {
+        wound.setId(nextWoundId++);
         wounds.add(wound);
         markDirty();
     }
@@ -219,6 +390,8 @@ public class LimbData
     public void resetPainTransient() { localAnalgesia = 0f; }
     public void addLocalAnalgesia(float v) { localAnalgesia = Math.min(0.95f, localAnalgesia + Math.max(0f, v)); }
     public List<CirculatingSubstance> getLocalSubstances() {return localSubstances;}
+    public List<AppliedDressing> getDressings() { return dressings; }
+    public void setDressingsClientOnly(List<AppliedDressing> incoming) { dressings.clear(); dressings.addAll(incoming); }
 
     public void setMuscleHealth(float v)
     {
@@ -345,6 +518,7 @@ public class LimbData
 
     public void saveToNBT(CompoundTag tag)
     {
+        tag.putInt("NextWoundId", nextWoundId);
         tag.putFloat("MuscleHealth", muscleHealth);
         tag.putFloat("boneHealth", boneHealth);
         tag.putString("BoneState", boneState.name());
@@ -370,13 +544,23 @@ public class LimbData
 
         // Substances serialized as a list of compound tags as well.
         ListTag subList = new ListTag();
-        for (CirculatingSubstance s : localSubstances)
+        for (CirculatingSubstance substance : localSubstances)
         {
             CompoundTag st = new CompoundTag();
-            s.saveToNBT(st);
+            substance.saveToNBT(st);
             subList.add(st);
         }
         tag.put("LocalSubstances", subList);
+
+        // Dressings, compound tag, and yadda yadda.
+        ListTag dressingList = new ListTag();
+        for (AppliedDressing appliedDressing : dressings)
+        {
+            CompoundTag dt = new CompoundTag();
+            appliedDressing.saveToNBT(dt);
+            dressingList.add(dt);
+        }
+        tag.put("Dressings", dressingList);
     }
 
     public void loadFromNBT(CompoundTag tag)
@@ -393,6 +577,7 @@ public class LimbData
         plasmaVolume = tag.getFloat("PlasmaVolume");
         redCellVolume = tag.getFloat("RedCellVolume");
         venousReturnRate = tag.getFloat("VenousReturnRate");
+        nextWoundId = tag.getInt("NextWoundId");
 
         wounds.clear();
         ListTag woundList = tag.getList("Wounds", Tag.TAG_COMPOUND);
@@ -407,10 +592,15 @@ public class LimbData
         ListTag subList = tag.getList("LocalSubstances", Tag.TAG_COMPOUND);
         for (int i = 0; i < subList.size(); i++)
         {
-            CirculatingSubstance s = new CirculatingSubstance();
-            s.loadFromNBT(subList.getCompound(i));
-            localSubstances.add(s);
+            CirculatingSubstance substance = new CirculatingSubstance();
+            substance.loadFromNBT(subList.getCompound(i));
+            localSubstances.add(substance);
         }
+
+        dressings.clear();
+        ListTag dressingList = tag.getList("Dressings", Tag.TAG_COMPOUND);
+        for (int i = 0; i < dressingList.size(); i++)
+            dressings.add(AppliedDressing.loadFromNBT(dressingList.getCompound(i)));
     }
 
     public void copyFrom(LimbData other)
@@ -427,20 +617,25 @@ public class LimbData
         this.plasmaVolume = other.plasmaVolume;
         this.redCellVolume = other.redCellVolume;
         this.venousReturnRate = other.venousReturnRate;
+        this.nextWoundId = other.nextWoundId;
 
         this.wounds.clear();
-        for (Wound w: other.wounds)
-            this.wounds.add(w.copy());
+        for (Wound wound: other.wounds)
+            this.wounds.add(wound.copy());
 
         this.localSubstances.clear();
-        for (CirculatingSubstance s : other.localSubstances)
+        for (CirculatingSubstance substance : other.localSubstances)
         {
             CirculatingSubstance copy = new CirculatingSubstance();
             CompoundTag t = new CompoundTag();
-            s.saveToNBT(t);
+            substance.saveToNBT(t);
             copy.loadFromNBT(t);
             this.localSubstances.add(copy);
         }
+
+        this.dressings.clear();
+        for (AppliedDressing appliedDressing : other.dressings)
+            this.dressings.add(appliedDressing.copy());
 
         markDirty();
     }

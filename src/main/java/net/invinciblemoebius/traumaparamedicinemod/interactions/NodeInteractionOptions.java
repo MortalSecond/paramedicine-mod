@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.interactions;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.AppliedDressing;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 
 import java.util.ArrayList;
@@ -50,6 +51,12 @@ public class NodeInteractionOptions
         if (data != null && data.getLimb(node).getLastNetBleedRateML() > 0f)
             options.add(new InteractionOption("Hold Pressure", node, NodeAction.HOLD_PRESSURE));
 
+        // Remove-dressing per applied dressing on this node.
+        if (data != null)
+            for (AppliedDressing ad : data.getLimb(node).getDressings())
+                if (!ad.getCoveredWoundIds().isEmpty())
+                    options.add(new InteractionOption("Remove Dressing", node, NodeAction.REMOVE_DRESSING, ad.getCoveredWoundIds().get(0)));
+
         return options;
     }
 
@@ -61,6 +68,7 @@ public class NodeInteractionOptions
             case CHECK_PULSE -> 2f;
             case HEAR_PULSE -> 3f;
             case CHECK_BREATHING -> 2f;
+            case REMOVE_DRESSING -> 3f;
 
             default -> 0f;
         };

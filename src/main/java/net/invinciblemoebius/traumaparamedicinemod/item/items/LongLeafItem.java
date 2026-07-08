@@ -15,6 +15,7 @@ public class LongLeafItem extends DressingItem
                 .adherence(0.40f)
                 .pressure(0.20f)
                 .occlusion(0.15f)
+                .length(1f)
                 .build());
     }
 }

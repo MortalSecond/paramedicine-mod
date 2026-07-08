@@ -2,6 +2,7 @@ package net.invinciblemoebius.traumaparamedicinemod.network.packets;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthCapability;
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.AppliedDressing;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
@@ -21,20 +22,26 @@ import java.util.function.Supplier;
 public class ClientboundSyncDetailPacket
 {
     private final Map<LimbNode, List<Wound>> woundsByNode;
+    private final Map<LimbNode, List<AppliedDressing>> dressingsByNode;
     private final List<SubstanceType> substances;
 
-    private ClientboundSyncDetailPacket(Map<LimbNode, List<Wound>> woundsByNode, List<SubstanceType> substances)
+    private ClientboundSyncDetailPacket(Map<LimbNode, List<Wound>> woundsByNode, Map<LimbNode, List<AppliedDressing>> dressingsByNode, List<SubstanceType> substances)
     {
         this.woundsByNode = woundsByNode;
+        this.dressingsByNode = dressingsByNode;
         this.substances = substances;
     }
 
     public static ClientboundSyncDetailPacket fromData(PlayerHealthData data)
     {
-        Map<LimbNode, List<Wound>> map = new EnumMap<>(LimbNode.class);
+        Map<LimbNode, List<Wound>> wounds = new EnumMap<>(LimbNode.class);
+        Map<LimbNode, List<AppliedDressing>> dressings = new EnumMap<>(LimbNode.class);
         for (LimbNode node : LimbNode.values())
-            map.put(node, new ArrayList<>(data.getLimb(node).getWounds()));
-        return new ClientboundSyncDetailPacket(map, data.collectActiveSubstanceTypes());
+        {
+            wounds.put(node, new ArrayList<>(data.getLimb(node).getWounds()));
+            dressings.put(node, new ArrayList<>(data.getLimb(node).getDressings()));
+        }
+        return new ClientboundSyncDetailPacket(wounds, dressings, data.collectActiveSubstanceTypes());
     }
 
     public static void encode(ClientboundSyncDetailPacket p, FriendlyByteBuf buf)
@@ -49,6 +56,15 @@ public class ClientboundSyncDetailPacket
                 wound.saveToNBT(t);
                 buf.writeNbt(t);
             }
+
+            List<AppliedDressing> appliedDressingsList = p.dressingsByNode.getOrDefault(node, Collections.emptyList());
+            buf.writeVarInt(appliedDressingsList.size());
+            for (AppliedDressing appliedDressing : appliedDressingsList)
+            {
+                CompoundTag t = new CompoundTag();
+                appliedDressing.saveToNBT(t);
+                buf.writeNbt(t);
+            }
         }
         buf.writeVarInt(p.substances.size());
         for (SubstanceType substance : p.substances)
@@ -57,24 +73,31 @@ public class ClientboundSyncDetailPacket
 
     public static ClientboundSyncDetailPacket decode(FriendlyByteBuf buf)
     {
-        Map<LimbNode, List<Wound>> map = new EnumMap<>(LimbNode.class);
+        Map<LimbNode, List<Wound>> wounds = new EnumMap<>(LimbNode.class);
+        Map<LimbNode, List<AppliedDressing>> dressings = new EnumMap<>(LimbNode.class);
         for (LimbNode node : LimbNode.values())
         {
-            int n = buf.readVarInt();
-            List<Wound> list = new ArrayList<>(n);
-            for (int i = 0; i < n; i++)
+            int wn = buf.readVarInt();
+            List<Wound> wlist = new ArrayList<>(wn);
+            for (int i = 0; i < wn; i++)
             {
                 Wound wound = new Wound();
                 wound.loadFromNBT(buf.readNbt());
-                list.add(wound);
+                wlist.add(wound);
             }
-            map.put(node, list);
+            wounds.put(node, wlist);
+
+            int dn = buf.readVarInt();
+            List<AppliedDressing> dlist = new ArrayList<>(dn);
+            for (int i = 0; i < dn; i++)
+                dlist.add(AppliedDressing.loadFromNBT(buf.readNbt()));
+            dressings.put(node, dlist);
         }
         int sc = buf.readVarInt();
         List<SubstanceType> subs = new ArrayList<>(sc);
         for (int i = 0; i < sc; i++)
             subs.add(buf.readEnum(SubstanceType.class));
-        return new ClientboundSyncDetailPacket(map, subs);
+        return new ClientboundSyncDetailPacket(wounds, dressings, subs);
     }
 
     public static void handle(ClientboundSyncDetailPacket p, Supplier<NetworkEvent.Context> ctx)
@@ -88,7 +111,10 @@ public class ClientboundSyncDetailPacket
             player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
             {
                 for (LimbNode node : LimbNode.values())
+                {
                     data.getLimb(node).setWoundsClientOnly(p.woundsByNode.getOrDefault(node, Collections.emptyList()));
+                    data.getLimb(node).setDressingsClientOnly(p.dressingsByNode.getOrDefault(node, Collections.emptyList()));
+                }
                 data.setClientActiveSubstances(p.substances);
             });
         });

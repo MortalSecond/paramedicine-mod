@@ -14,17 +14,57 @@ public enum DressingType
         return switch (this)
         {
             case RAG -> Dressing.builder()
-                    .cleanliness(0.25f).adherence(0.5f).absorption(0.4f).pressure(0.3f).occlusion(0.1f).build();
+                    .cleanliness(0.25f)
+                    .adherence(0.5f)
+                    .absorption(0.4f)
+                    .pressure(0.3f)
+                    .occlusion(0.1f)
+                    .length(2f)
+                    .build();
             case BANDAGE -> Dressing.builder()
-                    .cleanliness(0.6f).adherence(0.4f).absorption(0.5f).pressure(0.5f).occlusion(0.15f).build();
+                    .cleanliness(0.6f)
+                    .adherence(0.4f)
+                    .absorption(0.5f)
+                    .pressure(0.5f)
+                    .occlusion(0.15f)
+                    .length(3f)
+                    .build();
             case GAUZE -> Dressing.builder()
-                    .cleanliness(0.9f).antiseptic(0.1f).adherence(0.6f).absorption(0.8f).pressure(0.3f).occlusion(0.1f).build();
+                    .cleanliness(0.9f)
+                    .antiseptic(0.1f)
+                    .adherence(0.6f)
+                    .absorption(0.8f)
+                    .pressure(0.3f)
+                    .occlusion(0.1f)
+                    .length(2f)
+                    .build();
             case HEMOSTATIC -> Dressing.builder()
-                    .cleanliness(0.9f).hemostatic(0.9f).antiseptic(0.2f).adherence(0.7f).absorption(0.7f).pressure(0.4f).occlusion(0.2f).build();
+                    .cleanliness(0.9f)
+                    .hemostatic(0.9f)
+                    .antiseptic(0.2f)
+                    .adherence(0.7f)
+                    .absorption(0.7f)
+                    .pressure(0.4f)
+                    .occlusion(0.2f)
+                    .length(2f).build();
             case OCCLUSIVE -> Dressing.builder()
-                    .cleanliness(0.85f).occlusion(0.95f).adherence(0.5f).absorption(0.1f).pressure(0.4f).build();
+                    .cleanliness(0.85f)
+                    .occlusion(0.95f)
+                    .adherence(0.5f)
+                    .absorption(0.1f)
+                    .pressure(0.4f)
+                    .length(1.5f)
+                    .build();
             case NONADHERENT -> Dressing.builder()
-                    .cleanliness(0.9f).antiseptic(0.15f).adherence(0.05f).absorption(0.5f).pressure(0.2f).occlusion(0.2f).build();
+                    .cleanliness(0.9f)
+                    .antiseptic(0.15f)
+                    .adherence(0.05f)
+                    .absorption(0.5f)
+                    .pressure(0.2f)
+                    .occlusion(0.2f)
+                    .length(1.5f)
+                    .build();
+
         };
         }
 }

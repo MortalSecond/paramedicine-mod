@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.ui.components;
 
 import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.AppliedDressing;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
@@ -64,7 +65,6 @@ public class RightPanelComponent
     {
         // Tally wounds across the whole body.
         Map<String, int[]> tally = new LinkedHashMap<>();
-        List<Wound> allDressed = new ArrayList<>();
 
         for (LimbNode node : LimbNode.values())
             for (Wound wound : data.getLimb(node).getWounds())
@@ -72,9 +72,6 @@ public class RightPanelComponent
                 String label = sizeBucket(wound.getSize()) + " " + pretty(wound.getType().name());
                 int[] entry = tally.computeIfAbsent(label, k -> new int[]{0, severityColor(wound)});
                 entry[0]++;
-
-                if (wound.hasDressing())
-                    allDressed.add(wound);
             }
 
         if (tally.isEmpty())
@@ -86,17 +83,20 @@ public class RightPanelComponent
         cy += 6;
 
         // Dressings.
-        if (!allDressed.isEmpty())
-        {
-            cy = line(g, font, x, cy, allDressed.size() + "x Dressings", C_HEADER, 0);
-            Map<String, Integer> dress = new LinkedHashMap<>();
+        // Dressings (per node, may cover several wounds each).
+        List<AppliedDressing> allDressings = new ArrayList<>();
+        for (LimbNode node : LimbNode.values())
+            allDressings.addAll(data.getLimb(node).getDressings());
 
-            for (Wound wound : allDressed)
+        if (!allDressings.isEmpty())
+        {
+            cy = line(g, font, x, cy, allDressings.size() + "x Dressings", C_HEADER, 0);
+            Map<String, Integer> dress = new LinkedHashMap<>();
+            for (AppliedDressing appliedDressing : allDressings)
             {
-                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingLabel(wound.getDressing());
+                String name = (appliedDressing.getDressing().isOverdue() ? "Old " : "") + dressingLabel(appliedDressing.getDressing());
                 dress.merge(name, 1, Integer::sum);
             }
-
             for (Map.Entry<String, Integer> entry : dress.entrySet())
                 cy = line(g, font, x, cy, entry.getValue() + "x " + entry.getKey(),
                         entry.getKey().startsWith("Old") ? C_GOLD : C_WHITE, 1);
@@ -141,12 +141,16 @@ public class RightPanelComponent
 
             if (wound.hasBeenIrrigated())
                 cy = line(g, font, x, cy, "+ Irrigated", C_GOOD, 1);
-            if (wound.hasDressing())
+            // Node dressings (each covers one or more wounds).
+            for (AppliedDressing ad : limb.getDressings())
             {
-                int hours = (int) (wound.getDressing().getAgeTicks() / TICKS_PER_HOUR);
-                String name = (wound.isDressingOverdue() ? "Old " : "") + dressingLabel(wound.getDressing());
-                cy = line(g, font, x, cy, "+ " + name + " [" + hours + "h ago]", wound.isDressingOverdue() ? C_GOLD : C_GOOD, 1);
+                int hours = (int) (ad.getDressing().getAgeTicks() / TICKS_PER_HOUR);
+                String name = (ad.getDressing().isOverdue() ? "Old " : "") + dressingLabel(ad.getDressing());
+                cy = line(g, font, x, cy, "+ " + name + " (covers " + ad.getCoveredWoundIds().size() + ") [" + hours + "h]",
+                        ad.getDressing().isOverdue() ? C_GOLD : C_GOOD, 0);
             }
+            if (!limb.getDressings().isEmpty())
+                cy += 4;
 
             String cont = contaminationText(wound.getContamination());
 

@@ -40,7 +40,10 @@ public class ModItems
                             .absorption(0.15f)
                             .adherence(0.3f)
                             .occlusion(0.1f)
+                            .length(3f)
                             .build()));
+    public static final RegistryObject<Item> LONG_LEAF = ITEMS.register(
+            "long_leaf", () -> new LongLeafItem(new Item.Properties()));
     public static final RegistryObject<Item> GAUZE_PAD = ITEMS.register(
             "gauze_pad", () -> new DressingItem(new Item.Properties().stacksTo(8),
                     DressingType.GAUZE::create));
@@ -71,8 +74,6 @@ public class ModItems
             "plant_fiber", () -> new Item(new Item.Properties()));
     public static final RegistryObject<Item> CORDAGE = ITEMS.register(
             "cordage", () -> new Item(new Item.Properties()));
-    public static final RegistryObject<Item> LONG_LEAF = ITEMS.register(
-            "long_leaf", () -> new LongLeafItem(new Item.Properties()));
     public static final RegistryObject<Item> DRIED_PLANT = ITEMS.register(
             "dried_plant", () -> new DriedPlantItem(new Item.Properties()));
 

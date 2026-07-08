@@ -68,6 +68,7 @@ public class TreatmentInstruction
         for (Map.Entry<SubstanceType, Float> entry : payload.getComponents().entrySet())
             data.depositSystemicSubstance(entry.getKey(), entry.getValue(), ModConstants.IV_ONSET_SECONDS);
 
+        payload.clear();
         return true;
     }
 
@@ -82,6 +83,7 @@ public class TreatmentInstruction
         for (Map.Entry<SubstanceType, Float> entry : payload.getComponents().entrySet())
             limb.addLocalSubstance(new CirculatingSubstance(entry.getKey(), entry.getValue(), ModConstants.IM_ONSET_SECONDS));
 
+        payload.clear();
         return true;
     }
 
@@ -89,44 +91,61 @@ public class TreatmentInstruction
     private boolean applyOral(PlayerHealthData data)
     {
         data.ingestOrally(payload);
+        payload.clear();
         return true;
     }
 
     // Surface-acting. Irrigation flushes debris (contamination down), but the fluid's own bacterial
     // load re-dirties so clean water helps and pond water hurts.
+    // Consumes ONLY the volume the node's wounds need, leaving the rest so a 1 mL splash can't
+    // clean a whole ass limb.
     private boolean applyTopical(PlayerHealthData data)
     {
         LimbData limb = (node != null) ? data.getLimb(node) : null;
-        if (limb == null)
+        if (limb == null || limb.getWounds().isEmpty())
             return false;
 
-        float volume = payload.totalVolume();
+        float available = payload.totalVolume();
+        if (available <= 0f)
+            return false;
 
+        // What this node's wounds need to flush properly.
+        float needed = 0f;
+        for (Wound wound : limb.getWounds())
+            needed += ModConstants.IRRIGATION_ML_PER_WOUND + wound.getSize() * ModConstants.IRRIGATION_SIZE_FACTOR;
+
+        // Dirtiness per unit of THIS fluid (before draining).
+        float total = payload.totalVolume();
         float load = 0f;
         for (Map.Entry<SubstanceType, Float> entry : payload.getComponents().entrySet())
-            load += (entry.getValue() / volume) * TopicalProfile.contaminationLoad(entry.getKey());
+            load += (entry.getValue() / total) * TopicalProfile.contaminationLoad(entry.getKey());
 
-        float flush = Math.min(ModConstants.TOPICAL_MAX_FLUSH, volume * ModConstants.TOPICAL_FLUSH_PER_ML);
-        float dirty = load * Math.min(1f, volume / ModConstants.TOPICAL_REF_ML) * ModConstants.TOPICAL_DIRTY_STRENGTH;
+        // Remnants stays in the container
+        float used = Math.min(needed, available);
+        float met = (needed > 0f) ? used / needed : 0f;
+        FluidMixture usedSlice = payload.drain(used);
+
         // A negative number equals a net cleaner.
+        float flush = ModConstants.TOPICAL_MAX_FLUSH * met;
+        float dirty = load * met * ModConstants.TOPICAL_DIRTY_STRENGTH;
         float delta = dirty - flush;
 
-        boolean any = false;
+        // Sets their irrigation state to true.
         for (Wound wound : limb.getWounds())
         {
             wound.setContamination(wound.getContamination() + delta);
-            any = true;
+            if (delta < 0f)
+                wound.setIrrigated(true);
         }
         limb.markDirty();
 
         // Transdermal (default 0 just in case).
-        for (Map.Entry<SubstanceType, Float> entry : payload.getComponents().entrySet())
+        for (Map.Entry<SubstanceType, Float> entry : usedSlice.getComponents().entrySet())
         {
             float absorption = TopicalProfile.absorption(entry.getKey());
             if (absorption > 0f)
                 data.depositSystemicSubstance(entry.getKey(), entry.getValue() * absorption, ModConstants.TOPICAL_ONSET_SECONDS);
         }
-
-        return any;
+        return true;
     }
 }

@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundInteractionFeedbackPacket;
 import net.invinciblemoebius.traumaparamedicinemod.network.ModNetwork;
 import net.invinciblemoebius.traumaparamedicinemod.network.packets.ClientboundPulseReadingPacket;
+import net.invinciblemoebius.traumaparamedicinemod.treatment.Treatments;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkDirection;
 
@@ -14,7 +15,7 @@ public final class NodeInteractions
 {
     private NodeInteractions() {}
 
-    public static void handle(ServerPlayer player, PlayerHealthData data, LimbNode node, NodeAction action)
+    public static void handle(ServerPlayer player, PlayerHealthData data, LimbNode node, NodeAction action, int woundId)
     {
         switch (action)
         {
@@ -23,6 +24,7 @@ public final class NodeInteractions
             case CHECK_BREATHING -> checkBreathing(player, data);
             case HOLD_PRESSURE -> holdPressure(player, data, node);
             case CHEST_COMPRESSIONS -> chestCompressions(player, data);
+            case REMOVE_DRESSING -> Treatments.removeDressing(player, data, node, woundId);
         }
     }
 

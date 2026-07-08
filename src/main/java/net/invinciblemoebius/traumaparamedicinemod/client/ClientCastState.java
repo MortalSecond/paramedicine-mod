@@ -17,18 +17,25 @@ public final class ClientCastState
 
     // === INTERACTION METHODS ===
 
-    public static void start(LimbNode node, NodeAction action, long durationMs)
+    private static int woundId;
+
+    public static void start(LimbNode node, NodeAction action, int woundId, long durationMs)
     {
         ClientCastState.node = node;
         ClientCastState.action = action;
+        ClientCastState.woundId = woundId;
         ClientCastState.durationMs = durationMs;
         ClientCastState.startAt = System.currentTimeMillis();
         ClientCastState.active = true;
     }
 
+    public static int woundId() { return woundId; }
+
     public static float progress()
     {
-        if (!active) return 0f;
+        if (!active)
+            return 0f;
+
         return Math.min(1f, (System.currentTimeMillis() - startAt) / (float) durationMs);
     }
 

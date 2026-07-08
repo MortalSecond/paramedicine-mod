@@ -7,6 +7,7 @@ import net.minecraft.util.RandomSource;
 public class Wound
 {
     // === WOUND STATE ===
+    private int id = -1;
     private WoundType type;
     private WoundDepth depth;
     // Size of the wound. 0.0 - Trivial, 1.0 - massive.
@@ -40,7 +41,6 @@ public class Wound
     private boolean isPacked = false;
     // Whether the wound has been cleaned with water.
     private boolean hasBeenIrrigated = false;
-    private boolean hasAntiseptic = false;
 
     // === FOREIGN BODIES ===
     private boolean hasShrapnel = false;
@@ -115,8 +115,7 @@ public class Wound
         if (isClosed)
             return 0f;
 
-        float raw = bleedRateML * pressureFactor(ctx) * (1f - clotIntegrity) * spasmFactor();
-        return (dressing != null) ? raw * dressing.pressureBleedFactor(isArterial) : raw;
+        return bleedRateML * pressureFactor(ctx) * (1f - clotIntegrity) * spasmFactor();
     }
 
     private float pressureFactor(BleedContext ctx)
@@ -172,29 +171,31 @@ public class Wound
         return HemostasisTrend.BLEEDING;
     }
 
-    public void tickClotting(BleedContext ctx, float dt)
+    public void tickClotting(BleedContext ctx, float dt, float dressingBleedFactor, float dressingClotMult)
     {
         // Edge case in case the wound is either already closed or visceral (can't clot).
         if (isClosed || clotIntegrity >= 1f || depth == WoundDepth.VISCERAL)
             return;
 
         // An arterial wound can't seal while it's still flowing hard.
-        float cap = (isArterial && computeBleedRate(ctx) > ModConstants.ARTERIAL_FLOW_CEILING) ? ModConstants.ARTERIAL_CLOT_CAP : 1f;
+        float dressedBleed = computeBleedRate(ctx) * dressingBleedFactor;
+        boolean isTrueArterial = (isArterial && dressedBleed > ModConstants.ARTERIAL_FLOW_CEILING);
+        float cap = isTrueArterial ? ModConstants.ARTERIAL_CLOT_CAP : 1f;
         if (clotIntegrity >= cap)
             return;
 
-        clotIntegrity = Math.min(cap, clotIntegrity + clotGrowthRate(ctx) * dt);
+        clotIntegrity = Math.min(cap, clotIntegrity + clotGrowthRate(ctx, dressingClotMult) * dt);
     }
 
-    private float clotGrowthRate(BleedContext ctx)
+    private float clotGrowthRate(BleedContext ctx, float dressingClotMult)
     {
         // Roughly 50secs to seal a small clean wound in a healthy patient
         float base = 0.02f;
         float nutrition = 0.6f + (ctx.nutrition() * 0.4f);
         float sizePenalty = 1.0f - (size * 0.55f);
-        float dressingBonus = (dressing != null) ? (1f + dressing.getHemostatic() * ModConstants.DRESSING_HEMOSTATIC_CLOT_MULT) : 1f;
 
-        return base * computeTempFactor(ctx.coreTemp()) * computeOxygenationFactor(ctx.spo2()) * nutrition * sizePenalty * dressingBonus * ctx.systemicClottingFactor();
+        return base * computeTempFactor(ctx.coreTemp()) * computeOxygenationFactor(ctx.spo2())
+                * nutrition * sizePenalty * dressingClotMult * ctx.systemicClottingFactor();
     }
 
     // IRL clotting enzymes slow down below 35C°, hence why it's part of clotting calculation.
@@ -262,42 +263,10 @@ public class Wound
 
     // === TICK ADVANCEMENT ===
 
-    public boolean tickAdvance(float currentBleedML)
+    public boolean tickAdvance()
     {
-        boolean changed = false;
         ageTicks++;
-
-        // Dressing wear, fouling, active antiseptic, and anaerobic occlusion risk.
-        if (dressing != null)
-        {
-            dressing.tickWear(currentBleedML, ModConstants.SECONDS_PER_TICK);
-
-            // Once the dressing becomes due for a change, it starts adding contamination.
-            if (dressing.isOverdue())
-            {
-                contamination = Math.min(1f, contamination + ModConstants.DRESSING_FOUL_CONTAM_RISE);
-                changed = true;
-            }
-
-            // If the dressing had antiseptic on it, it decreases contamination.
-            float antiseptic = dressing.getAntiseptic();
-            if (antiseptic > 0f && contamination > 0f)
-            {
-                contamination = Math.max(0f, contamination - antiseptic * ModConstants.DRESSING_ANTISEPTIC_DECONTAM_PER_SECOND * ModConstants.SECONDS_PER_TICK);
-                changed = true;
-            }
-
-            // A sealed dressing over a dirty wound traps bacteria (anaerobic).
-            if (dressing.getOcclusion() > 0.5f && contamination > 0.3f)
-            {
-                contamination = Math.min(1f, contamination + ModConstants.DRESSING_OCCLUSION_ANAEROBIC_RISE);
-                changed = true;
-            }
-        }
-
-        // Stage advancement.
-        changed |= tickStageProgress();
-        return changed;
+        return tickStageProgress();
     }
 
     public float infectionSuceptibility()
@@ -364,84 +333,18 @@ public class Wound
         stageProgress = 0f;
     }
 
-    // === TREATMENT ACTIONS ===
-
-    public void applyDressing(Dressing dressing)
-    {
-        // Dressing snapshot.
-        this.dressing = dressing.copy();
-
-        // A dirty dressing is a contamination source, so it drags contamination toward (1 - cleanliness).
-        float floor = 1f - dressing.getCleanliness();
-        if (contamination < floor)
-            contamination = Math.min(1f, contamination + (floor - contamination) * ModConstants.DRESSING_DIRTY_APPLY_FRACTION);
-    }
-
-    // Returns true if removal ripped the wound open.
-    public boolean removeDressing(RandomSource rand)
-    {
-        if (dressing == null)
-            return false;
-
-        boolean ripped = false;
-        float adherence = dressing.getAdherence();
-        boolean healing = (stage == WoundStage.INFLAMED || stage == WoundStage.SCABBING || stage == WoundStage.SCARRING);
-        if (adherence > 0f && healing && rand.nextFloat() < adherence * ModConstants.DRESSING_ADHERENCE_REOPEN_CHANCE)
-        {
-            reopen();
-            ripped = true;
-        }
-
-        dressing = null;
-        return ripped;
-    }
-
-    public void irrigate()
-    {
-        contamination = Math.max(0f, contamination - 0.60f);
-        hasBeenIrrigated = true;
-    }
-
-    public void applyAntiseptic()
-    {
-        hasAntiseptic = true;
-        contamination = Math.max(0f, contamination - 0.20f);
-    }
-
-    public void applyPacking()
-    {
-        isPacked = true;
-        bleedRateML *= 0.20f;
-    }
-
-    public void close()
-    {
-        isClosed = true;
-        bleedRateML = 0f;
-    }
-
     public void reopen()
     {
         isClosed = false;
-        isPacked = false;
         stage = WoundStage.FRESH;
         stageProgress = 0f;
         bleedRateML = computeInitialBleedRate() * 0.60f;
         clotIntegrity = 0f;
     }
 
-    public void removeForeignBody()
-    {
-        hasArrow = false;
-        hasShrapnel = false;
-        hasBullet = false;
-
-        bleedingManaged = false;
-        bleedRateML = computeInitialBleedRate();
-    }
-
     // === ACCESSORS ===
 
+    public int getId() { return id; }
     public WoundType getType() { return type; }
     public WoundDepth getDepth() { return depth; }
     public float getSize() { return size; }
@@ -452,9 +355,6 @@ public class Wound
     public float getStageProgress() { return stageProgress; }
     public float getContamination() { return contamination; }
     public float getInfectionLevel() { return infectionLevel; }
-    public boolean hasDressing() { return dressing != null; }
-    public Dressing getDressing() { return dressing; }
-    public boolean isDressingOverdue() { return dressing != null && dressing.isOverdue(); }
     public boolean isClosed() { return isClosed; }
     public boolean isPacked() { return isPacked; }
     public boolean hasBeenIrrigated() { return hasBeenIrrigated; }
@@ -469,6 +369,7 @@ public class Wound
     public float getWoundPositionV() { return woundPositionV; }
     public boolean isRightSide() { return woundPositionU > 1.0f; }
 
+    public void setId(int id) { this.id = id; }
     public void setHasShrapnel(boolean v) { hasShrapnel = v; }
     public void setHasBullet(boolean v) { hasBullet = v; }
     public void setHasArrow(boolean v) { hasArrow = v; }
@@ -481,11 +382,13 @@ public class Wound
     public void setWoundPositionU(float v) { this.woundPositionU = v; }
     public void setWoundPositionV(float v) { this.woundPositionV = v; }
     public void setInfectionLevel(float v) { infectionLevel = Math.max(0f, Math.min(1f, v)); }
+    public void setIrrigated(boolean v) { hasBeenIrrigated = v; }
 
     // === SAVING STUFF ===
 
     public void saveToNBT(CompoundTag tag)
     {
+        tag.putInt("id", id);
         tag.putString("Type", type.name());
         tag.putString("Depth", depth.name());
         tag.putFloat ("Size", size);
@@ -500,7 +403,6 @@ public class Wound
         tag.putBoolean("IsClosed", isClosed);
         tag.putBoolean("IsPacked", isPacked);
         tag.putBoolean("Irrigated", hasBeenIrrigated);
-        tag.putBoolean("HasAntiseptic", hasAntiseptic);
         tag.putBoolean("HasShrapnel", hasShrapnel);
         tag.putBoolean("HasBullet", hasBullet);
         tag.putBoolean("HasArrow", hasArrow);
@@ -510,17 +412,11 @@ public class Wound
         tag.putBoolean("isExit", isExit);
         tag.putFloat("woundPositionU", woundPositionU);
         tag.putFloat("woundPositionV", woundPositionV);
-
-        if (dressing != null)
-        {
-            CompoundTag dt = new CompoundTag();
-            dressing.writeToNBT(dt);
-            tag.put("Dressing", dt);
-        }
     }
 
     public void loadFromNBT(CompoundTag tag)
     {
+        id = tag.getInt("id");
         type = WoundType.valueOf(tag.getString("Type"));
         depth = WoundDepth.valueOf(tag.getString("Depth"));
         size = tag.getFloat("Size");
@@ -535,7 +431,6 @@ public class Wound
         isClosed = tag.getBoolean("IsClosed");
         isPacked = tag.getBoolean("IsPacked");
         hasBeenIrrigated = tag.getBoolean("Irrigated");
-        hasAntiseptic = tag.getBoolean("HasAntiseptic");
         hasShrapnel = tag.getBoolean("HasShrapnel");
         hasBullet = tag.getBoolean("HasBullet");
         hasArrow = tag.getBoolean("HasArrow");
@@ -545,7 +440,6 @@ public class Wound
         isExit = tag.getBoolean("isExit");
         woundPositionU = tag.getFloat("woundPositionU");
         woundPositionV = tag.getFloat("woundPositionV");
-        dressing = tag.contains("Dressing") ? Dressing.readFromNBT(tag.getCompound("Dressing")) : null;
     }
 
     public Wound copy()
@@ -563,9 +457,9 @@ public class Wound
     public String toString()
     {
         return String.format(
-                "Wound{%s %s size=%.2f art=%b bleed=%.3fml/t stage=%s(%.0f%%) inf=%.2f cont=%.2f dressed=%s}",
-                type, depth, size, isArterial, bleedRateML, stage, stageProgress * 100f,
-                infectionLevel, contamination, dressing != null
+                "WOUND: %s %s of size=%.2f. Arterial: %b at a bleed rate of %.3fml/t . Currently at stage %s (%.0f%%) with a bacterial load of inf=%.2f and a contamination of =%.2f}",
+                depth, type, size, isArterial, bleedRateML, stage, stageProgress * 100f,
+                infectionLevel, contamination
         );
     }
 }

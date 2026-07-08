@@ -284,7 +284,8 @@ public class HealthScreen extends Screen
 
         for (InteractionOption opt : NodeInteractionOptions.forNode(node, data))
         {
-            menu.add(new ContextMenuComponent.MenuOption(opt.label(), () -> startInteraction(opt.node(), opt.action())));
+            menu.add(new ContextMenuComponent.MenuOption(opt.label(), () ->
+                    startInteraction(opt.node(), opt.action(), opt.woundId())));
         }
 
         return menu;
@@ -371,17 +372,17 @@ public class HealthScreen extends Screen
         }
     }
 
-    private void startInteraction(LimbNode node, NodeAction action)
+    private void startInteraction(LimbNode node, NodeAction action, int woundId)
     {
         PlayerHealthData self = target.getCapability(PlayerHealthCapability.PLAYER_HEALTH).resolve().orElse(null);
         long duration = NodeInteractionOptions.castDurationMs(action, self);
 
         // If it's instant, then it just applies the action directly.
         if (duration <= 0L)
-            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(node, action));
+            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(node, action, woundId));
         // But if it's not, it calls the cursor cast to initialize.
         else
-            ClientCastState.start(node, action, duration);
+            ClientCastState.start(node, action, woundId, duration);
     }
 
     @Override
@@ -390,7 +391,8 @@ public class HealthScreen extends Screen
         super.tick();
         if (ClientCastState.isComplete())
         {
-            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(ClientCastState.node(), ClientCastState.action()));
+            ModNetwork.CHANNEL.sendToServer(new ServerboundNodeActionPacket(
+                    ClientCastState.node(), ClientCastState.action(), ClientCastState.woundId()));
             ClientCastState.cancel();
         }
     }

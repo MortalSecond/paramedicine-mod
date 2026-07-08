@@ -139,7 +139,7 @@ public class HealthTickSystem
         bleedCtx = new BleedContext(data.getMAP(), data.getSystolicBP(), data.getDiastolicBP(),
                 data.getCardiacPhase(), data.hasPulse(), data.getCoreTemperature(), data.getOxygenSaturation(),
                 data.getNutritionLevel(), data.computeSystemicClottingFactor());
-        tickAllWounds(data, limbs, dt);
+        tickAllWounds(limbs, dt);
         float bleedTotal = computeBleeding(limbs, dt);
         redistributeBlood(limbs, bleedTotal);
         float perfusionFactor = Math.max(0f, Math.min(ModConstants.MAX_PERFUSION_FACTOR, data.getMAP() / ModConstants.NORMAL_MAP_MMHG));
@@ -180,23 +180,24 @@ public class HealthTickSystem
     }
 
     // STEP 2: WOUND TICKING.
-    private static void tickAllWounds(PlayerHealthData data, Map<LimbNode, LimbData> limbs, float dt)
+    private static void tickAllWounds(Map<LimbNode, LimbData> limbs, float dt)
     {
-        for (LimbData limb: limbs.values())
+        for (LimbData limb : limbs.values())
         {
-            List<Wound> wounds = limb.getWounds();
             boolean syncDirty = false;
 
-            for (Wound wound: wounds)
+            for (Wound wound : limb.getWounds())
             {
-                wound.tickClotting(bleedCtx, dt);
-                if (wound.tickAdvance(wound.computeBleedRate(bleedCtx)))
+                wound.tickClotting(bleedCtx, dt, limb.dressingBleedFactor(wound), limb.dressingClotMult(wound));
+                if (wound.tickAdvance())
                     syncDirty = true;
             }
 
+            limb.tickDressings(dt);
             limb.recomputeRawPain();
 
-            if (syncDirty) limb.markDirty();
+            if (syncDirty)
+                limb.markDirty();
         }
     }
 

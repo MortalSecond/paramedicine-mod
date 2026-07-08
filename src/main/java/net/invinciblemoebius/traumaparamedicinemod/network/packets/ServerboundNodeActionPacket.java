@@ -16,22 +16,27 @@ public class ServerboundNodeActionPacket
 {
     private final LimbNode node;
     private final NodeAction action;
+    private final int woundId;
 
-    public ServerboundNodeActionPacket(LimbNode node, NodeAction action)
+    public ServerboundNodeActionPacket(LimbNode node, NodeAction action) { this(node, action, -1); }
+
+    public ServerboundNodeActionPacket(LimbNode node, NodeAction action, int woundId)
     {
         this.node = node;
         this.action = action;
+        this.woundId = woundId;
     }
 
     public static void encode(ServerboundNodeActionPacket p, FriendlyByteBuf buf)
     {
         buf.writeEnum(p.node);
         buf.writeEnum(p.action);
+        buf.writeInt(p.woundId);
     }
 
     public static ServerboundNodeActionPacket decode(FriendlyByteBuf buf)
     {
-        return new ServerboundNodeActionPacket(buf.readEnum(LimbNode.class), buf.readEnum(NodeAction.class));
+        return new ServerboundNodeActionPacket(buf.readEnum(LimbNode.class), buf.readEnum(NodeAction.class), buf.readInt());
     }
 
     public static void handle(ServerboundNodeActionPacket p, Supplier<NetworkEvent.Context> ctx)
@@ -43,7 +48,7 @@ public class ServerboundNodeActionPacket
                 return;
 
             sender.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
-                    NodeInteractions.handle(sender, data, p.node, p.action));
+                    NodeInteractions.handle(sender, data, p.node, p.action, p.woundId));
         });
         ctx.get().setPacketHandled(true);
     }
