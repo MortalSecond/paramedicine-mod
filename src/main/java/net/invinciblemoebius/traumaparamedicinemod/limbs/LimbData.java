@@ -193,10 +193,10 @@ public class LimbData
             covered.add(wound.getId());
             remaining -= wound.getSize();
 
-            // A dirty dressing drags contamination toward (1 - cleanliness).
-            float floor = 1f - dressing.getCleanliness();
-            if (wound.getContamination() < floor)
-                wound.setContamination(wound.getContamination() + (floor - wound.getContamination()) * ModConstants.DRESSING_DIRTY_APPLY_FRACTION);
+            // A dressing adds contamination, scaled by its own dirtiness.
+            float dirtiness = 1f - dressing.getCleanliness();
+            if (dirtiness > 0f)
+                wound.setContamination(wound.getContamination() + dirtiness * ModConstants.DRESSING_APPLY_CONTAM_MAX);
         }
 
         if (covered.isEmpty())

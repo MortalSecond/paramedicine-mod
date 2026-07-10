@@ -282,6 +282,15 @@ public class Wound
         };
     }
 
+    // Baseline local clearance of introduced bacteria. Antiseptic/irrigation are faster; occlusion
+    // and fouling push the other way. Without this, contamination is a faucet that never shuts off.
+    public void tickContaminationDecay(float dt)
+    {
+        if (contamination <= 0f)
+            return;
+        contamination = Math.max(0f, contamination - ModConstants.CONTAM_PASSIVE_DECAY_PER_SECOND * dt);
+    }
+
     private boolean tickStageProgress()
     {
         boolean changed = false;

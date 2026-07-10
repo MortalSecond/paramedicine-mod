@@ -1,3 +1,4 @@
+- Add a check for blunt force trauma and certain cutting-type attacks to reopen the wounds ONLY if they're unbandaged. Or like. Have a below-1.0f value of being covered up. Right now, the main advantage of
 - Make ENDORPHINS a SubstanceType. This could get added directly into the UPPER_TORSO so it becomes immediately systemic, reducing the initial pain from high-damage hits and encouraging self-monitoring. Cool thing is, the CirculatingSubstance model already models how substances decay overtime, so the pain-relief effect wears off overtime, emulating that "didn't hurt until later" phenomenon of severe wounds.
 - On that note, making high BPM or high BP increase player speed or jumping height or mining efficiency or whatever could be pretty cool too. Emulates the initial rush of saving yourself before crashing from the endorphins and adrenaline wearing off.
 - Add sounds. To everything, really. Beeps and boops to the GUI, so on and so forth.

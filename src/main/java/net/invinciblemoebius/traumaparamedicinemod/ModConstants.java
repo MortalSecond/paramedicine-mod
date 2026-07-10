@@ -133,8 +133,8 @@ public final class ModConstants
 
     // IMMUNE SYSTEM
     public static final float IMMUNE_RESERVE_MAX = 2.0f; // Ceiling of the reserve pool.
-    public static final float IMMUNE_REGEN_PER_SECOND = 0.03f; // Reserve regained/sec at full immunity strength.
-    public static final float IMMUNE_CONSUMPTION = 0.5f; // Fraction of deployed reserve spent/sec.
+    public static final float IMMUNE_REGEN_PER_SECOND = 0.12f; // Reserve regained/sec at full immunity strength.
+    public static final float IMMUNE_CONSUMPTION = 0.25f; // Fraction of deployed reserve spent/sec.
     public static final float IMMUNE_SUPPRESS_EFF = 0.04f; // How hard deployed reserve fights wound infection.
     public static final float IMMUNE_EXHAUSTION_MIN = 0.1f; // Reserve at/below this counts as exhausted.
     public static final float INFECTION_GROWTH_RATE = 0.02f; // How fast contamination feeds local infection.
@@ -144,6 +144,7 @@ public final class ModConstants
     public static final float SEPSIS_ENTER_LOAD = 0.3f; // Bacteremia to begin septic shock (with reserve exhausted).
     public static final float SEPSIS_EXIT_LOAD = 0.1f; // Bacteremia below which septic shock recedes.
     public static final float SEPSIS_EMERGENCY_REGEN_MULT = 3.0f; // Regen boost while septic.
+    public static final float CONTAM_PASSIVE_DECAY_PER_SECOND = 0.002f; // Roughly 0.3f contamination cleared over 2ish minutes if nothing renews it.
 
     // NUTRITION
     public static final float NUTRITION_HEALTHY = 1.0f;
@@ -168,9 +169,7 @@ public final class ModConstants
     public static final float IV_ONSET_SECONDS = 1f;
     public static final float IM_ONSET_SECONDS = 25f; // Local limb fluid onset. Perfusion does the absorption.
     public static final float TOPICAL_ONSET_SECONDS = 5f; // TRANSdermal onset, not surface onset in and of itself.
-    public static final float TOPICAL_FLUSH_PER_ML = 0.003f; // Contamination flushed per ml of irrigant.
     public static final float TOPICAL_MAX_FLUSH = 0.90f; // Cap on a single irrigation's flush.
-    public static final float TOPICAL_REF_ML = 100f; // Volume at which a fluid's own dirtiness fully expresses.
     public static final float TOPICAL_DIRTY_STRENGTH = 0.6f; // How hard a dirty irrigant re-contaminates.
 
     // TREATMENT
@@ -193,7 +192,7 @@ public final class ModConstants
     public static final float DRESSING_FOUL_BASE_TICKS = 24000f; // Change interval at cleanliness = 1f (scales with cleanliness).
     public static final float DRESSING_FOUL_CONTAM_RISE = 0.0001f; // Contamination per tick once overdue.
     public static final float DRESSING_OCCLUSION_ANAEROBIC_RISE = 0.0008f; // Contamination per tick when a sealed dressing traps a dirty wound.
-    public static final float DRESSING_DIRTY_APPLY_FRACTION = 0.5f; // How far a dirty dressing drags contamination toward its floor on application.
+    public static final float DRESSING_APPLY_CONTAM_MAX = 0.15f; // Max contamination a completely filthy dressing adds on application.
     public static final float DRESSING_ADHERENCE_REOPEN_CHANCE = 0.8f; // Reopen probability at adherence = 1f when pulled off a healing wound.
     public static final float DRESSING_ABSORB_CAPACITY_ML = 60f; // Blood an absorption = 1f dressing holds before it's soaked.
 

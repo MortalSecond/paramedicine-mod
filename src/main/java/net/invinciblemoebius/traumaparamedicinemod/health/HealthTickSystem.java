@@ -192,6 +192,7 @@ public class HealthTickSystem
             for (Wound wound : limb.getWounds())
             {
                 wound.tickClotting(bleedCtx, dt, limb.dressingBleedFactor(wound), limb.dressingClotMult(wound));
+                wound.tickContaminationDecay(dt);
                 if (wound.tickAdvance())
                     syncDirty = true;
             }
