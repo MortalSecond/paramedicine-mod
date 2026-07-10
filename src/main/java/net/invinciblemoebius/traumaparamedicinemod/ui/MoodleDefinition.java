@@ -135,6 +135,11 @@ public class MoodleDefinition
             case FEVER ->  new MoodleDefinition("Fever", "You feel hot and dizzy. Thirst increased, but infections will have a harder time settling in.", '↑');
             case HEAT_STROKE ->  new MoodleDefinition("HEAT STROKE", "There is a small furnace inside you. Your brain is quite literally being cooked every second. You need to dip yourself in cold water immediately to prevent further damage.", '▲');
 
+            // SYSTEMIC - THIRST
+            case MILD_THIRST -> new MoodleDefinition("Slightly Thirsty", "Your mouth feels a little dry.", 't');
+            case THIRST -> new MoodleDefinition("Thirsty", "You could really use a glass of water... Or maybe two.", 'T');
+            case SEVERE_THIRST -> new MoodleDefinition("Parched", "You body is screaming at you to quench your thirst, it feels like you could drink an entire bucket of water in one go.", '!');
+
             // SYSTEMIC - INFECTION
             case BACTEREMIA -> new MoodleDefinition("Bacteremia", "Bacteria has breached your bloodstream. Not septic yet, though it is one step closer to it.", '~');
             case INFECTION ->  new MoodleDefinition("Infection", "Bacteria has accumulated near a wound and may need further attention soon.", '~');

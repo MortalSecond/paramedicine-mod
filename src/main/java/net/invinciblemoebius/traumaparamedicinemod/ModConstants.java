@@ -86,6 +86,21 @@ public final class ModConstants
     public static final float VOMIT_DRAIN_FRACTION = 0.80f; // Fraction of stomach contents expelled per episode.
     public static final float VOMIT_ASPIRATION_FRACTION = 0.25f; // Fraction of vomit aspirated into the lungs when the airway is unprotected.
 
+    // HYDRATION
+    public static final float PLASMA_NORMAL = BLOOD_NORMAL * (1f - COMP_RESTING_HEMATOCRIT); // 2750ml resting plasma.
+    public static final float BODY_WATER_NORMAL = 3000f; // Resting exchangeable reserve that buffers plasma.
+    public static final float HYDRATION_PLASMA_EQUILIBRIUM_FRACTION = PLASMA_NORMAL / (PLASMA_NORMAL + BODY_WATER_NORMAL); // Plasma's share of total exchangeable water at rest.
+    public static final float HYDRATION_EXCHANGE_RATE_PER_SECOND = 0.0015f; // Rate at which reserves become plasma. Slow on purpose (transcapillary refill takes a while).
+    public static final float HYDRATION_BASAL_LOSS_PER_SECOND = 0.4f; // Rate of hydration loss. IN THEORY this should make dehydration happen after like 2-3 in-game days.
+    public static final float HYDRATION_SWEAT_LOSS_MAX = 1.2f; // Extra reserve loss/sec at full exertion.
+    public static final float HYDRATION_FEVER_LOSS_PER_DEGREE = 0.15f; // Extra reserve loss/sec per °C above fever.
+    public static final float HYDRATION_RESP_LOSS_PER_SECOND = 0.1f; // Insensible loss/sec scaled by respiratory rate (this value is at normal RR).
+    public static final float HYDRATION_RENAL_CLEARANCE_PER_SECOND = 0.3f; // Kidneys dump above normal reserves at 1L/hr.
+    public static final float THIRST_SENSITIVITY = 0.5f; // Fraction of reserve deficit that maps to full felt thirst. Lower = higher notif.
+    public static final float THIRST_DRIFT_PER_SECOND = 0.005f; // How fast felt thirst tracks its true target.
+    public static final float THIRST_SATIATION_PER_ML = 0.004f; // Immediate felt relief per ml swallowed..
+    public static final float THIRST_HEAT_SETPOINT_PER_DEGREE = 0.10f; // Added felt-thirst set-point per °C above fever (thirsty when hot even if hydrated).
+
     // STAMINA
     public static final float STAMINA_SPRINT_DRAIN = 0.001f; // Per second while sprinting.
     public static final float STAMINA_JUMP_DRAIN = 0.015f; // Per second per jump.

@@ -47,17 +47,18 @@ import java.util.*;
 // 13. Reset transient modifiers.
 // 14. Tick gastric absorption. Empties the stomach buffer. The bioavailable fraction crosses to blood.
 // 15. Tick substances. Applies medical effects, decays concentrations.
-// 16. Recompute blood volume.
-// 17. Recompute blood composition/hematocrit and the resulting blood viscosity.
-// 18. Tick respiratory rate's effect on oxygenation.
-// 19. Recompute core temperature.
-// 20. Recompute heart rate.
-// 21. Recompute blood pressure.
-// 22. Recompute consciousness.
-// 23. Calculate the brain deterioration tick-by-tick.
-// 24. Tick fibrillations.
-// 25. Recompute total health on all limbs.
-// 26. Sync and dispatch the packet if marked dirty.
+// 16. Drains the water reserve, voids excesses, and shifts the reserve-to-plasma balance.
+// 17. Recompute blood volume.
+// 18. Recompute blood composition/hematocrit and the resulting blood viscosity.
+// 19. Tick respiratory rate's effect on oxygenation.
+// 20. Recompute core temperature.
+// 21. Recompute heart rate.
+// 22. Recompute blood pressure.
+// 23. Recompute consciousness.
+// 24. Calculate the brain deterioration tick-by-tick.
+// 25. Tick fibrillations.
+// 26. Recompute total health on all limbs.
+// 27. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -156,6 +157,8 @@ public class HealthTickSystem
         tickAllSubstances(data, limbs, perfusionFactor);
         data.tickNausea(dt);
         tickVomit(player, data);
+        data.tickHydration(dt);
+        data.tickThirst(dt);
         data.recomputeBloodVolume();
         data.recomputeHematocritAndViscosity();
         data.recomputeRespiratoryDrive();
@@ -446,7 +449,7 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 17: VOMIT.
+    // STEP 18: VOMIT.
     // Rolls for a vomiting episode when nausea is high enough.
     private static void tickVomit(ServerPlayer player, PlayerHealthData data)
     {
@@ -462,14 +465,14 @@ public class HealthTickSystem
         float volume = data.triggerVomit();
     }
 
-    // STEP 25: LIMB HEALTH RECOMPUTE
+    // STEP 26: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 26: SYNC
+    // STEP 27: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag())

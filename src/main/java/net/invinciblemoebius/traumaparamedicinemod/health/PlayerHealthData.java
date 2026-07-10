@@ -107,6 +107,11 @@ public class PlayerHealthData
     // by absorption, and later by vomiting or activated charcoal.
     private final FluidMixture gastricContents = new FluidMixture();
     private float nausea = 0f;
+    // The exchangeable water reserve that buffers plasma.
+    private float bodyWater = ModConstants.BODY_WATER_NORMAL;
+    // FELT thirst. Independent from dehydration, this is just the feeling.
+    // 0 = satiated, 1 = parched.
+    private float thirst = 0f;
 
     // When any field changes, this indicates if the packet should be sent.
     // P.S. This idea was shamelessly stolen from Casualties: Cubed.
@@ -894,10 +899,14 @@ public class PlayerHealthData
 
     // Swallow a mixture into the stomach.
     // Excess past capacity is rejected.
+    // AND gives some thirst relief regardless of whether it was water.
     public void ingestOrally(FluidMixture incoming)
     {
         if (incoming == null || incoming.isEmpty())
             return;
+
+        // Any swallowed volume satiates felt thirst, water or not.
+        thirst = Math.max(0f, thirst - incoming.totalVolume() * ModConstants.THIRST_SATIATION_PER_ML);
 
         gastricContents.merge(incoming, ModConstants.GASTRIC_CAPACITY_ML);
         markDirty();
@@ -996,6 +1005,95 @@ public class PlayerHealthData
 
         markDirty();
         return volume;
+    }
+
+    // Drains the water reserve (basal + sweat + fever + breathing), voids any excess, then
+    // equilibrates the reserve with the circulating plasma pool.
+    // Lose water and plasma falls (hemoconcentration); Gain it and plasma re-expands (hemodilution).
+    public void tickHydration(float dt)
+    {
+        // Reserve losses.
+        float loss = ModConstants.HYDRATION_BASAL_LOSS_PER_SECOND;
+        if (stamina < 0.5f)
+            loss += (0.5f - stamina) * ModConstants.HYDRATION_SWEAT_LOSS_MAX;
+        if (coreTemperature > ModConstants.TEMP_FEVER)
+            loss += (coreTemperature - ModConstants.TEMP_FEVER) * ModConstants.HYDRATION_FEVER_LOSS_PER_DEGREE;
+
+        loss += (actualRespiratoryRate / ModConstants.RESPIRATORY_NORMAL) * ModConstants.HYDRATION_RESP_LOSS_PER_SECOND;
+        bodyWater = Math.max(0f, bodyWater - loss * dt);
+
+        // NOW. Since i don't wanna add a piss system, excess water is voided at a fixed rate.
+        // Outdrink this rate, and you become water-poisoned.
+        if (bodyWater > ModConstants.BODY_WATER_NORMAL)
+        {
+            float excreted = Math.min(bodyWater - ModConstants.BODY_WATER_NORMAL, ModConstants.HYDRATION_RENAL_CLEARANCE_PER_SECOND * dt);
+            bodyWater -= excreted;
+        }
+
+        // Two-tank equilibration with plasma. Total water is conserved across the shift.
+        float totalPlasma = 0f;
+        for (LimbData limb : limbData.values())
+            totalPlasma += limb.getPlasmaVolume();
+
+        float totalWater = bodyWater + totalPlasma;
+        float targetPlasma = totalWater * ModConstants.HYDRATION_PLASMA_EQUILIBRIUM_FRACTION;
+        float move = (targetPlasma - totalPlasma) * Math.min(1f, ModConstants.HYDRATION_EXCHANGE_RATE_PER_SECOND * dt);
+
+        exchangePlasma(move);
+        bodyWater = Math.max(0f, bodyWater - move);
+
+        markDirty();
+    }
+
+    // Applies a signed plasma delta across the limbs, weighted by each node's current plasma so the
+    // pool can't go negative and the split stays sane until redistribution re-pours next tick.
+    // NOTE: this spreads to ALL nodes, including any tourniqueted ones. The magnitude per tick is tiny
+    // and osmotic, so I'm accepting that minor inaccuracy rather than threading circulation checks here.
+    private void exchangePlasma(float deltaPlasma)
+    {
+        if (deltaPlasma == 0f)
+            return;
+
+        float totalPlasma = 0f;
+        for (LimbData limb : limbData.values())
+            totalPlasma += limb.getPlasmaVolume();
+
+        if (deltaPlasma < 0f && totalPlasma <= 0f)
+            return;
+
+        for (LimbData limb : limbData.values())
+        {
+            float share = (totalPlasma > 0f) ? (limb.getPlasmaVolume() / totalPlasma) : (1f / limbData.size());
+            limb.setPlasmaVolume(limb.getPlasmaVolume() + deltaPlasma * share);
+        }
+    }
+
+    public void addBodyWater(float ml)
+    {
+        if (ml == 0f)
+            return;
+        bodyWater = Math.max(0f, bodyWater + ml);
+        markDirty();
+    }
+
+    // FELT thirst. Tracks a target set by true reserve depletion plus a heat/fever set-point, but oral
+    // intake yanks it down instantly in ingestOrally (the fast oropharyngeal signal). IV never satiates.
+    public void tickThirst(float dt)
+    {
+        float deficit = Math.max(0f, ModConstants.BODY_WATER_NORMAL - bodyWater) / ModConstants.BODY_WATER_NORMAL;
+        float target = Math.min(1f, deficit / ModConstants.THIRST_SENSITIVITY);
+
+        if (coreTemperature > ModConstants.TEMP_FEVER)
+            target = Math.min(1f, target + (coreTemperature - ModConstants.TEMP_FEVER) * ModConstants.THIRST_HEAT_SETPOINT_PER_DEGREE);
+
+        float before = thirst;
+        if (thirst < target)
+            thirst = Math.min(target, thirst + ModConstants.THIRST_DRIFT_PER_SECOND * dt);
+        else
+            thirst = Math.max(target, thirst - ModConstants.THIRST_DRIFT_PER_SECOND * dt);
+
+        if (thirst != before)
+            markDirty();
     }
 
     // === TRANSIENT METHODS ===
@@ -1130,9 +1228,12 @@ public class PlayerHealthData
     public boolean isArrested() { return !getRhythm().perfusing; }
     public float getMAP() { return diastolicBP + (systolicBP - diastolicBP) / 3f; }
     public FluidMixture getGastricContents() { return gastricContents; }
+    public float getBodyWater() { return bodyWater; }
+    public float getThirst() { return thirst; }
+    public float getHydrationFraction() { return bodyWater / ModConstants.BODY_WATER_NORMAL; }
     public float getNausea() { return nausea; }
     public void addCentralAnalgesia(float v) { centralAnalgesia = Math.min(0.95f, centralAnalgesia + Math.max(0f, v)); }
-    public void addOpioidReversal(float v)   { opioidReversal = Math.min(1f, opioidReversal + Math.max(0f, v)); }
+    public void addOpioidReversal(float v) { opioidReversal = Math.min(1f, opioidReversal + Math.max(0f, v)); }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
@@ -1278,6 +1379,8 @@ public class PlayerHealthData
     public void setAggregatedPainClientOnly(float v) { aggregatedPain = v; }
     public void setNauseaClientOnly(float v) { nausea = v; }
     public void setBrainHealthClientOnly(float v) { brainHealth = v; }
+    public void setBodyWaterClientOnly(float v) { bodyWater = v; }
+    public void setThirstClientOnly(float v) { thirst = v; }
     public void setClientActiveSubstances(List<SubstanceType> types)
     {
         clientActiveSubstances.clear();
@@ -1353,6 +1456,8 @@ public class PlayerHealthData
         overexertionPain = 0;
         nausea = 0f;
         brainHealth = 1.0f;
+        bodyWater = ModConstants.BODY_WATER_NORMAL;
+        thirst = 0f;
 
         // Reinitialize limbs to their defaults.
         for (LimbNode node : LimbNode.values())
@@ -1398,6 +1503,8 @@ public class PlayerHealthData
                                   Temperature = %.1f°C
                                   Consciousness = %.0f%%
                                   Nausea = %.1f
+                                  Body Water = %.0fml
+                                  Thirst = %.0f%%
                                   Immunity = %.0f%%
                                   Immune Reserves = %.0f
                                   Bacteremia = %.0f%%
@@ -1421,6 +1528,8 @@ public class PlayerHealthData
                 coreTemperature,
                 consciousness * 100f,
                 nausea,
+                bodyWater,
+                thirst * 100f,
                 immunity * 100f,
                 immuneReserve * 100f,
                 bacteremia * 100f,
@@ -1459,6 +1568,8 @@ public class PlayerHealthData
         tag.putFloat("Bacteremia", bacteremia);
         tag.putFloat("Nausea", nausea);
         tag.putFloat("BrainHealth", brainHealth);
+        tag.putFloat("BodyWater", bodyWater);
+        tag.putFloat("Thirst", thirst);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1519,6 +1630,8 @@ public class PlayerHealthData
         overexertionPain = tag.getFloat("OverexertionPain");
         nausea = tag.getFloat("Nausea");
         brainHealth = tag.getFloat("BrainHealth");
+        bodyWater = tag.getFloat("BodyWater");
+        thirst = tag.getFloat("Thirst");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
@@ -1592,6 +1705,8 @@ public class PlayerHealthData
         this.airwayState = other.airwayState;
         this.nausea = other.nausea;
         this.brainHealth = other.brainHealth;
+        this.bodyWater = other.bodyWater;
+        this.thirst = other.thirst;
 
         // Limbs.
         for (LimbNode node : LimbNode.values())

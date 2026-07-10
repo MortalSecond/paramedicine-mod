@@ -27,6 +27,16 @@ public enum     Condition
                 }
             },
 
+    SLAKED(ConditionSeverity.GREEN_LIGHT, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float thirst = data.getThirst();
+                    return thirst <= 0.1f;
+                }
+            },
+
     // === PAIN ===
 
     DISCOMFORT(ConditionSeverity.NEUTRAL, ObservabilityLevel.SUBJECTIVE)
@@ -886,6 +896,38 @@ public enum     Condition
                 {
                     float coreTemp = data.getCoreTemperature();
                     return coreTemp >= ModConstants.TEMP_HEAT_STROKE;
+                }
+            },
+
+    // === HYDRATION ===
+
+    MILD_THIRST(ConditionSeverity.MILD, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float thirst = data.getThirst();
+                    return thirst >= 0.2f && thirst < 0.4f;
+                }
+            },
+
+    THIRST(ConditionSeverity.MODERATE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float thirst = data.getThirst();
+                    return thirst >= 0.4f && thirst < 0.7f;
+                }
+            },
+
+    SEVERE_THIRST(ConditionSeverity.SEVERE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float thirst = data.getThirst();
+                    return thirst >= 0.7f;
                 }
             },
 

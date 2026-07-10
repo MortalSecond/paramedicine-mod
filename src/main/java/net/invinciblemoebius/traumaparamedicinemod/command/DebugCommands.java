@@ -68,6 +68,7 @@ public class DebugCommands
                         .then(cmdInfectWounds())
                         .then(cmdGiveSubstance())
                         .then(cmdFill())
+                        .then(cmdSetHydration())
         );
     }
 
@@ -698,6 +699,23 @@ public class DebugCommands
                                             "[Debug] Added %.2fml %s. Now: %s", finalAccepted, type, mix.describe()));
                                     return 1;
                                 })));
+    }
+
+    // /paramedicine sethydration <ml>
+    // Sets the body-water reserve directly.
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetHydration()
+    {
+        return Commands.literal("sethydration")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("ml", FloatArgumentType.floatArg(0f, 6000f))
+                        .executes(ctx -> withData(ctx, (player, data) ->
+                        {
+                            float ml = FloatArgumentType.getFloat(ctx, "ml");
+                            data.addBodyWater(ml - data.getBodyWater()); // set-to via signed add
+                            msg(ctx.getSource(), String.format(
+                                    "[Debug] Body water = %.0fml (%.0f%% of normal)",
+                                    data.getBodyWater(), data.getHydrationFraction() * 100f));
+                        })));
     }
 
     // === HELPERS ===
