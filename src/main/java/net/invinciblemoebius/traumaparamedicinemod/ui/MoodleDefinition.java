@@ -142,7 +142,7 @@ public class MoodleDefinition
             case SEVERE_THIRST -> new MoodleDefinition("Parched", "You body is screaming at you to quench your thirst, it feels like you could drink an entire bucket of water in one go.", '!');
 
             // SYSTEMIC - NUTRITION
-            case FULL -> new MoodleDefinition("Full", "Your tummy feels satisfied with whatever last you ate. Immune system strengthened.", 'h');
+            case FULL -> new MoodleDefinition("Full", "Your tummy feels satisfied with whatever last you ate. Immune system at full strength.", 'h');
             case MILD_HUNGER -> new MoodleDefinition("Hungry", "You could go for a bite right about now.", 'h');
             case HUNGER -> new MoodleDefinition("Very Hungry", "Your stomach is starting to hurt from not eating. When was the last time you went for a meal? Immune system slightly hampered.", 'H');
             case SEVERE_HUNGER -> new MoodleDefinition("Starving", "You feel completely famished. Your stomach cramps violently in search of food, and your immune system is running on empty. At this rate, even a mild infection could knock you down... or worse...", '!');
