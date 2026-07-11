@@ -136,9 +136,21 @@ public class MoodleDefinition
             case HEAT_STROKE ->  new MoodleDefinition("HEAT STROKE", "There is a small furnace inside you. Your brain is quite literally being cooked every second. You need to dip yourself in cold water immediately to prevent further damage.", '▲');
 
             // SYSTEMIC - THIRST
+            case SLAKED -> new MoodleDefinition("Slaked", "You've been hydrating well lately, and your body feels better as a result. Your mind is sharper, your skin feels elastic, and your limbs feel limber. You could get used to this!", 't');
             case MILD_THIRST -> new MoodleDefinition("Slightly Thirsty", "Your mouth feels a little dry.", 't');
             case THIRST -> new MoodleDefinition("Thirsty", "You could really use a glass of water... Or maybe two.", 'T');
             case SEVERE_THIRST -> new MoodleDefinition("Parched", "You body is screaming at you to quench your thirst, it feels like you could drink an entire bucket of water in one go.", '!');
+
+            // SYSTEMIC - NUTRITION
+            case FULL -> new MoodleDefinition("Full", "Your tummy feels satisfied with whatever last you ate. Immune system strengthened.", 'h');
+            case MILD_HUNGER -> new MoodleDefinition("Hungry", "You could go for a bite right about now.", 'h');
+            case HUNGER -> new MoodleDefinition("Very Hungry", "Your stomach is starting to hurt from not eating. When was the last time you went for a meal? Immune system slightly hampered.", 'H');
+            case SEVERE_HUNGER -> new MoodleDefinition("Starving", "You feel completely famished. Your stomach cramps violently in search of food, and your immune system is running on empty. At this rate, even a mild infection could knock you down... or worse...", '!');
+            case EMACIATED -> new MoodleDefinition("EMACIATED", "Your body looks skeletal, your eyes look hollow...", '!');
+            case UNDERWEIGHT -> new MoodleDefinition("Underweight", "You haven't keeping up with a healthy diet lately, and your body has begun losing weight. Not too bad, but your blood pressure is a little lower than usual, and you are faster to tire.", 'w');
+            case OVERWEIGHT -> new MoodleDefinition("Overweight", "You've gained a little excess weight. Nothing out of the ordinary, just about enough to last you through a bad winter, but it's starting to affect your blood pressure and waistline a bit.", 'w');
+            case OBESE -> new MoodleDefinition("Obese", "You've REALLY gained weight. The extra volume is making your blood pressure be chronically high, plus it's making walking and running extra difficult. Consider exercising and eating less for some time", 'W');
+            case MORBIDLY_OBESE -> new MoodleDefinition("DAYUM", "AW HELL NAH. You need to lose weight, dude. Blood pressure critically high, and movement speed severely hampered.", '!');
 
             // SYSTEMIC - INFECTION
             case BACTEREMIA -> new MoodleDefinition("Bacteremia", "Bacteria has breached your bloodstream. Not septic yet, though it is one step closer to it.", '~');

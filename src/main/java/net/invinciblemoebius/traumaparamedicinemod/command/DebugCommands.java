@@ -69,6 +69,7 @@ public class DebugCommands
                         .then(cmdGiveSubstance())
                         .then(cmdFill())
                         .then(cmdSetHydration())
+                        .then(cmdSetNutrition())
         );
     }
 
@@ -715,6 +716,21 @@ public class DebugCommands
                             msg(ctx.getSource(), String.format(
                                     "[Debug] Body water = %.0fml (%.0f%% of normal)",
                                     data.getBodyWater(), data.getHydrationFraction() * 100f));
+                        })));
+    }
+
+    // /paramedicine setnutrition <0.0 - 1.5>
+    private static ArgumentBuilder<CommandSourceStack, ?> cmdSetNutrition()
+    {
+        return Commands.literal("setnutrition")
+                .requires(src -> src.hasPermission(2))
+                .then(Commands.argument("value", FloatArgumentType.floatArg(0f, ModConstants.NUTRITION_MAX))
+                        .executes(ctx -> withData(ctx, (player, data) ->
+                        {
+                            float v = FloatArgumentType.getFloat(ctx, "value");
+                            data.addNutrition(v - data.getNutrition());
+                            msg(ctx.getSource(), String.format(
+                                    "[Debug] Nutrition = %.0f%% (immune factor %.2f)", data.getNutrition() * 100f, data.getNutritionFactor()));
                         })));
     }
 

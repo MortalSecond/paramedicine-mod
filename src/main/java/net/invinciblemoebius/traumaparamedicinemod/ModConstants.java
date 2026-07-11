@@ -146,10 +146,36 @@ public final class ModConstants
     public static final float SEPSIS_EMERGENCY_REGEN_MULT = 3.0f; // Regen boost while septic.
     public static final float CONTAM_PASSIVE_DECAY_PER_SECOND = 0.002f; // Roughly 0.3f contamination cleared over 2ish minutes if nothing renews it.
 
-    // NUTRITION
-    public static final float NUTRITION_HEALTHY = 1.0f;
+    // NUTRITION & ADIPOSITY
+    public static final float NUTRITION_HEALTHY = 1.0f; // Full tank. Surplus above this overflows into fat.
+    public static final float NUTRITION_MAX = 1.5f; // Ceiling after a big meal.
+    public static final float NUTRITION_ADEQUATE = 0.8f; // Immune/clotting "normal" point. Below here starts to penalise.
     public static final float NUTRITION_FLOOR = 0.0f;
-    public static final float NUTRITION_DECAY_PER_SECOND = 1f / (7f * 24000 / TICKS_PER_SECOND);
+    public static final float NUTRITION_IMMUNE_FLOOR = 0.25f; // Immune-regen multiplier when fully starved.
+    public static final float NUTRITION_BASAL_DRAIN_PER_SECOND = 1f / (7f * 24000 / TICKS_PER_SECOND); // Roughly 7 in-game days to burn a full tank at rest.
+    public static final float NUTRITION_EXERTION_DRAIN_MAX = NUTRITION_BASAL_DRAIN_PER_SECOND * 3f; // Extra drain at full exertion.
+    public static final float NUTRITION_FEVER_DRAIN_PER_DEGREE = NUTRITION_BASAL_DRAIN_PER_SECOND * 2f; // Extra drain per °C above fever.
+    public static final float NUTRITION_IMMUNE_DRAIN = NUTRITION_BASAL_DRAIN_PER_SECOND * 4f; // Extra drain while fighting systemic infection.
+    public static final float NUTRITION_OVERFLOW_RATE = 0.0005f; // Nutrition/sec converted to fat while overfed.
+    public static final float NUTRITION_MOBILIZE_RATE = 0.00018f; // Nutrition/sec fat can regenerate.
+    public static final float ADIPOSITY_NORMAL = 1.0f;
+    public static final float ADIPOSITY_MAX = 5.0f;
+    public static final float ADIPOSITY_EMACIATED = 0.3f;
+    public static final float ADIPOSITY_UNDERWEIGHT = 0.7f;
+    public static final float ADIPOSITY_OVERWEIGHT = 1.5f;
+    public static final float ADIPOSITY_OBESE = 2.5f;
+    public static final float ADIPOSITY_MORBID = 4.0f;
+    public static final float ADIPOSITY_BP_SLOPE_UNDER = 0.25f; // Being underweight drops vascular tone VERY sharply.
+    public static final float ADIPOSITY_BP_SLOPE_OVER  = 0.10f; // Obesity raises it more gradually but over a huge range.
+    public static final float ADIPOSITY_BP_FACTOR_MIN  = 0.80f;
+    public static final float ADIPOSITY_BP_FACTOR_MAX  = 1.40f;
+    public static final float ADIPOSITY_STORAGE_GAIN = 0.5f; // Fat gained per unit nutrition stored (lossy).
+    public static final float ADIPOSITY_MOBILIZE_YIELD = 0.9f; // Nutrition recovered per unit fat burned.
+    public static final float ADIPOSITY_STAMINA_UNDER_PENALTY = 0.5f; // Recovery lost at full emaciation.
+    public static final float ADIPOSITY_STAMINA_OVER_PENALTY  = 0.4f; // Recovery lost at morbid obesity.
+    public static final float HUNGER_RISE_PER_SECOND = 0.0004f; // Felt hunger climb since last meal.
+    public static final float HUNGER_STARVING_RAMP = 0.0008f; // Extra climb once fuel actually runs low.
+    public static final float HUNGER_SATIATION_PER_NUTRITION = 1.2f; // Felt relief per unit nutrition eaten.
 
     // WOUND POSITION
     public static final float WOUND_U_ANTERIOR = 0.0f;

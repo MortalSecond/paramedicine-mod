@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.health.PlayerHealthData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.*;
 import net.invinciblemoebius.traumaparamedicinemod.wound.Wound;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.Map;
 
@@ -27,13 +28,23 @@ public enum     Condition
                 }
             },
 
-    SLAKED(ConditionSeverity.GREEN_LIGHT, ObservabilityLevel.SUBJECTIVE)
+    SLAKED(ConditionSeverity.GREEN, ObservabilityLevel.SUBJECTIVE)
             {
                 @Override
                 public boolean evaluate(PlayerHealthData data)
                 {
                     float thirst = data.getThirst();
                     return thirst <= 0.1f;
+                }
+            },
+
+    FULL(ConditionSeverity.GREEN, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hunger = data.getHunger();
+                    return hunger <= 0.1f;
                 }
             },
 
@@ -928,6 +939,88 @@ public enum     Condition
                 {
                     float thirst = data.getThirst();
                     return thirst >= 0.7f;
+                }
+            },
+
+    // === NUTRITION ===
+
+    MILD_HUNGER(ConditionSeverity.MILD, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hunger = data.getHunger();
+                    return hunger >= 0.2f && hunger < 0.4f;
+                }
+            },
+
+    HUNGER(ConditionSeverity.MODERATE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hunger = data.getHunger();
+                    return hunger >= 0.4f && hunger < 0.7f;
+                }
+            },
+
+    SEVERE_HUNGER(ConditionSeverity.SEVERE, ObservabilityLevel.SUBJECTIVE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float hunger = data.getHunger();
+                    return hunger >= 0.7f;
+                }
+            },
+
+    EMACIATED(ConditionSeverity.CRITICAL_GLOW, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float weight = data.getAdiposity();
+                    return weight < 0.7 && weight > ModConstants.ADIPOSITY_EMACIATED;
+                }
+            },
+
+    UNDERWEIGHT(ConditionSeverity.MODERATE, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float weight = data.getAdiposity();
+                    return weight < ModConstants.ADIPOSITY_UNDERWEIGHT && weight > ModConstants.ADIPOSITY_EMACIATED;
+                }
+            },
+
+    OVERWEIGHT(ConditionSeverity.MILD, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float weight = data.getAdiposity();
+                    return weight > ModConstants.ADIPOSITY_OVERWEIGHT && weight < ModConstants.ADIPOSITY_OBESE;
+                }
+            },
+
+    OBESE(ConditionSeverity.MODERATE, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float weight = data.getAdiposity();
+                    return weight > ModConstants.ADIPOSITY_OBESE && weight < ModConstants.ADIPOSITY_MORBID;
+                }
+            },
+
+    MORBIDLY_OBESE(ConditionSeverity.CRITICAL_GLOW, ObservabilityLevel.VISIBLE)
+            {
+                @Override
+                public boolean evaluate(PlayerHealthData data)
+                {
+                    float weight = data.getAdiposity();
+                    return weight > ModConstants.ADIPOSITY_OBESE;
                 }
             },
 

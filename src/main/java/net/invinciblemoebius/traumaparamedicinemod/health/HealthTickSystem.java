@@ -48,17 +48,18 @@ import java.util.*;
 // 14. Tick gastric absorption. Empties the stomach buffer. The bioavailable fraction crosses to blood.
 // 15. Tick substances. Applies medical effects, decays concentrations.
 // 16. Drains the water reserve, voids excesses, and shifts the reserve-to-plasma balance.
-// 17. Recompute blood volume.
-// 18. Recompute blood composition/hematocrit and the resulting blood viscosity.
-// 19. Tick respiratory rate's effect on oxygenation.
-// 20. Recompute core temperature.
-// 21. Recompute heart rate.
-// 22. Recompute blood pressure.
-// 23. Recompute consciousness.
-// 24. Calculate the brain deterioration tick-by-tick.
-// 25. Tick fibrillations.
-// 26. Recompute total health on all limbs.
-// 27. Sync and dispatch the packet if marked dirty.
+// 17. Tick metabolism and hunger. Burn fuel, metabolize fat, climb hunger.
+// 18. Recompute blood volume.
+// 19. Recompute blood composition/hematocrit and the resulting blood viscosity.
+// 20. Tick respiratory rate's effect on oxygenation.
+// 21. Recompute core temperature.
+// 22. Recompute heart rate.
+// 23. Recompute blood pressure.
+// 24. Recompute consciousness.
+// 25. Calculate the brain deterioration tick-by-tick.
+// 26. Tick fibrillations.
+// 27. Recompute total health on all limbs.
+// 28. Sync and dispatch the packet if marked dirty.
 @Mod.EventBusSubscriber(modid = ParamedicineMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class HealthTickSystem
 {
@@ -139,7 +140,7 @@ public class HealthTickSystem
         data.tickCardiacPhase(dt);
         bleedCtx = new BleedContext(data.getMAP(), data.getSystolicBP(), data.getDiastolicBP(),
                 data.getCardiacPhase(), data.hasPulse(), data.getCoreTemperature(), data.getOxygenSaturation(),
-                data.getNutritionLevel(), data.computeSystemicClottingFactor());
+                data.getNutrition(), data.computeSystemicClottingFactor());
         tickAllWounds(limbs, dt);
         float bleedTotal = computeBleeding(limbs, dt);
         redistributeBlood(limbs, bleedTotal);
@@ -159,6 +160,9 @@ public class HealthTickSystem
         tickVomit(player, data);
         data.tickHydration(dt);
         data.tickThirst(dt);
+        data.tickMetabolism(dt);
+        data.tickHunger(dt);
+        data.recomputeBloodVolume();
         data.recomputeBloodVolume();
         data.recomputeHematocritAndViscosity();
         data.recomputeRespiratoryDrive();
@@ -450,7 +454,7 @@ public class HealthTickSystem
         }
     }
 
-    // STEP 18: VOMIT.
+    // STEP 19: VOMIT.
     // Rolls for a vomiting episode when nausea is high enough.
     private static void tickVomit(ServerPlayer player, PlayerHealthData data)
     {
@@ -466,14 +470,14 @@ public class HealthTickSystem
         float volume = data.triggerVomit();
     }
 
-    // STEP 26: LIMB HEALTH RECOMPUTE
+    // STEP 27: LIMB HEALTH RECOMPUTE
     private static void recomputeAllLimbHealth(PlayerHealthData data, Map<LimbNode, LimbData> limbs)
     {
         for (Map.Entry<LimbNode, LimbData> entry: limbs.entrySet())
             entry.getValue().recomputeTotalHealth(entry.getKey(), limbs);
     }
 
-    // STEP 27: SYNC
+    // STEP 28: SYNC
     private static void syncIfDirty(ServerPlayer player, PlayerHealthData data)
     {
         if (!data.consumeSyncFlag())

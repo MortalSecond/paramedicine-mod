@@ -16,12 +16,6 @@ import java.util.*;
 // One instance per player entity.
 public class PlayerHealthData
 {
-    // PLACEHOLDERS
-    // How well-supplied with nutrients the body is, NOT how hungry a player feels.
-    // 0.8 is the normal amount, below 0.8 means lacking nutrients (penalty),
-    // while above 0.8 means having a healthy nutrient reserve (boost).
-    // It's set up like that because nutrition is a clotting multiplier.
-    private static final float NUTRITION_PLACEHOLDER = 0.8f;
     // This is the long-term fatigue level. Basically sleep debt. It's a placeholder
     // because i don't know how to implement this to Minecraft without forcing the player
     // to go to bed and interrupt their regular gameplay annoyingly. Full sleep system TBD.
@@ -112,6 +106,12 @@ public class PlayerHealthData
     // FELT thirst. Independent from dehydration, this is just the feeling.
     // 0 = satiated, 1 = parched.
     private float thirst = 0f;
+    // Usable "fuel." I don't know how to explain it, but think of it like glucose vs. lipids.
+    private float nutrition = ModConstants.NUTRITION_HEALTHY;
+    // Fat storage.
+    private float adiposity = ModConstants.ADIPOSITY_NORMAL;
+    // The SENSATION of hunger, not the actual nutrition level of the body.
+    private float hunger = 0f;
 
     // When any field changes, this indicates if the packet should be sent.
     // P.S. This idea was shamelessly stolen from Casualties: Cubed.
@@ -177,17 +177,11 @@ public class PlayerHealthData
         // Heart rate contribution to systolic. Tachy raises systolic, but REALLY severe tachy reduces it.
         float rateModifier;
         if (heartRateBPM <= ModConstants.BPM_NORMAL_MAX)
-        {
             rateModifier = 1.0f;
-        }
         else if (heartRateBPM <= ModConstants.BPM_SEVERE_TACHYCARDIA)
-        {
             rateModifier = 1.0f + ((heartRateBPM - ModConstants.BPM_TACHYCARDIA) / 100f) * 0.1f;
-        }
         else
-        {
             rateModifier = 1.1f - ((heartRateBPM - ModConstants.BPM_SEVERE_TACHYCARDIA) / 100f) * 0.3f;
-        }
         rateModifier = Math.max(0.5f, rateModifier);
 
         // Pain response. Up to 15% systolic at max pain..
@@ -197,7 +191,7 @@ public class PlayerHealthData
         // Rises with volume loss, maxes near Class III/IV. Past that, it can't compensate and
         // pressure finally falls (decompensation).
         float compensation = 1.0f + Math.min(0.45f, Math.max(0f, 1.0f - bloodFraction) * 1.3f);
-        float effectiveTone = Math.max(0.1f, Math.min(3.0f, (vascularTone * compensation) + vascularToneModifier));
+        float effectiveTone = Math.max(0.1f, Math.min(3.0f, (vascularTone * compensation * getAdiposityToneFactor()) + vascularToneModifier));
 
         // Computation.
         float newSystolicBP = volumeBasedSystolic * effectiveTone * cardiacEfficiency
@@ -216,6 +210,16 @@ public class PlayerHealthData
             diastolicBP = newDiastolicBP;
             markDirty();
         }
+    }
+
+    public float getAdiposityToneFactor()
+    {
+        float slope = (adiposity < ModConstants.ADIPOSITY_NORMAL)
+                ? ModConstants.ADIPOSITY_BP_SLOPE_UNDER
+                : ModConstants.ADIPOSITY_BP_SLOPE_OVER;
+        float f = 1.0f + (adiposity - ModConstants.ADIPOSITY_NORMAL) * slope;
+
+        return Math.max(ModConstants.ADIPOSITY_BP_FACTOR_MIN, Math.min(ModConstants.ADIPOSITY_BP_FACTOR_MAX, f));
     }
 
     public void recomputeRespiratoryDrive()
@@ -814,7 +818,7 @@ public class PlayerHealthData
 
         // Reserves. Consume on deployment, regen by strength (and multiply by emergency if septic).
         float regenMult = (septicShock > 0f) ? ModConstants.SEPSIS_EMERGENCY_REGEN_MULT : 1.0f;
-        float regen = immunity * ModConstants.IMMUNE_REGEN_PER_SECOND * regenMult * dt;
+        float regen = immunity * ModConstants.IMMUNE_REGEN_PER_SECOND * regenMult * getNutritionFactor() * dt;
         float consumption = deployed * ModConstants.IMMUNE_CONSUMPTION * dt;
 
         immuneReserve = Math.max(0f, Math.min(ModConstants.IMMUNE_RESERVE_MAX, immuneReserve + regen - consumption));
@@ -864,14 +868,12 @@ public class PlayerHealthData
         }
         else
         {
-            float recoveryPerSecond = ModConstants.STAMINA_BASE_RECOVERY * lungEfficiency * energyModifier;
+            float recoveryPerSecond = ModConstants.STAMINA_BASE_RECOVERY * lungEfficiency * energyModifier * getWeightStaminaFactor();
             stamina = Math.min(1.0f, stamina + (recoveryPerSecond * dt));
         }
 
         if (justJumped)
-        {
             stamina = Math.max(0f, stamina - ModConstants.STAMINA_JUMP_DRAIN);
-        }
 
         // Overexertion pain.
         if (isSprinting && stamina < 0.15f)
@@ -884,6 +886,19 @@ public class PlayerHealthData
 
         if (stamina != 1.0f || overexertionPain != 0f)
             markDirty();
+    }
+
+    // Body-composition effect on stamina recovery. Best at normal weight, worse at both extremes.
+    public float getWeightStaminaFactor()
+    {
+        if (adiposity < ModConstants.ADIPOSITY_NORMAL)
+        {
+            float t = (ModConstants.ADIPOSITY_NORMAL - adiposity) / (ModConstants.ADIPOSITY_NORMAL - ModConstants.ADIPOSITY_EMACIATED);
+            return 1.0f - Math.min(1f, t) * ModConstants.ADIPOSITY_STAMINA_UNDER_PENALTY;
+        }
+
+        float t = (adiposity - ModConstants.ADIPOSITY_NORMAL) / (ModConstants.ADIPOSITY_MORBID - ModConstants.ADIPOSITY_NORMAL);
+        return 1.0f - Math.min(1f, t) * ModConstants.ADIPOSITY_STAMINA_OVER_PENALTY;
     }
 
     public void tickEnergy(float dt)
@@ -1096,6 +1111,74 @@ public class PlayerHealthData
             markDirty();
     }
 
+    // Burns fuel, overflows surplus into fat, and consumes fat when fuel runs low.
+    // MIND: fat-to-fuel is slow ON PURPOSE. It's thanks to that slowness that sugar
+    // rushes and the spike-crash cycle of junk food can be emulated.
+    public void tickMetabolism(float dt)
+    {
+        float drain = ModConstants.NUTRITION_BASAL_DRAIN_PER_SECOND;
+
+        // Physical exertion drain.
+        if (stamina < 0.5f)
+            drain += (0.5f - stamina) * ModConstants.NUTRITION_EXERTION_DRAIN_MAX;
+
+        // Fever drain.
+        if (coreTemperature > ModConstants.TEMP_FEVER)
+            drain += (coreTemperature - ModConstants.TEMP_FEVER) * ModConstants.NUTRITION_FEVER_DRAIN_PER_DEGREE;
+
+        // Sepsis drain.
+        float infectionLoad = Math.max(septicShock, bacteremia);
+        if (infectionLoad > 0f)
+            drain += infectionLoad * ModConstants.NUTRITION_IMMUNE_DRAIN;
+
+        nutrition = Math.max(ModConstants.NUTRITION_FLOOR, nutrition - drain * dt);
+
+        // Overflow. Surplus above full is stored as fat (basically weight gain).
+        if (nutrition > ModConstants.NUTRITION_HEALTHY)
+        {
+            float moved = Math.min(nutrition - ModConstants.NUTRITION_HEALTHY, ModConstants.NUTRITION_OVERFLOW_RATE * dt);
+            nutrition -= moved;
+            adiposity = Math.min(ModConstants.ADIPOSITY_MAX, adiposity + moved * ModConstants.ADIPOSITY_STORAGE_GAIN);
+        }
+        // Below full, burn fat to top fuel back up.
+        else if (nutrition < ModConstants.NUTRITION_HEALTHY && adiposity > 0f)
+        {
+            float wanted = Math.min(ModConstants.NUTRITION_HEALTHY - nutrition, ModConstants.NUTRITION_MOBILIZE_RATE * dt);
+            float fatBurned = Math.min(adiposity, wanted / ModConstants.ADIPOSITY_MOBILIZE_YIELD);
+            adiposity -= fatBurned;
+            nutrition += fatBurned * ModConstants.ADIPOSITY_MOBILIZE_YIELD;
+        }
+
+        markDirty();
+    }
+
+    // Food intake hook.
+    // Also gives the fast relief of eating, so a meal satisfies immediately, before it's even burned.
+    public void addNutrition(float amount)
+    {
+        if (amount == 0f)
+            return;
+
+        nutrition = Math.max(ModConstants.NUTRITION_FLOOR, Math.min(ModConstants.NUTRITION_MAX, nutrition + amount));
+        if (amount > 0f)
+            hunger = Math.max(0f, hunger - amount * ModConstants.HUNGER_SATIATION_PER_NUTRITION);
+
+        markDirty();
+    }
+
+    // FELT hunger. Climbs steadily since the last meal, with an extra ramp once
+    // nutrition actually runs low. Eating satiates but IV feeding never does.
+    public void tickHunger(float dt)
+    {
+        float before = hunger;
+        hunger = Math.min(1f, hunger + ModConstants.HUNGER_RISE_PER_SECOND * dt);
+        if (nutrition < ModConstants.NUTRITION_ADEQUATE)
+            hunger = Math.min(1f, hunger + ModConstants.HUNGER_STARVING_RAMP * dt);
+
+        if (hunger != before)
+            markDirty();
+    }
+
     // === TRANSIENT METHODS ===
 
     public void addChronotropicModifier(float dt)
@@ -1215,7 +1298,7 @@ public class PlayerHealthData
     public float getImmuneReserve() { return immuneReserve; }
     public float getBacteremia() { return bacteremia; }
     public float getAggregatedPain() { return aggregatedPain; }
-    public float getNutritionLevel() { return NUTRITION_PLACEHOLDER; }
+    public float getNutritionLevel() { return nutrition; }
     public float getStamina() { return stamina; }
     public float getEnergy() { return energy; }
     public float getPainShock() { return painShock; }
@@ -1234,6 +1317,13 @@ public class PlayerHealthData
     public float getNausea() { return nausea; }
     public void addCentralAnalgesia(float v) { centralAnalgesia = Math.min(0.95f, centralAnalgesia + Math.max(0f, v)); }
     public void addOpioidReversal(float v) { opioidReversal = Math.min(1f, opioidReversal + Math.max(0f, v)); }
+    public float getNutrition() { return nutrition; }
+    public float getAdiposity() { return adiposity; }
+    public float getHunger() { return hunger; }
+    public float getNutritionFactor()
+    {
+        return Math.max(ModConstants.NUTRITION_IMMUNE_FLOOR, Math.min(1.0f, nutrition / ModConstants.NUTRITION_ADEQUATE));
+    }
 
     // Special accessors.
     Map<LimbNode, LimbData> getLimbsInternal() { return limbData; }
@@ -1381,6 +1471,9 @@ public class PlayerHealthData
     public void setBrainHealthClientOnly(float v) { brainHealth = v; }
     public void setBodyWaterClientOnly(float v) { bodyWater = v; }
     public void setThirstClientOnly(float v) { thirst = v; }
+    public void setNutritionClientOnly(float v) { nutrition = v; }
+    public void setAdiposityClientOnly(float v) { adiposity = v; }
+    public void setHungerClientOnly(float v) { hunger = v; }
     public void setClientActiveSubstances(List<SubstanceType> types)
     {
         clientActiveSubstances.clear();
@@ -1458,6 +1551,9 @@ public class PlayerHealthData
         brainHealth = 1.0f;
         bodyWater = ModConstants.BODY_WATER_NORMAL;
         thirst = 0f;
+        nutrition = ModConstants.NUTRITION_HEALTHY;
+        adiposity = ModConstants.ADIPOSITY_NORMAL;
+        hunger = 0f;
 
         // Reinitialize limbs to their defaults.
         for (LimbNode node : LimbNode.values())
@@ -1505,6 +1601,9 @@ public class PlayerHealthData
                                   Nausea = %.1f
                                   Body Water = %.0fml
                                   Thirst = %.0f%%
+                                  Nutrition = %.0f%%
+                                  Adiposity = %.0f%%
+                                  Hunger = %.0f%%
                                   Immunity = %.0f%%
                                   Immune Reserves = %.0f
                                   Bacteremia = %.0f%%
@@ -1530,6 +1629,9 @@ public class PlayerHealthData
                 nausea,
                 bodyWater,
                 thirst * 100f,
+                nutrition * 100f,
+                adiposity * 100f,
+                hunger * 100f,
                 immunity * 100f,
                 immuneReserve * 100f,
                 bacteremia * 100f,
@@ -1570,6 +1672,9 @@ public class PlayerHealthData
         tag.putFloat("BrainHealth", brainHealth);
         tag.putFloat("BodyWater", bodyWater);
         tag.putFloat("Thirst", thirst);
+        tag.putFloat("Nutrition", nutrition);
+        tag.putFloat("Adiposity", adiposity);
+        tag.putFloat("Hunger", hunger);
 
         // Limbs.
         CompoundTag limbsTag = new CompoundTag();
@@ -1632,6 +1737,9 @@ public class PlayerHealthData
         brainHealth = tag.getFloat("BrainHealth");
         bodyWater = tag.getFloat("BodyWater");
         thirst = tag.getFloat("Thirst");
+        nutrition = tag.getFloat("Nutrition");
+        adiposity = tag.getFloat("Adiposity");
+        hunger = tag.getFloat("Hunger");
 
         // This has a guard against missing limb data, in case i ever
         // implement some sort of amputation system. Unlikely, but yknow.
@@ -1707,6 +1815,9 @@ public class PlayerHealthData
         this.brainHealth = other.brainHealth;
         this.bodyWater = other.bodyWater;
         this.thirst = other.thirst;
+        this.nutrition = other.nutrition;
+        this.adiposity = other.adiposity;
+        this.hunger = other.hunger;
 
         // Limbs.
         for (LimbNode node : LimbNode.values())
