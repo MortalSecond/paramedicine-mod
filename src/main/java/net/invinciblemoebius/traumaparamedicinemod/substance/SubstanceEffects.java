@@ -25,6 +25,11 @@ public class SubstanceEffects
     private float clottingBoost = 1f;
     private float clotUnderdose, clotTherapeutic;
     private float nauseaRate = 0f;
+    private float hydrationPerMl = 0f;
+    private float nutritionPerMl = 0f;
+    private float tonicity = 0f;
+    private float painRate = 0f;
+    private float bacteremiaAdd = 0f;
 
     // === CONFIGURATION METHODS ===
 
@@ -105,6 +110,37 @@ public class SubstanceEffects
         return this;
     }
 
+    public SubstanceEffects givesHydration(float hydrationPerEliminated)
+    {
+        hydrationPerMl = hydrationPerEliminated;
+        return this;
+    }
+
+    public SubstanceEffects addsNutrition(float nutritionPerEliminated)
+    {
+        nutritionPerMl = nutritionPerEliminated;
+        return this;
+    }
+
+    // Negative = hypotonic, positive = hypertonic
+    public SubstanceEffects tonicity(float signed)
+    {
+        tonicity = signed;
+        return this;
+    }
+
+    public SubstanceEffects causesPain(float levelPerConc)
+    {
+        painRate = levelPerConc;
+        return this;
+    }
+
+    public SubstanceEffects addsBacteremia(float perSecPerConc)
+    {
+        bacteremiaAdd = perSecPerConc;
+        return this;
+    }
+
     // === APPLICATION METHODS ===
 
     public void apply(float concentration, float eliminatedThisTick, float dt, PlayerHealthData data, @Nullable LimbData locationLimb)
@@ -131,6 +167,16 @@ public class SubstanceEffects
             applyClottingBoost(concentration, data);
         if (nauseaRate > 0f && systemic)
             data.addNauseaPressure(nauseaRate * concentration);
+        if (hydrationPerMl != 0f && eliminatedThisTick > 0f)
+            data.addBodyWater(eliminatedThisTick * hydrationPerMl);
+        if (nutritionPerMl != 0f && eliminatedThisTick > 0f)
+            data.addNutrition(eliminatedThisTick * nutritionPerMl);
+        if (tonicity != 0f && concentration > 0f)
+            applyTonicity(concentration, dt, data);
+        if (painRate > 0f && concentration > 0f)
+            data.spikeAggregatedPain(painRate * concentration);
+        if (bacteremiaAdd > 0f && concentration > 0f)
+            data.setBacteremia(data.getBacteremia() + bacteremiaAdd * concentration * dt);
     }
 
     private void applyPain(float concentration, float dt, PlayerHealthData data, @Nullable LimbData location)
@@ -193,6 +239,15 @@ public class SubstanceEffects
     {
         float potency = therapeuticCurve(concentration, clotUnderdose, clotTherapeutic);
         data.applyClottingModifier(1f + (clottingBoost - 1f) * potency);
+    }
+
+    // Osmotic injury causes pain immediately, plus an electrolyte
+    // disturbance that destabilizes the rhythm over time.
+    private void applyTonicity(float concentration, float dt, PlayerHealthData data)
+    {
+        float severity = Math.abs(tonicity) * concentration;
+        data.spikeAggregatedPain(severity * ModConstants.TONICITY_PAIN_COEFF);
+        data.setElectricalInstability(data.getElectricalInstability() + severity * ModConstants.TONICITY_INSTABILITY_COEFF * dt);
     }
 
     // === HELPER METHODS ===

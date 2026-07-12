@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.substance.SubstanceType;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -20,6 +21,13 @@ public final class ItemComposition
 
     public static final String NBT_KEY = "Composition";
     private static final float GRAIN = 100f; // 1/100 mg.
+
+    // Vanilla food to substances, derived from FoodProperties so EVERY food item (vanilla or modded)
+    // works with zero bespoke per-item design.
+    // Nutrition = FOOD, Saturation = FAT
+    // Hand-authored MAP entries still win, so a designed item can theoretically override this.
+    private static final float FOOD_ML_PER_NUTRITION = 40f;
+    private static final float FAT_ML_PER_SATURATION = 120f;
 
     private static final Map<Item, Map<SubstanceType, Float>> MAP = new HashMap<>();
 
@@ -42,8 +50,10 @@ public final class ItemComposition
             return false;
         if (hasNbt(stack))
             return true;
+        if (MAP.containsKey(stack.getItem()))
+            return true;
 
-        return MAP.containsKey(stack.getItem());
+        return isFood(stack);
     }
 
     // Back-compat for callers that only have an Item type.
@@ -64,7 +74,14 @@ public final class ItemComposition
             return;
         }
 
-        materializeInto(buffer, stack.getItem());
+        if (MAP.containsKey(stack.getItem()))
+        {
+            materializeInto(buffer, stack.getItem());
+            return;
+        }
+
+        // Not hand-authored? Derive it from vanilla food data.
+        materializeFoodInto(buffer, stack);
     }
 
     public static void materializeInto(FluidMixture buffer, Item item)
@@ -75,6 +92,27 @@ public final class ItemComposition
 
         for (Map.Entry<SubstanceType, Float> entry : composition.entrySet())
             buffer.add(entry.getKey(), entry.getValue(), Float.MAX_VALUE);
+    }
+
+    public static void materializeFoodInto(FluidMixture buffer, ItemStack stack)
+    {
+        FoodProperties food = stack.getItem().getFoodProperties(stack, null);
+        if (food == null)
+            return;
+
+        float bulk = food.getNutrition() * FOOD_ML_PER_NUTRITION;
+        // saturationModifier is a DENSITY (per nutrition point), so it's scaled by nutrition for the total.
+        float fat = food.getNutrition() * food.getSaturationModifier() * FAT_ML_PER_SATURATION;
+
+        if (bulk > 0f)
+            buffer.add(SubstanceType.FOOD, bulk, Float.MAX_VALUE);
+        if (fat > 0f)
+            buffer.add(SubstanceType.FAT, fat, Float.MAX_VALUE);
+    }
+
+    public static boolean isFood(ItemStack stack)
+    {
+        return !stack.isEmpty() && stack.getItem().getFoodProperties(stack, null) != null;
     }
 
     // A fresh copy of a stack's composition (for drying, grinding, etc).

@@ -8,9 +8,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -78,6 +80,27 @@ public class PlayerHealthEvents
             data.getRightLung().addFluid(aspirationRate);
             data.markDirty();
         });
+    }
+
+    // Intercept item usage.
+    @SubscribeEvent
+    public static void onFinishUsingItem(LivingEntityUseItemEvent.Finish event)
+    {
+        if (event.getEntity().level().isClientSide || !(event.getEntity() instanceof Player player))
+            return;
+
+        // FOOD INTERCEPTION
+        // Eating solid food deposits fuel directly, NOT through the gut. Vanilla food is meant to feel
+        // vanilla-fast. The slow SubstanceStorage route is for broths, meds, and mixtures with half lives.
+        FoodProperties food = event.getItem().getItem().getFoodProperties(event.getItem(), player);
+        if (food == null)
+            return;
+
+        float bulk = food.getNutrition() * ModConstants.NUTRITION_PER_FOOD_POINT;
+        float fat = food.getNutrition() * food.getSaturationModifier() * ModConstants.NUTRITION_PER_SATURATION;
+
+        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH)
+                .ifPresent(data -> data.addNutrition(bulk + fat));
     }
 
     // === PERSISTENCE STUFF ===

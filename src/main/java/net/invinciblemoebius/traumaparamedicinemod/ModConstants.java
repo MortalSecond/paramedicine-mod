@@ -37,6 +37,8 @@ public final class ModConstants
     public static final float ANEMIA_SEVERE = 0.40f;
     public static final float HEMATOCRIT_DILUTION = 0.35f; // Below: thin, watery blood
     public static final float HEMATOCRIT_CONCENTRATION = 0.55f; // Above: thick, sticky blood
+    public static final float TONICITY_PAIN_COEFF = 8.0f;
+    public static final float TONICITY_INSTABILITY_COEFF = 2.0f;
 
     // HEART RATE (BPM)
     public static final float BPM_NORMAL_MIN = 60f;
@@ -158,6 +160,8 @@ public final class ModConstants
     public static final float NUTRITION_IMMUNE_DRAIN = NUTRITION_BASAL_DRAIN_PER_SECOND * 4f; // Extra drain while fighting systemic infection.
     public static final float NUTRITION_OVERFLOW_RATE = 0.0005f; // Nutrition/sec converted to fat while overfed.
     public static final float NUTRITION_MOBILIZE_RATE = 0.00018f; // Nutrition/sec fat can regenerate.
+    public static final float NUTRITION_PER_FOOD_POINT = 0.05f; // A 4-point steak -> 0.20 fuel.
+    public static final float NUTRITION_PER_SATURATION = 0.06f; // Saturation adds a bit more on top.
     public static final float ADIPOSITY_NORMAL = 1.0f;
     public static final float ADIPOSITY_MAX = 5.0f;
     public static final float ADIPOSITY_EMACIATED = 0.3f;

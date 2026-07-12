@@ -48,7 +48,7 @@ public class CirculatingSubstance
 
         float consumed;
 
-        if (type.substanceClass.isVolumeExpander())
+        if (type.isVolumeInfusion())
         {
             // No concentration effect. The bolus infuses into the bloodstream at a perfusion-scaled rate.
             // Epi speeds it, vasodilation slows it, asystole halts it.
