@@ -5,6 +5,7 @@ import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
+import net.invinciblemoebius.traumaparamedicinemod.limbs.LungData;
 import net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth;
 import static net.invinciblemoebius.traumaparamedicinemod.wound.WoundType.*;
 import static net.invinciblemoebius.traumaparamedicinemod.wound.WoundDepth.*;
@@ -27,11 +28,15 @@ public final class WoundingBehavior
             case MELEE_BLADED -> handleBladedMelee(ctx);
             case MELEE_BLUNT -> handleBluntMelee(ctx);
             case PROJECTILE_ARROW, PROJECTILE_TRIDENT -> handleProjectileArrow(ctx);
+            case EXPLOSION -> handleExplosion(ctx);
             case FALL -> handleFall(ctx);
 
-            // Nhhh... I don't feel like doing the rest of the
-            // damage types so it'll all get routed here for now.
-            default -> handleBladedMelee(ctx);
+            // Until i get around to doing the rest of the wounds,
+            // they'll get voided for now.
+            default ->
+            {
+                return;
+            }
         }
     }
 
@@ -612,6 +617,138 @@ public final class WoundingBehavior
                 .apply(limb, ctx.data());
     }
 
+    // === EXPLOSION ===
+    // Blast is FOUR distinct mechanisms.
+    //      PRIMARY - The pressure wave. Goes THROUGH armor. Wrecks air-filled organs (lungs for Paramedicine).
+    //      SECONDARY - Fragmentation. Armor genuinely helps. Filthy, penetrating, the usual killer.
+    //      TERTIARY - Being thrown. Blunt trauma and fractures on landing.
+    //      QUATERNARY - Burns, which route through FIRE instead (don't have it set up yet).
+    private static void handleExplosion(WoundingContext ctx)
+    {
+        LimbData limb = ctx.data().getLimb(ctx.attackedNode());
+        if (limb == null)
+            return;
+
+        float dmg = ctx.preArmorDamage();
+        float proximity = Math.max(0f, Math.min(1f, ctx.explosionProximity()));
+
+        applyPrimaryBlast(ctx, proximity, dmg);
+        applyFragmentation(ctx, limb, dmg, proximity);
+        applyBlastThrow(ctx, limb, dmg, proximity);
+    }
+
+    // Overpressure. This NEVER checks armor tier, since it goes straight through plate.
+    // Scales with the SQUARE of proximity, because blast falls off with distance.
+    private static void applyPrimaryBlast(WoundingContext ctx, float proximity, float dmg)
+    {
+        if (proximity < ModConstants.BLAST_PRIMARY_MIN_PROXIMITY)
+            return;
+
+        float overpressure = proximity * proximity * (dmg / ModConstants.BLAST_OVERPRESSURE_DIVISOR);
+        if (overpressure <= 0f)
+            return;
+
+        LungData left = ctx.data().getLeftLung();
+        LungData right = ctx.data().getRightLung();
+
+        // Blast lung: Alveoli rupture and bleed. Bilateral since the wave hits the whole chest.
+        if (RNG.nextFloat() < overpressure * ModConstants.BLAST_LUNG_CHANCE)
+        {
+            float fluid = overpressure * ModConstants.BLAST_LUNG_FLUID_ML;
+            left.addFluid(fluid);
+            right.addFluid(fluid);
+        }
+
+        // CLOSED pneumothorax: No open wound to vent through, so it's a TENSION pneumo from the
+        // start. This is the needle-decompression case. Usually unilateral.
+        if (RNG.nextFloat() < overpressure * ModConstants.BLAST_TENSION_PNEUMO_CHANCE)
+        {
+            LungData collapsedLung = RNG.nextBoolean() ? left : right;
+            collapsedLung.addAir(overpressure * ModConstants.BLAST_TENSION_PNEUMO_AIR_ML);
+            collapsedLung.setTensionPneumothorax(true);
+        }
+
+        ctx.data().spikeAggregatedPain(overpressure * ModConstants.BLAST_PAIN_COEFF);
+
+        // Close-range wave rattles the skull.
+        if (proximity > ModConstants.BLAST_CONCUSSION_PROXIMITY)
+        {
+            new WoundingInstruction(BLUNT, VISCERAL, 0f)
+                    .consciousnessDrop(Math.min(0.75f, overpressure * ModConstants.BLAST_CONCUSSION_COEFF))
+                    .applyMutationsOnly(ctx.data());
+        }
+    }
+
+    // Fragmentation. The main killer at any distance. Most blast casualties are frag casualties.
+    private static void applyFragmentation(WoundingContext ctx, LimbData limb, float dmg, float proximity)
+    {
+        float armorStop = switch (ctx.nodeArmorTier())
+        {
+            case NONE -> 0f;
+            case LEATHER -> 0.25f;
+            case CHAIN -> 0.45f;
+            case HARD -> 0.75f;
+        };
+
+        float fragChance = proximity * ModConstants.BLAST_FRAG_CHANCE * (1f - armorStop);
+        int fragments = 0;
+        for (int i = 0; i < ModConstants.BLAST_FRAG_MAX; i++)
+            if (RNG.nextFloat() < fragChance) fragments++;
+
+        // No penetration still means the debris scours the skin raw.
+        if (fragments == 0)
+        {
+            new WoundingInstruction(ABRASION, SUPERFICIAL, 0.08f + RNG.nextFloat() * 0.12f)
+                    .withContamination(0.25f)
+                    .atPosition(ctx.hitU(), ctx.hitV())
+                    .apply(limb, ctx.data());
+            return;
+        }
+
+        for (int i = 0; i < fragments; i++)
+        {
+            // Blast debris is FILTHY. Dirt, gravel, fabric driven into the wound.
+            float severity = (0.10f + RNG.nextFloat() * 0.35f) * (0.5f + proximity * 0.5f);
+            WoundDepth depth = depthFromDamage(dmg * (0.4f + RNG.nextFloat() * 0.8f));
+
+            new WoundingInstruction(PUNCTURE, depth, severity)
+                    .withShrapnel()
+                    .withContamination(ModConstants.BLAST_FRAG_CONTAMINATION)
+                    .managedBleeding(0.15f)
+                    .atPosition(scatterU(ctx.hitU()), scatterV(ctx.hitV()))
+                    .apply(limb, ctx.data());
+
+            // A fragment through the chest wall opens the pleura. This is an OPEN pneumothorax,
+            // a sucking chest wound, NOT a tension one, because it vents out through the hole.
+            // TODO: sealing this with an OCCLUSIVE dressing (no flutter valve) should convert it to
+            // a tension pneumo. That interaction is the entire reason actual chest seals have valves.
+            if (ctx.isTorsoHit() && (depth == MUSCULAR || depth == ARTERIAL) && RNG.nextFloat() < ModConstants.BLAST_OPEN_PNEUMO_CHANCE)
+            {
+                LungData lung = ctx.isRightSideHit() ? ctx.data().getRightLung() : ctx.data().getLeftLung();
+                lung.addAir(ModConstants.BLAST_OPEN_PNEUMO_AIR_ML * severity);
+            }
+        }
+    }
+
+    // Tertiary: The wave throws you.
+    private static void applyBlastThrow(WoundingContext ctx, LimbData limb, float dmg, float proximity)
+    {
+        if (proximity < ModConstants.BLAST_DISPLACEMENT_MIN_PROXIMITY || dmg < 4f)
+            return;
+
+        float impact = proximity * (dmg / ModConstants.BLAST_OVERPRESSURE_DIVISOR);
+
+        new WoundingInstruction(BLUNT, SUBDERMAL, Math.min(0.6f, impact * 0.5f))
+                .muscleHealthDamage(Math.min(0.3f, impact * 0.25f))
+                .painSpike(Math.min(0.4f, impact * 0.3f))
+                .atPosition(ctx.hitU(), ctx.hitV())
+                .apply(limb, ctx.data());
+
+        if (RNG.nextFloat() < impact * ModConstants.BLAST_FRACTURE_CHANCE)
+            if (limb.getBoneState().ordinal() < BoneState.FRACTURED.ordinal())
+                limb.setBoneState(BoneState.FRACTURED);
+    }
+
     // === ENVIRONMENTAL ===
 
     private static void handleFall(WoundingContext ctx)
@@ -728,5 +865,16 @@ public final class WoundingBehavior
             case ARM -> ctx.chestTier();
             case LEG -> node.proximalNode == LimbNode.GROIN ? ctx.leggingsTier() : ctx.bootsTier();
         };
+    }
+
+    // Scatter across the limb. Fragments don't all land on the same square inch.
+    private static float scatterU(float u)
+    {
+        return wrapU(u + (RNG.nextFloat() - 0.5f) * 0.4f);
+    }
+
+    private static float scatterV(float v)
+    {
+        return Math.max(0f, Math.min(1f, v + (RNG.nextFloat() - 0.5f) * 0.4f));
     }
 }

@@ -258,4 +258,22 @@ public final class ModConstants
     public static final float FALL_FRACTURE_DMG = 12f; // 15 blocks.
     public static final float FALL_COMPOUND_DMG = 18f;  // 21 blocks.
     public static final float FALL_MUSCLE_MAX = 0.35f;
+
+    // EXPLOSION
+    public static final float BLAST_OVERPRESSURE_DIVISOR = 12f; // Damage to overpressure scale.
+    public static final float BLAST_PRIMARY_MIN_PROXIMITY = 0.35f; // Beyond this the shockwave is null; fragments only.
+    public static final float BLAST_LUNG_CHANCE = 0.55f;
+    public static final float BLAST_LUNG_FLUID_ML = 120f;
+    public static final float BLAST_TENSION_PNEUMO_CHANCE = 0.30f;
+    public static final float BLAST_TENSION_PNEUMO_AIR_ML = 700f;
+    public static final float BLAST_PAIN_COEFF = 0.35f;
+    public static final float BLAST_CONCUSSION_PROXIMITY = 0.6f;
+    public static final float BLAST_CONCUSSION_COEFF = 0.5f;
+    public static final float BLAST_FRAG_CHANCE = 0.35f; // Per-fragment chance at danger close, unarmored.
+    public static final int BLAST_FRAG_MAX = 5; // Max fragments landing in one node.
+    public static final float BLAST_FRAG_CONTAMINATION = 0.55f;
+    public static final float BLAST_OPEN_PNEUMO_CHANCE = 0.35f;
+    public static final float BLAST_OPEN_PNEUMO_AIR_ML = 500f;
+    public static final float BLAST_DISPLACEMENT_MIN_PROXIMITY = 0.3f;
+    public static final float BLAST_FRACTURE_CHANCE = 0.4f;
 }

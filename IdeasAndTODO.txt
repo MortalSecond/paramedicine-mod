@@ -4,6 +4,7 @@
 - Add sounds. To everything, really. Beeps and boops to the GUI, so on and so forth.
 - Complete the WoundingBehavior cases. Right now only swords and axes create wounds, but explosions and environmentals need to have their WoundingInstructions coded in.
     ADDENDUM: Added potential wounds for arrows, falls, and blunt impacts. Still have to wire up explosions for pneumothoraces, minimally-damaging bushes, and unique trident-specific avulsion behavior.
+    ADDENDUM 2: Added explosion wounds as well. Now only bushes, fire, and environmentals remain.
 - MINIGAMES. This one might take a ton of time, but it's crucial to add these to make the bandaging aspect complete.
 - Adding pericardial tamponade as well as tension pneumo as potential sources of PEA would be cool.
 - Thrombosis and stroke! At the moment, blood viscosity doesn't carry any dangers, which is alright, but in the future i should probably make it cause some serious lung issues if not outright brain damage (if i ever get around to adding individual organs function).
