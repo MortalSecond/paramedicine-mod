@@ -44,7 +44,7 @@ public final class ModBlocks
                             .sound(SoundType.STONE)
                             .noOcclusion()));
     public static final RegistryObject<Block> DRESSING_STATION =
-            BLOCKS.register("dressing_station.json", () -> new DressingStationBlock(
+            BLOCKS.register("dressing_station", () -> new DressingStationBlock(
                     BlockBehaviour.Properties.of()
                             .strength(1.0f)
                             .sound(SoundType.WOOD).noOcclusion()));

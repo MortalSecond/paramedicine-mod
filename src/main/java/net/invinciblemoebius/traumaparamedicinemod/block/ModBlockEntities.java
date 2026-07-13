@@ -27,7 +27,7 @@ public class ModBlockEntities
             BLOCK_ENTITIES.register("molcajete",
                     () -> BlockEntityType.Builder.of(MolcajeteBlockEntity::new, ModBlocks.MOLCAJETE.get()).build(null));
     public static final RegistryObject<BlockEntityType<DressingStationBlockEntity>> DRESSING_STATION =
-            BLOCK_ENTITIES.register("dressing_station.json",
+            BLOCK_ENTITIES.register("dressing_station",
                     () -> BlockEntityType.Builder.of(DressingStationBlockEntity::new, ModBlocks.DRESSING_STATION.get()).build(null));
 
     public static void register(IEventBus modEventBus)

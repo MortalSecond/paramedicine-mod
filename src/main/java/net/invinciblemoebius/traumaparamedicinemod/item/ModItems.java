@@ -33,7 +33,7 @@ public class ModItems
 
     // === MEDICAL ITEMS ===
     public static final RegistryObject<Item> CORDAGE_BANDAGE = ITEMS.register(
-            "cordage_bandage.json", () -> new DressingItem(new Item.Properties().stacksTo(8),
+            "cordage_bandage", () -> new DressingItem(new Item.Properties().stacksTo(8),
                     () -> Dressing.builder()
                             .cleanliness(0.30f)
                             .pressure(0.70f)
@@ -75,7 +75,7 @@ public class ModItems
                     .stacksTo(1)));
     public static final RegistryObject<Item> WOODEN_SHEARS = ITEMS.register(
             "wooden_shears", () -> new WoodenShearsItem(new Item.Properties()
-                    .durability(32)));
+                    .durability(64)));
     public static final RegistryObject<Item> DRYING_RACK = ITEMS.register(
             "drying_rack", () -> new BlockItem(ModBlocks.DRYING_RACK.get(), new Item.Properties()
                     .stacksTo(1)));
@@ -83,7 +83,7 @@ public class ModItems
             "molcajete", () -> new BlockItem(ModBlocks.MOLCAJETE.get(), new Item.Properties()
                     .stacksTo(1)));
     public static final RegistryObject<Item> DRESSING_STATION = ITEMS.register(
-            "dressing_station.json", () -> new BlockItem(ModBlocks.DRESSING_STATION.get(), new Item.Properties()
+            "dressing_station", () -> new BlockItem(ModBlocks.DRESSING_STATION.get(), new Item.Properties()
                     .stacksTo(1)));
 
 
