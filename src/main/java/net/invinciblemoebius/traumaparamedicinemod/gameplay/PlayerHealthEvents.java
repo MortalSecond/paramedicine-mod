@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodData;
 import net.minecraft.world.food.FoodProperties;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.TickEvent;
@@ -50,6 +51,27 @@ public class PlayerHealthEvents
         player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(PlayerHealthData::setJustJumped);
     }
 
+    // Intercept item usage.
+    @SubscribeEvent
+    public static void onFinishUsingItem(LivingEntityUseItemEvent.Finish event)
+    {
+        if (event.getEntity().level().isClientSide || !(event.getEntity() instanceof Player player))
+            return;
+
+        // FOOD INTERCEPTION
+        // Eating solid food deposits fuel directly, NOT through the gut. Vanilla food is meant to feel
+        // vanilla-fast. The slow SubstanceStorage route is for broths, meds, and mixtures with half lives.
+        FoodProperties food = event.getItem().getItem().getFoodProperties(event.getItem(), player);
+        if (food == null)
+            return;
+
+        float bulk = food.getNutrition() * ModConstants.NUTRITION_PER_FOOD_POINT;
+        float fat = food.getNutrition() * food.getSaturationModifier() * ModConstants.NUTRITION_PER_SATURATION;
+
+        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH)
+                .ifPresent(data -> data.addNutrition(bulk + fat));
+    }
+
     // Underwater drowning check.
     @SubscribeEvent
     public static void onPlayerAspiration(TickEvent.PlayerTickEvent event)
@@ -82,25 +104,34 @@ public class PlayerHealthEvents
         });
     }
 
-    // Intercept item usage.
+    // Intercept the vanilla food bar.
     @SubscribeEvent
-    public static void onFinishUsingItem(LivingEntityUseItemEvent.Finish event)
+    public static void onVanillaHungerOverride(TickEvent.PlayerTickEvent event)
     {
-        if (event.getEntity().level().isClientSide || !(event.getEntity() instanceof Player player))
+        if (event.phase != TickEvent.Phase.END)
+            return;
+        if (event.player.level().isClientSide)
+            return;
+        if (!(event.player instanceof ServerPlayer player))
+            return;
+        if (player.isCreative() || player.isSpectator())
             return;
 
-        // FOOD INTERCEPTION
-        // Eating solid food deposits fuel directly, NOT through the gut. Vanilla food is meant to feel
-        // vanilla-fast. The slow SubstanceStorage route is for broths, meds, and mixtures with half lives.
-        FoodProperties food = event.getItem().getItem().getFoodProperties(event.getItem(), player);
-        if (food == null)
-            return;
+        // Drive the vanilla hunger bar from the FELT hunger, the same way the bubble
+        // bar is driven by the breath reserve.
+        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH).ifPresent(data ->
+        {
+            FoodData food = player.getFoodData();
 
-        float bulk = food.getNutrition() * ModConstants.NUTRITION_PER_FOOD_POINT;
-        float fat = food.getNutrition() * food.getSaturationModifier() * ModConstants.NUTRITION_PER_SATURATION;
+            // Vanilla deals starvation damage at 0 and disables sprinting at <= 6, so they're clamped to (20, 7).
+            // We do NOT want vanilla's starvation fighting Paramedicine's own sprinting gate.
+            float span = 20 - 7;
+            int shown = Math.round(7 + span * (1f - data.getHunger()));
 
-        player.getCapability(PlayerHealthCapability.PLAYER_HEALTH)
-                .ifPresent(data -> data.addNutrition(bulk + fat));
+            food.setFoodLevel(Math.max(7, Math.min(20, shown)));
+            food.setSaturation(0f);
+            food.setExhaustion(0f);
+        });
     }
 
     // === PERSISTENCE STUFF ===

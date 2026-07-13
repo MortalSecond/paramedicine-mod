@@ -19,7 +19,7 @@ public final class ModMenus
 
     public static final RegistryObject<MenuType<StewpotMenu>> STEWPOT = MENUS.register("stewpot", () -> IForgeMenuType.create(StewpotMenu::new));
     public static final RegistryObject<MenuType<MolcajeteMenu>> MOLCAJETE = MENUS.register("molcajete", () -> IForgeMenuType.create(MolcajeteMenu::new));
-    public static final RegistryObject<MenuType<DressingStationMenu>> DRESSING_STATION = MENUS.register("dressing_station", () -> IForgeMenuType.create(DressingStationMenu::new));
+    public static final RegistryObject<MenuType<DressingStationMenu>> DRESSING_STATION = MENUS.register("dressing_station.json", () -> IForgeMenuType.create(DressingStationMenu::new));
 
     public static void register(IEventBus modEventBus)
     {

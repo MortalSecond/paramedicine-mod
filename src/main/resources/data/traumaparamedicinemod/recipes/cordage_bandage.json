@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "ingredients": [
+    { "item": "traumaparamedicinemod:weave" },
+    { "item": "traumaparamedicinemod:weave" },
+    { "item": "traumaparamedicinemod:weave" },
+    { "item": "traumaparamedicinemod:weave" }
+  ],
+  "result": { "item": "traumaparamedicinemod:cordage_bandage" }
+}

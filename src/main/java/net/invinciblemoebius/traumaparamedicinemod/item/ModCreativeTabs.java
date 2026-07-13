@@ -37,6 +37,7 @@ public class ModCreativeTabs
                         pOutput.accept(ModItems.DRESSING_STATION.get());
                         pOutput.accept(ModItems.CORDAGE_BANDAGE.get());
                         pOutput.accept(ModItems.GAUZE_PAD.get());
+                        pOutput.accept(ModItems.WEAVE.get());
                     })
                     .build());
 

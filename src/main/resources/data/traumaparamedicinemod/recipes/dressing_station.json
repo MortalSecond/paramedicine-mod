@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " W ",
+    "P P",
+    "PPP"
+  ],
+  "key": {
+    "W": "traumaparamedicinemod:weave",
+    "P": "minecraft:oak_planks"
+  },
+  "result": { "item": "traumaparamedicinemod:dressing_station", "count": 1 }
+}

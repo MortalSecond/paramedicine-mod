@@ -1,6 +1,7 @@
 package net.invinciblemoebius.traumaparamedicinemod.wounding;
 
 
+import net.invinciblemoebius.traumaparamedicinemod.ModConstants;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.BoneState;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbData;
 import net.invinciblemoebius.traumaparamedicinemod.limbs.LimbNode;
@@ -619,55 +620,54 @@ public final class WoundingBehavior
         LimbData rightFoot = ctx.data().getLimb(RIGHT_FOOT);
         LimbData leftShin = ctx.data().getLimb(LEFT_LOWER_LEG);
         LimbData rightShin = ctx.data().getLimb(RIGHT_LOWER_LEG);
-        if (leftFoot == null ||  rightFoot == null || leftShin == null || rightShin == null)
+        if (leftFoot == null || rightFoot == null || leftShin == null || rightShin == null)
             return;
-        float roll = RNG.nextFloat();
+
         float dmg = ctx.preArmorDamage();
-        float weightedRoll = roll * dmg;
+        float severity = Math.min(ModConstants.FALL_SEVERITY_MAX, dmg / ModConstants.FALL_SEVERITY_DIVISOR);
+        if (severity < ModConstants.FALL_MIN_SEVERITY)
+            return;
 
-        // Helper to choose between a random lower leg node.
-        LimbData randomLimb;
-        if (roll > 0.75f)
-            randomLimb = rightFoot;
-        else if (roll < 0.75f)
-            randomLimb = leftFoot;
-        else if (roll < 0.50f)
-            randomLimb = leftShin;
-        else
-            randomLimb = rightShin;
+        // Bone injury chance RAMPS WITH HEIGHT instead of being a classic roll*dmg lottery.
+        float boneChance = Math.max(0f, (dmg - ModConstants.FALL_BONE_THRESHOLD) / ModConstants.FALL_BONE_RAMP);
+        if (RNG.nextFloat() < boneChance)
+        {
+            LimbData target = randomLandingLimb(leftFoot, rightFoot, leftShin, rightShin);
 
-        // Roll a check to see if a fall gives fractures.
-        if (weightedRoll > 9f)
-        {
-            if (randomLimb.getBoneState().ordinal() < BoneState.COMPOUND.ordinal())
-                randomLimb.setBoneState(BoneState.COMPOUND);
-        }
-        else if (weightedRoll > 8f)
-        {
-            if (randomLimb.getBoneState().ordinal() < BoneState.FRACTURED.ordinal())
-                randomLimb.setBoneState(BoneState.FRACTURED);
-        }
-        else if (weightedRoll > 7f)
-        {
-            if (randomLimb.getBoneState().ordinal() < BoneState.HAIRLINE.ordinal())
-                randomLimb.setBoneState(BoneState.HAIRLINE);
-        }
-        else if (weightedRoll > 6f)
-        {
-            if (randomLimb.getBoneState().ordinal() < BoneState.DISLOCATED.ordinal())
-                randomLimb.setBoneState(BoneState.DISLOCATED);
+            BoneState result;
+            if (dmg >= ModConstants.FALL_COMPOUND_DMG) result = BoneState.COMPOUND;
+            else if (dmg >= ModConstants.FALL_FRACTURE_DMG) result = BoneState.FRACTURED;
+            else if (dmg >= ModConstants.FALL_HAIRLINE_DMG) result = BoneState.HAIRLINE;
+            else result = BoneState.DISLOCATED;
+
+            if (target.getBoneState().ordinal() < result.ordinal())
+                target.setBoneState(result);
         }
 
+        // Impact spreads across BOTH feet, so each takes half.
+        applyFallImpact(ctx, leftFoot, severity * 0.5f, dmg);
+        applyFallImpact(ctx, rightFoot, severity * 0.5f, dmg);
+    }
 
-        // Generic wound, which is that fall damage scales the severity of the wound on the feet.
-        new WoundingInstruction(BLUNT, depthFromDamage(Math.min(13, dmg)), Math.min(1f, dmg))
-                .muscleHealthDamage(dmg / 20f)
+    private static void applyFallImpact(WoundingContext ctx, LimbData limb, float severity, float dmg)
+    {
+        new WoundingInstruction(BLUNT, depthFromDamage(Math.min(13f, dmg)), severity)
+                .muscleHealthDamage(Math.min(ModConstants.FALL_MUSCLE_MAX, dmg / 60f))
+                .painSpike(Math.min(0.5f, severity))
                 .atPosition(ctx.hitU(), ctx.hitV())
-                .apply(leftFoot, ctx.data());
-        new WoundingInstruction(BLUNT, depthFromDamage(Math.min(13, dmg)), Math.min(1f, dmg))
-                .muscleHealthDamage(dmg / 20f)
-                .atPosition(ctx.hitU(), ctx.hitV())
-                .apply(rightFoot, ctx.data());
+                .apply(limb, ctx.data());
+    }
+
+    // Feet AND shins, all four actually reachable (the old if-else chain made the shins dead code).
+    private static LimbData randomLandingLimb(LimbData leftFoot, LimbData rightFoot, LimbData leftShin, LimbData rightShin)
+    {
+        return switch (RNG.nextInt(4))
+        {
+            case 0 -> leftFoot;
+            case 1 -> rightFoot;
+            case 2 -> leftShin;
+            default -> rightShin;
+        };
     }
 
     // === HELPER METHODS ===

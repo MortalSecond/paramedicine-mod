@@ -247,4 +247,15 @@ public final class ModConstants
     public static final float DRESSING_AGENT_REF_FLUID_ML = 30f; // Dose that gives full agent effect (fluid).
     public static final float DRESSING_AGENT_REF_POWDER_MG = 30f; // Dose that gives full agent effect (powder).
     public static final float DRESSING_SATURATION_OCCLUSION = 0.25f; // Occlusion gained from a full soak (less porous).
+
+    // FALL DAMAGE
+    public static final float FALL_SEVERITY_DIVISOR = 25f; // Damage to wound size. 28-block fall maxes it.
+    public static final float FALL_SEVERITY_MAX = 0.9f;
+    public static final float FALL_MIN_SEVERITY = 0.03f; // Below this, no wound at all.
+    public static final float FALL_BONE_THRESHOLD = 4f; // dmg (7 blocks) before bones can break at all.
+    public static final float FALL_BONE_RAMP = 20f; // dmg above threshold for a guaranteed break.
+    public static final float FALL_HAIRLINE_DMG = 7f; // 10 blocks.
+    public static final float FALL_FRACTURE_DMG = 12f; // 15 blocks.
+    public static final float FALL_COMPOUND_DMG = 18f;  // 21 blocks.
+    public static final float FALL_MUSCLE_MAX = 0.35f;
 }
